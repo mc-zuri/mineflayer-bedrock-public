@@ -59,6 +59,22 @@ for (const version of bedrockTestedVersions) {
       assert.ok(bot.inventory.slots[38] && bot.inventory.slots[38].name === 'dirt', 'item moved to hotbar slot 2')
     })
 
+    it('applies a response to a move the player made on the inventory screen, by the stack ids', function () {
+      const { bot } = makeBot(version)
+      bot.inventory.updateSlot(10, { name: 'firework_rocket', type: 646, count: 64, stackId: 28 })
+      const respond = (id, containers) => bot._client.emit('item_stack_response', { responses: [{ status: 'ok', request_id: id, containers }] })
+      // take the stack onto the cursor, then place it in hotbar slot 1
+      respond(-3, [{ slot_type: { container_id: 'inventory' }, slots: [{ slot: 10, count: 0, item_stack_id: 0 }] }, { slot_type: { container_id: 'cursor' }, slots: [{ slot: 0, count: 64, item_stack_id: 28 }] }])
+      assert.ok(!bot.inventory.slots[10], 'taken off the inventory slot')
+      respond(-5, [{ slot_type: { container_id: 'cursor' }, slots: [{ slot: 0, count: 0, item_stack_id: 0 }] }, { slot_type: { container_id: 'hotbar' }, slots: [{ slot: 1, count: 64, item_stack_id: 28 }] }])
+      assert.deepStrictEqual([bot.inventory.slots[37].name, bot.inventory.slots[37].count, bot.inventory.slots[37].stackId], ['firework_rocket', 64, 28])
+      // an unknown stack leaves the slot empty; a failed response changes nothing
+      respond(-7, [{ slot_type: { container_id: 'hotbar' }, slots: [{ slot: 2, count: 3, item_stack_id: 99 }] }, { slot_type: { container_id: 'armor' }, slots: [{ slot: 0, count: 1 }] }])
+      assert.ok(!bot.inventory.slots[38])
+      bot._client.emit('item_stack_response', { responses: [{ status: 'error', request_id: -9, containers: [{ slot_type: { container_id: 'hotbar' }, slots: [{ slot: 1, count: 0 }] }] }] })
+      assert.ok(bot.inventory.slots[37], 'kept')
+    })
+
     it('applies a normal inventory_transaction (ground pickup) with its server stack id', function () {
       const { bot } = makeBot(version)
       // BDS reports a ground pickup as a normal inventory_transaction whose container action carries the new item with
