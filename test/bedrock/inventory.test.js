@@ -79,6 +79,20 @@ for (const version of bedrockTestedVersions) {
       assert.strictEqual(picked.stackId, 5, 'carries the server stack id')
     })
 
+    it('applies the action by its inventory_id, the name the protocol gives the field', function () {
+      const { bot } = makeBot(version)
+      bot._client.emit('inventory_transaction', {
+        transaction: {
+          transaction_type: 'normal',
+          actions: [
+            { source_type: 'container', inventory_id: 'inventory', slot: 0, old_item: { network_id: 0, count: 0 }, new_item: { network_id: 3, count: 2, metadata: 0, has_stack_id: true, stack_id: 5, block_runtime_id: 0, extra: { has_nbt: 0, can_place_on: [], can_destroy: [] } } }
+          ]
+        }
+      })
+      assert.strictEqual(bot.inventory.slots[36].count, 2)
+      assert.strictEqual(bot.inventory.slots[36].stackId, 5)
+    })
+
     it('ignores a non-normal inventory_transaction', function () {
       const { bot } = makeBot(version)
       bot._client.emit('inventory_transaction', {

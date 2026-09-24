@@ -1,5 +1,5 @@
 /* eslint-env mocha */
-// Offline test for the Bedrock abilities plugin: update_abilities exposes the base layer's flags, permission level and
+// Offline test for the Bedrock abilities plugin: update_abilities exposes the merged layers' flags, permission level and
 // speeds on bot.abilities; update_adventure_settings exposes bot.adventureSettings. Both fire events.
 const assert = require('assert')
 const { EventEmitter } = require('events')
@@ -15,7 +15,7 @@ function makeBot () {
 
 for (const version of bedrockTestedVersions) {
   describe(`bedrock ${version} abilities plugin`, function () {
-    it('exposes abilities from the base layer and fires abilitiesUpdate', function () {
+    it('exposes the abilities and fires abilitiesUpdate', function () {
       const bot = makeBot()
       let fired = false
       bot.on('abilitiesUpdate', () => { fired = true })
@@ -29,7 +29,21 @@ for (const version of bedrockTestedVersions) {
       assert.strictEqual(bot.abilities.permissionLevel, 'operator')
       assert.strictEqual(bot.abilities.flags.build, true)
       assert.strictEqual(bot.abilities.allowed.may_fly, true)
-      assert.strictEqual(bot.abilities.walkSpeed, 0.1)
+      assert.strictEqual(bot.abilities.walkingSpeed, 0.1)
+    })
+
+    it('merges the layers: a higher layer decides the abilities it allows', function () {
+      const bot = makeBot()
+      bot._client.emit('update_abilities', {
+        entity_unique_id: 1n,
+        permission_level: 'member',
+        command_permission: 'normal',
+        abilities: [
+          { type: 'spectator', allowed: { flying: true, no_clip: true, may_fly: true }, enabled: { flying: true, no_clip: true } },
+          { type: 'base', allowed: { flying: true, no_clip: true, may_fly: true, build: true }, enabled: { may_fly: true, build: true } }
+        ]
+      })
+      assert.deepStrictEqual([bot.abilities.flags.flying, bot.abilities.flags.no_clip, bot.abilities.flags.may_fly, bot.abilities.flags.build], [true, true, false, true])
     })
 
     it('exposes adventure settings', function () {
