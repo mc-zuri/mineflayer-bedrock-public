@@ -35,6 +35,13 @@ for (const version of bedrockTestedVersions) {
       assert.strictEqual(sent[0].name, 'animate')
       assert.strictEqual(sent[0].params.runtime_entity_id, 321n, 'must use _client.entityId, not entity.uniqueId')
       check(sent[0])
+      assert.strictEqual(bot.missedSwing, true, 'a swing on its own is a swing at nothing (missed_swing)')
+    })
+
+    it('the swing of an item use is not a swing at nothing', function () {
+      const { bot } = makeBot()
+      bot.activateItem()
+      assert.strictEqual(bot.missedSwing, undefined)
     })
 
     it('activateItem emits a serializable item_use plus a swing', function () {
