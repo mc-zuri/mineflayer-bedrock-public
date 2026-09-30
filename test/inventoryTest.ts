@@ -40,4 +40,14 @@ describe('inventory plugin', () => {
     assert.ok(bot._client.writes.some((w: Write) => w.name === 'window_click'))
     assert.ok(elapsed >= 400, `clicked ${elapsed.toFixed(0)}ms after digging`)
   })
+
+  it('transfer defaults an omitted sourceEnd / destEnd to one slot', async () => {
+    const bot = createFakeBot('1.20.4')
+    const Item = prismarineItem(bot.registry)
+    const dirt = bot.registry.itemsByName.dirt.id
+    bot._client.emit('set_slot', { windowId: 0, stateId: 1, slot: 9, item: Item.toNotch(new Item(dirt, 3)) })
+    await bot.transfer({ window: bot.inventory, itemType: dirt, count: 3, sourceStart: 9, destStart: 10 })
+    assert.strictEqual(bot.inventory.slots[9], null)
+    assert.strictEqual(bot.inventory.slots[10]?.count, 3)
+  })
 })

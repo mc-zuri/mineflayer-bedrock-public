@@ -320,8 +320,8 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     const destStart = options.destStart
     assert.notStrictEqual(sourceStart, null)
     assert.notStrictEqual(destStart, null)
-    const sourceEnd = options.sourceEnd === null ? sourceStart + 1 : options.sourceEnd
-    const destEnd = options.destEnd === null ? destStart + 1 : options.destEnd
+    const sourceEnd = options.sourceEnd == null ? sourceStart + 1 : options.sourceEnd
+    const destEnd = options.destEnd == null ? destStart + 1 : options.destEnd
 
     await transferOne()
 
