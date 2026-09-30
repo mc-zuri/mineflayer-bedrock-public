@@ -2,17 +2,23 @@ import assert from 'assert'
 import { once } from '../promise_utils.ts'
 import prismarineItem from 'prismarine-item'
 import prismarineRecipe from 'prismarine-recipe'
+import type { Block } from 'prismarine-block'
+import type { Recipe as RecipeT, RecipeItem } from 'prismarine-recipe'
+import type { Window } from 'prismarine-windows'
+import type { BotInternal } from '../types/internal.ts'
+import type { ItemClass } from '../types/vendor/prismarine-item.ts'
+import type { RecipeLoader } from '../types/vendor/prismarine-recipe.ts'
 
 export default inject
 
-function inject (bot) {
-  const Item = prismarineItem(bot.registry)
-  const Recipe = prismarineRecipe(bot.registry).Recipe
-  let windowCraftingTable
+function inject (bot: BotInternal): void {
+  const Item = prismarineItem(bot.registry) as ItemClass
+  const Recipe = (prismarineRecipe as unknown as RecipeLoader)(bot.registry).Recipe
+  let windowCraftingTable: Window | undefined
 
-  async function craft (recipe, count, craftingTable) {
+  async function craft (recipe: RecipeT, count?: number | null, craftingTable?: Block | null): Promise<void> {
     assert.ok(recipe)
-    count = parseInt(count ?? 1, 10)
+    count = parseInt((count ?? 1) as unknown as string, 10) // parseInt stringifies a number
     if (recipe.requiresTable && !craftingTable) {
       throw new Error('Recipe requires craftingTable, but one was not supplied: ' + JSON.stringify(recipe))
     }
@@ -38,14 +44,15 @@ function inject (bot) {
     }
   }
 
-  async function craftOnce (recipe, craftingTable) {
+  async function craftOnce (recipe: RecipeT, craftingTable: Block | null | undefined): Promise<void> {
     if (craftingTable) {
       if (!windowCraftingTable) {
         bot.activateBlock(craftingTable)
         const [window] = await once(bot, 'windowOpen')
         windowCraftingTable = window
       }
-      if (!windowCraftingTable.type.startsWith('minecraft:crafting')) {
+      // createWindow sets the window key (a string) as type
+      if (!(windowCraftingTable.type as string).startsWith('minecraft:crafting')) {
         throw new Error('crafting: non craftingTable used as craftingTable: ' + windowCraftingTable.type)
       }
       await startClicking(windowCraftingTable, 3, 3)
@@ -53,11 +60,11 @@ function inject (bot) {
       await startClicking(bot.inventory, 2, 2)
     }
 
-    async function startClicking (window, w, h) {
+    async function startClicking (window: Window, w: number, h: number): Promise<void> {
       const extraSlots = unusedRecipeSlots()
       let ingredientIndex = 0
-      let originalSourceSlot = null
-      let it
+      let originalSourceSlot: number | null = null
+      let it: { x: number, y: number, row: RecipeItem[] }
       if (recipe.inShape) {
         it = {
           x: 0,
@@ -69,7 +76,7 @@ function inject (bot) {
         await nextIngredientsClick()
       }
 
-      function incrementShapeIterator () {
+      function incrementShapeIterator (): typeof it | null {
         it.x += 1
         if (it.x >= it.row.length) {
           it.y += 1
@@ -80,7 +87,7 @@ function inject (bot) {
         return it
       }
 
-      async function nextShapeClick () {
+      async function nextShapeClick (): Promise<void> {
         if (incrementShapeIterator()) {
           await clickShape()
         } else if (!recipe.ingredients) {
@@ -90,7 +97,7 @@ function inject (bot) {
         }
       }
 
-      async function clickShape () {
+      async function clickShape (): Promise<void> {
         const destSlot = slot(it.x, it.y)
         const ingredient = it.row[it.x]
         if (ingredient.id === -1) return nextShapeClick()
@@ -107,9 +114,9 @@ function inject (bot) {
         await nextShapeClick()
       }
 
-      async function nextIngredientsClick () {
+      async function nextIngredientsClick (): Promise<void> {
         const ingredient = recipe.ingredients[ingredientIndex]
-        const destSlot = extraSlots.pop()
+        const destSlot = extraSlots.pop()! // a shapeless recipe has at most w * h ingredients
         if (!window.selectedItem || window.selectedItem.type !== ingredient.id ||
           (ingredient.metadata != null &&
             window.selectedItem.metadata !== ingredient.metadata)) {
@@ -127,14 +134,14 @@ function inject (bot) {
         }
       }
 
-      async function putMaterialsAway () {
+      async function putMaterialsAway (): Promise<void> {
         const start = window.inventoryStart
         const end = window.inventoryEnd
         await bot.putSelectedItemRange(start, end, window, originalSourceSlot)
         await grabResult()
       }
 
-      async function grabResult () {
+      async function grabResult (): Promise<void> {
         assert.strictEqual(window.selectedItem, null)
         // Causes a double-emit on 1.12+ --nickelpro
         // put the recipe result in the output
@@ -144,14 +151,14 @@ function inject (bot) {
         await updateOutShape()
       }
 
-      async function updateOutShape () {
+      async function updateOutShape (): Promise<void> {
         if (!recipe.outShape) {
           for (let i = 1; i <= w * h; i++) {
             window.updateSlot(i, null)
           }
           return
         }
-        const slotsToClick = []
+        const slotsToClick: number[] = []
         for (let y = 0; y < recipe.outShape.length; ++y) {
           const row = recipe.outShape[y]
           for (let x = 0; x < row.length; ++x) {
@@ -169,12 +176,12 @@ function inject (bot) {
         }
       }
 
-      function slot (x, y) {
+      function slot (x: number, y: number): number {
         return 1 + x + w * y
       }
 
-      function unusedRecipeSlots () {
-        const result = []
+      function unusedRecipeSlots (): number[] {
+        const result: number[] = []
         let x
         let y
         let row
@@ -205,9 +212,9 @@ function inject (bot) {
     }
   }
 
-  function recipesFor (itemType, metadata, minResultCount, craftingTable) {
+  function recipesFor (itemType: number, metadata: number | null, minResultCount: number | null, craftingTable: Block | boolean | null): RecipeT[] {
     minResultCount = minResultCount ?? 1
-    const results = []
+    const results: RecipeT[] = []
     Recipe.find(itemType, metadata).forEach((recipe) => {
       if (requirementsMetForRecipe(recipe, minResultCount, craftingTable)) {
         results.push(recipe)
@@ -216,8 +223,8 @@ function inject (bot) {
     return results
   }
 
-  function recipesAll (itemType, metadata, craftingTable) {
-    const results = []
+  function recipesAll (itemType: number, metadata: number | null, craftingTable: Block | boolean | null): RecipeT[] {
+    const results: RecipeT[] = []
     Recipe.find(itemType, metadata).forEach((recipe) => {
       if (!recipe.requiresTable || craftingTable) {
         results.push(recipe)
@@ -226,7 +233,7 @@ function inject (bot) {
     return results
   }
 
-  function requirementsMetForRecipe (recipe, minResultCount, craftingTable) {
+  function requirementsMetForRecipe (recipe: RecipeT, minResultCount: number, craftingTable: Block | boolean | null): boolean {
     if (recipe.requiresTable && !craftingTable) return false
 
     // how many times we have to perform the craft to achieve minResultCount
