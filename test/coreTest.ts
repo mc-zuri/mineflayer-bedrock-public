@@ -10,6 +10,7 @@ import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
 import titlePlugin from '../lib/plugins/title.ts'
 import gamePlugin from '../lib/plugins/game.ts'
 import resourcePackPlugin from '../lib/plugins/resource_pack.ts'
+import settingsPlugin from '../lib/plugins/settings.ts'
 
 interface Write { name: string, params: any }
 
@@ -214,6 +215,16 @@ describe('core', () => {
       bot._client.emit('add_resource_pack', { uuid, url: 'http://example.invalid/pack.zip', hash: '', forced: false })
       bot.denyResourcePack()
       assert.deepStrictEqual(bot._client.writes, [{ name: 'resource_pack_receive', params: { uuid, result: 1 } }])
+    })
+  })
+
+  describe('settings', () => {
+    it('honours enableServerListing: false', () => {
+      const bot = fakeBot('1.18.2')
+      settingsPlugin(bot, { enableServerListing: false } as any)
+      bot._client.emit('login', {})
+      assert.strictEqual(bot.settings.enableServerListing, false)
+      assert.strictEqual(bot._client.writes[0].params.enableServerListing, false)
     })
   })
 })

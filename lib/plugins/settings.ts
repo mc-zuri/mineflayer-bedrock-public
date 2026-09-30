@@ -90,7 +90,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
       : options.skinParts,
     mainHand: options.mainHand || 'right',
     enableTextFiltering: options.enableTextFiltering || false,
-    enableServerListing: options.enableServerListing || true,
+    enableServerListing: options.enableServerListing ?? true,
     particleStatus: 'all'
   }
 
