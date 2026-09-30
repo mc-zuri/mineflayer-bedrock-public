@@ -1,21 +1,24 @@
 import { Vec3 } from 'vec3'
+import type { Block } from 'prismarine-block'
+import type { BotInternal } from '../types/internal.ts'
+import type { BedMetadata } from '../types/mineflayer.ts'
 
 export default inject
 
 const CARDINAL_DIRECTIONS = ['south', 'west', 'north', 'east']
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   bot.isSleeping = false
 
   const beds = new Set(['white_bed', 'orange_bed', 'magenta_bed', 'light_blue_bed', 'yellow_bed', 'lime_bed', 'pink_bed', 'gray_bed',
     'light_gray_bed', 'cyan_bed', 'purple_bed', 'blue_bed', 'brown_bed', 'green_bed', 'red_bed', 'black_bed', 'bed'])
 
-  function isABed (block) {
-    return beds.has(block.name)
+  function isABed (block: Block | null): boolean {
+    return beds.has(block!.name)
   }
 
-  function parseBedMetadata (bedBlock) {
-    const metadata = {
+  function parseBedMetadata (bedBlock: Block): BedMetadata {
+    const metadata: BedMetadata = {
       part: false, // true: head, false: foot
       occupied: 0,
       facing: 0, // 0: south, 1: west, 2: north, 3 east
@@ -76,7 +79,7 @@ function inject (bot) {
     }
   }
 
-  async function sleep (bedBlock) {
+  async function sleep (bedBlock: Block) {
     const thunderstorm = bot.isRaining && (bot.thunderState > 0)
     if (!thunderstorm && !(bot.time.timeOfDay >= 12541 && bot.time.timeOfDay <= 23458)) {
       throw new Error("it's not night and it's not a thunderstorm")
@@ -97,14 +100,14 @@ function inject (bot) {
         const upperBlock = bot.blockAt(bedBlock.position.plus(metadata.headOffset))
 
         if (isABed(upperBlock)) {
-          headPoint = upperBlock.position
+          headPoint = upperBlock!.position
         } else {
           const lowerBlock = bot.blockAt(bedBlock.position.plus(metadata.headOffset.scaled(-1)))
 
           if (isABed(lowerBlock)) {
             // If there are 2 foot parts, minecraft only lets you sleep if you click on the lower one
             headPoint = bedBlock.position
-            bedBlock = lowerBlock
+            bedBlock = lowerBlock!
           } else {
             throw new Error("there's only half bed")
           }
@@ -154,7 +157,7 @@ function inject (bot) {
   }
 
   async function waitUntilSleep () {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       const timeoutForSleep = setTimeout(() => {
         reject(new Error('bot is not sleeping'))
       }, 3000)

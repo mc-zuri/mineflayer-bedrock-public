@@ -6,6 +6,13 @@ import { performance } from 'perf_hooks'
 import { createDoneTask, createTask } from '../promise_utils.ts'
 import { Physics, PlayerState } from 'prismarine-physics'
 import minecraftData from 'minecraft-data'
+import type { IndexedData } from 'minecraft-data'
+import type { Effect } from 'prismarine-entity'
+import type { BotInternal } from '../types/internal.ts'
+import type { BotOptions, ControlState, ControlStateStatus } from '../types/mineflayer.ts'
+import type { ClientboundPackets, MovementFlags } from '../types/protocol.ts'
+
+type Reply = (() => void) & { teleport?: boolean }
 
 export default inject
 
@@ -14,9 +21,9 @@ const PI_2 = Math.PI * 2
 const PHYSICS_INTERVAL_MS = 50
 const PHYSICS_TIMESTEP = PHYSICS_INTERVAL_MS / 1000 // 0.05
 
-function inject (bot, { physicsEnabled, maxCatchupTicks }) {
+function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptions): void {
   const PHYSICS_CATCHUP_TICKS = maxCatchupTicks ?? 4
-  const world = { getBlock: (pos) => { return bot.blockAt(pos, false) } }
+  const world = { getBlock: (pos: Vec3) => { return bot.blockAt(pos, false) } }
   const physics = Physics(bot.registry, world)
 
   const positionUpdateSentEveryTick = bot.supportFeature('positionUpdateSentEveryTick')
@@ -25,7 +32,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
   bot.jumpQueued = false
   bot.jumpTicks = 0 // autojump cooldown
 
-  const controlState = {
+  const controlState: ControlStateStatus = {
     forward: false,
     back: false,
     left: false,
@@ -34,15 +41,16 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     sprint: false,
     sneak: false
   }
-  let lastSentYaw = null
-  let lastSentPitch = null
-  let doPhysicsTimer = null
-  let lastPhysicsFrameTime = null
+  // null until the first teleport is answered
+  let lastSentYaw: number | null = null
+  let lastSentPitch: number | null = null
+  let doPhysicsTimer: ReturnType<typeof setInterval> | null = null
+  let lastPhysicsFrameTime: number | null = null
   let shouldUsePhysics = false
   bot.physicsEnabled = physicsEnabled ?? true
   let deadTicks = 21
 
-  const lastSent = {
+  const lastSent: { x: number, y: number, z: number, yaw: number, pitch: number, onGround: boolean, time: number, flags: MovementFlags } = {
     x: 0,
     y: 0,
     z: 0,
@@ -63,7 +71,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
   let catchupTicks = 0
   function doPhysics () {
     const now = performance.now()
-    const deltaSeconds = (now - lastPhysicsFrameTime) / 1000
+    const deltaSeconds = (now - lastPhysicsFrameTime!) / 1000 // set before the timer starts
     lastPhysicsFrameTime = now
 
     timeAccumulator += deltaSeconds
@@ -78,7 +86,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     timeAccumulator %= PHYSICS_TIMESTEP
   }
 
-  function tickPhysics (now) {
+  function tickPhysics (now: number) {
     if (bot._client.state !== 'play') return // do nothing outside of the play state (e.g. server transfer configuration phase)
     flushReplies()
     if (!bot.entity?.position || !Number.isFinite(bot.entity.position.x)) return // entity not ready
@@ -107,7 +115,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     pendingReplies.length = 0
   }
 
-  function sendPacketPosition (position, onGround) {
+  function sendPacketPosition (position: Vec3, onGround: boolean) {
     // sends data, no logic
     if (bot._client.state !== 'play') return
     if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(position.z)) return
@@ -121,7 +129,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     bot.emit('move', oldPos)
   }
 
-  function sendPacketLook (yaw, pitch, onGround) {
+  function sendPacketLook (yaw: number, pitch: number, onGround: boolean) {
     // sends data, no logic
     if (bot._client.state !== 'play') return
     const oldPos = new Vec3(lastSent.x, lastSent.y, lastSent.z)
@@ -133,7 +141,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     bot.emit('move', oldPos)
   }
 
-  function sendPacketPositionAndLook (position, yaw, pitch, onGround) {
+  function sendPacketPositionAndLook (position: Vec3, yaw: number, pitch: number, onGround: boolean) {
     // sends data, no logic
     if (bot._client.state !== 'play') return
     if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(position.z)) return
@@ -149,8 +157,8 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     bot.emit('move', oldPos)
   }
 
-  function deltaYaw (yaw1, yaw2) {
-    let dYaw = (yaw1 - yaw2) % PI_2
+  function deltaYaw (yaw1: number, yaw2: number | null) {
+    let dYaw = (yaw1 - (yaw2 as number)) % PI_2 // null (no teleport answered yet) counts as 0
     if (dYaw < -PI) dYaw += PI_2
     else if (dYaw > PI) dYaw -= PI_2
 
@@ -165,7 +173,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     return false
   }
 
-  function updatePosition (now) {
+  function updatePosition (now: number) {
     // Only send updates for 20 ticks after death
     if (isEntityRemoved()) return
     // Don't send position with invalid coordinates (NaN after death)
@@ -178,11 +186,12 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     // Vanilla doesn't clamp yaw, so we don't want to do it either
     const maxDeltaYaw = PHYSICS_TIMESTEP * physics.yawSpeed
     const maxDeltaPitch = PHYSICS_TIMESTEP * physics.pitchSpeed
-    lastSentYaw += math.clamp(-maxDeltaYaw, dYaw, maxDeltaYaw)
-    lastSentPitch += math.clamp(-maxDeltaPitch, dPitch, maxDeltaPitch)
+    // physics only runs once a teleport was answered, which sets both
+    lastSentYaw! += math.clamp(-maxDeltaYaw, dYaw, maxDeltaYaw)
+    lastSentPitch! += math.clamp(-maxDeltaPitch, dPitch, maxDeltaPitch)
 
-    const yaw = Math.fround(conv.toNotchianYaw(lastSentYaw))
-    const pitch = Math.fround(conv.toNotchianPitch(lastSentPitch))
+    const yaw = Math.fround(conv.toNotchianYaw(lastSentYaw!))
+    const pitch = Math.fround(conv.toNotchianPitch(lastSentPitch!))
     const position = bot.entity.position
     const onGround = bot.entity.onGround
 
@@ -216,7 +225,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
 
   bot.physics = physics
 
-  function getEffectLevel (mcData, effectName, effects) {
+  function getEffectLevel (mcData: IndexedData, effectName: string, effects: Effect[]) {
     const effectDescriptor = mcData.effectsByName[effectName]
     if (!effectDescriptor) {
       return 0
@@ -295,13 +304,13 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
 
   bot.clearControlStates = () => {
     for (const control in controlState) {
-      bot.setControlState(control, false)
+      bot.setControlState(control as ControlState, false)
     }
   }
 
-  bot.controlState = {}
+  bot.controlState = {} as ControlStateStatus // accessors defined below
 
-  for (const control of Object.keys(controlState)) {
+  for (const control of Object.keys(controlState) as ControlState[]) {
     Object.defineProperty(bot.controlState, control, {
       enumerable: true,
       get () {
@@ -332,9 +341,9 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
         bot.entity.velocity.z += explosion.playerKnockback.z
       }
       if ('playerMotionX' in explosion) {
-        bot.entity.velocity.x += explosion.playerMotionX
-        bot.entity.velocity.y += explosion.playerMotionY
-        bot.entity.velocity.z += explosion.playerMotionZ
+        bot.entity.velocity.x += explosion.playerMotionX!
+        bot.entity.velocity.y += explosion.playerMotionY!
+        bot.entity.velocity.z += explosion.playerMotionZ!
       }
     }
   })
@@ -386,14 +395,14 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
   // start of a tick (PacketUtils.ensureRunningOnSameThread) and writes each reply as the packet is
   // handled. So a teleport is answered at most once per tick however fast the server sends them,
   // and replies to different packets (a pong, a teleport confirm) leave in packet arrival order.
-  const pendingReplies = []
-  let replyTimer = null
+  const pendingReplies: Reply[] = []
+  let replyTimer: ReturnType<typeof setTimeout> | null = null
 
   function flushReplies () {
     clearTimeout(replyTimer)
     replyTimer = null
     if (bot._client.state !== 'play') return
-    while (pendingReplies.length) pendingReplies.shift()()
+    while (pendingReplies.length) pendingReplies.shift()!()
   }
 
   bot._replyOnNextTick = (reply) => {
@@ -413,7 +422,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
 
     const vel = bot.entity.velocity
     const pos = bot.entity.position
-    let newYaw, newPitch
+    let newYaw: number, newPitch: number
 
     // Note: 1.20.5+ uses a bitflags object, older versions use a bitmask number
     if (typeof packet.flags === 'object') {
@@ -456,14 +465,14 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
     bot.jumpTicks = 0
 
     const teleportPos = pos.clone()
-    const reply = () => answerTeleport(packet.teleportId, teleportPos, newYaw, newPitch)
+    const reply: Reply = () => answerTeleport(packet.teleportId, teleportPos, newYaw, newPitch)
     reply.teleport = true
     bot._replyOnNextTick(reply)
   })
 
-  function answerTeleport (teleportId, pos, yaw, pitch) {
+  function answerTeleport (teleportId: number | undefined, pos: Vec3, yaw: number, pitch: number) {
     if (bot.supportFeature('teleportUsesOwnPacket')) {
-      bot._client.write('teleport_confirm', { teleportId })
+      bot._client.write('teleport_confirm', { teleportId: teleportId! }) // 1.9+: position has teleportId
     }
 
     const confirmMove = () => {
@@ -492,7 +501,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
 
   bot.waitForTicks = async function (ticks) {
     if (ticks <= 0) return
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       // Assuming 20 ticks per second, add extra time for lag
       const timeout = setTimeout(() => {
         bot.removeListener('physicsTick', tickListener)
@@ -517,7 +526,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
   // accepts a reply to its latest teleport, and once the client leaves play (start_configuration)
   // or a new session begins (login) the position it carries means nothing to the server and the
   // play-state packet cannot be written anyway.
-  let respawnReply = null
+  let respawnReply: ReturnType<typeof setTimeout> | null = null
   function cancelRespawnReply () {
     clearTimeout(respawnReply)
     respawnReply = null

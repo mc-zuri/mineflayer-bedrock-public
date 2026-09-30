@@ -10,7 +10,9 @@ import type { ChatMessage } from 'prismarine-chat'
 import type { world } from 'prismarine-world'
 import type { Registry } from 'prismarine-registry'
 import type { IndexedData, SupportsFeature } from 'minecraft-data'
-import type { ClientboundPackets, TextComponent } from './protocol.ts'
+import type { ChatSession, ClientboundPackets, TextComponent } from './protocol.ts'
+import type { RaycastHitBlock, RaycastMatcher } from './vendor/prismarine-world.ts'
+import type {} from './vendor/prismarine-entity.ts' // Entity members mineflayer adds
 
 export declare function createBot (options: { client: Client } & Partial<BotOptions>): Bot
 export declare function createBot (options: BotOptions): Bot
@@ -48,6 +50,10 @@ export interface PluginOptions {
 export type Plugin = (bot: Bot, options: BotOptions) => void
 
 export interface BotEvents {
+  /** node EventEmitter: a listener is about to be added */
+  newListener: (event: string | symbol, listener: (...args: any[]) => void) => void
+  /** node EventEmitter: a listener was removed */
+  removeListener: (event: string | symbol, listener: (...args: any[]) => void) => void
   chat: (
     username: string,
     message: string,
@@ -85,7 +91,8 @@ export interface BotEvents {
   breath: () => Promise<void> | void
   abilities: (abilities: Abilities) => Promise<void> | void
   entitySwingArm: (entity: Entity) => Promise<void> | void
-  entityHurt: (entity: Entity, source: Entity) => Promise<void> | void
+  /** source only from damage_event (1.19.4+), when the server names a known entity */
+  entityHurt: (entity: Entity, source?: Entity) => Promise<void> | void
   entityDead: (entity: Entity) => Promise<void> | void
   entityTaming: (entity: Entity) => Promise<void> | void
   entityTamed: (entity: Entity) => Promise<void> | void
@@ -102,13 +109,13 @@ export interface BotEvents {
   entitySleep: (entity: Entity) => Promise<void> | void
   entitySpawn: (entity: Entity) => Promise<void> | void
   entityElytraFlew: (entity: Entity) => Promise<void> | void
-  usedFirework: () => Promise<void> | void
+  usedFirework: (fireworkEntityId: number) => Promise<void> | void
   itemDrop: (entity: Entity) => Promise<void> | void
   playerCollect: (collector: Entity, collected: Entity) => Promise<void> | void
   entityAttributes: (entity: Entity) => Promise<void> | void
   entityGone: (entity: Entity) => Promise<void> | void
   entityMoved: (entity: Entity) => Promise<void> | void
-  entityDetach: (entity: Entity, vehicle: Entity) => Promise<void> | void
+  entityDetach: (entity: Entity, vehicle: Entity | null) => Promise<void> | void
   entityAttach: (entity: Entity, vehicle: Entity) => Promise<void> | void
   entityUpdate: (entity: Entity) => Promise<void> | void
   entityEffect: (entity: Entity, effect: Effect) => Promise<void> | void
@@ -146,7 +153,7 @@ export interface BotEvents {
   move: (position: Vec3) => Promise<void> | void
   forcedMove: () => Promise<void> | void
   mount: () => Promise<void> | void
-  dismount: (vehicle: Entity) => Promise<void> | void
+  dismount: (vehicle: Entity | null) => Promise<void> | void
   windowOpen: (window: Window) => Promise<void> | void
   windowClose: (window: Window) => Promise<void> | void
   sleep: () => Promise<void> | void
@@ -195,17 +202,26 @@ export interface Bot extends TypedEmitter<BotEvents> {
   version: string
   entity: Entity
   entities: { [id: string]: Entity }
+  /** the entity the bot rides, null when not riding */
+  vehicle: Entity | null
   fireworkRocketDuration: number
+  /** set by physics for prismarine-physics: a jump is requested */
+  jumpQueued: boolean
+  /** set by physics for prismarine-physics: autojump cooldown ticks */
+  jumpTicks: number
   spawnPoint: Vec3
   game: GameState
   player: Player
   players: { [username: string]: Player }
+  uuidToUsername: { [uuid: string]: string }
   isRaining: boolean
   thunderState: number
   chatPatterns: ChatPattern[]
   settings: GameSettings
   experience: Experience
   health: number
+  /** false from death (or a respawn packet) until health is above 0 again (health plugin) */
+  isAlive: boolean
   food: number
   foodSaturation: number
   oxygenLevel: number
@@ -244,10 +260,12 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   blockAt: (point: Vec3, extraInfos?: boolean) => Block | null
 
-  blockInSight: (maxSteps: number, vectorLength: number) => Block | null
+  /** @deprecated use blockAtCursor */
+  blockInSight: (maxSteps?: number, vectorLength?: number) => RaycastHitBlock | undefined
 
-  blockAtCursor: (maxDistance?: number, matcher?: Function) => Block | null
-  blockAtEntityCursor: (entity?: Entity, maxDistance?: number, matcher?: Function) => Block | null
+  /** face and intersect are only set when no matcher is given */
+  blockAtCursor: (maxDistance?: number, matcher?: RaycastMatcher | null) => RaycastHitBlock | null
+  blockAtEntityCursor: (entity?: Entity, maxDistance?: number, matcher?: RaycastMatcher | null) => RaycastHitBlock | null
 
   canSeeBlock: (block: Block) => boolean
 
@@ -296,6 +314,8 @@ export interface Bot extends TypedEmitter<BotEvents> {
   sleep: (bedBlock: Block) => Promise<void>
 
   isABed: (bedBlock: Block) => boolean
+
+  parseBedMetadata: (bedBlock: Block) => BedMetadata
 
   wake: () => Promise<void>
 
@@ -362,7 +382,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   useOn: (targetEntity: Entity) => void
 
-  attack: (entity: Entity) => void
+  attack: (entity: Entity, swing?: boolean) => void
 
   swingArm: (hand?: 'left' | 'right', showHand?: boolean) => void
 
@@ -446,6 +466,9 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   entityAtCursor: (maxDistance?: number) => Entity | null
   nearestEntity: (filter?: (entity: Entity) => boolean) => Entity | null
+  /** player entities matching filter (null: all); a string filter returns null / one entity / an array */
+  findPlayer: FindPlayers
+  findPlayers: FindPlayers
 
   waitForTicks: (ticks: number) => Promise<void>
 
@@ -462,6 +485,21 @@ export interface Bot extends TypedEmitter<BotEvents> {
   denyResourcePack: () => void
 
   respawn: () => void
+}
+
+export interface FindPlayers {
+  (filter: string): Entity | Entity[] | null
+  (filter: RegExp | ((entity: Entity) => boolean) | null): Entity[]
+}
+
+export interface BedMetadata {
+  /** true: head, false: foot */
+  part: boolean
+  /** boolean once parsed; the initial 0 only survives on a version with neither block states nor metadata */
+  occupied: boolean | number
+  /** 0: south, 1: west, 2: north, 3: east */
+  facing: number
+  headOffset: Vec3
 }
 
 export interface simpleClick {
@@ -507,18 +545,27 @@ export interface Player {
   displayName: ChatMessage
   gamemode: number
   ping: number
-  entity: Entity
+  /** undefined when the player's entity is not (yet) known, null once it is gone */
+  entity: Entity | null | undefined
   skinData: SkinData | undefined
+  /** 1.19 – 1.19.2 */
   profileKeys?: {
     publicKey: Buffer
     signature: Buffer
   }
+  /** 1.19.3+ */
+  chatSession?: {
+    publicKey: ChatSession['publicKey']
+    sessionUuid: string
+  }
+  /** 1.19.3+ */
+  listed?: number
 }
 
 export interface SkinData {
   url: string
-  model: string | null
-  capeUrl?: string
+  model: string | undefined
+  capeUrl: string | undefined
 }
 
 export interface ChatPattern {
@@ -561,20 +608,40 @@ export interface Abilities {
   walkingSpeed: number
 }
 
+/** the prismarine-physics engine settings (bot.physics) */
 export interface PhysicsOptions {
-  maxGroundSpeed: number
-  terminalVelocity: number
-  walkingAcceleration: number
   gravity: number
-  groundFriction: number
-  playerApothem: number
-  playerHeight: number
-  jumpSpeed: number
+  airdrag: number
   yawSpeed: number
   pitchSpeed: number
+  playerSpeed: number
   sprintSpeed: number
-  maxGroundSpeedSoulSand: number
-  maxGroundSpeedWater: number
+  sneakSpeed: number
+  stepHeight: number
+  negligeableVelocity: number
+  soulsandSpeed: number
+  honeyblockSpeed: number
+  honeyblockJumpSpeed: number
+  ladderMaxSpeed: number
+  ladderClimbSpeed: number
+  playerHalfWidth: number
+  playerHeight: number
+  waterInertia: number
+  lavaInertia: number
+  liquidAcceleration: number
+  airborneInertia: number
+  airborneAcceleration: number
+  defaultSlipperiness: number
+  outOfLiquidImpulse: number
+  autojumpCooldown: number
+  bubbleColumnSurfaceDrag: { down: number, maxDown: number, up: number, maxUp: number }
+  bubbleColumnDrag: { down: number, maxDown: number, up: number, maxUp: number }
+  slowFalling: number
+  movementSpeedAttribute: string
+  sprintingUUID: string
+  waterGravity: number
+  lavaGravity: number
+  adjustPositionHeight: (pos: Vec3) => void
 }
 
 export interface Time {

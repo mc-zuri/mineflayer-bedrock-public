@@ -4,6 +4,20 @@ import mojangson from 'mojangson'
 import prismarineEntity from 'prismarine-entity'
 import prismarineItem from 'prismarine-item'
 import prismarineChat from 'prismarine-chat'
+import type { Entity as EntityT } from 'prismarine-entity'
+import type { Entity as EntityData } from 'minecraft-data'
+import type { BotInternal } from '../types/internal.ts'
+import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
+import type { ItemClass } from '../types/vendor/prismarine-item.ts'
+import type { EntityLoader } from '../types/vendor/prismarine-entity.ts'
+import type { Effect, FindPlayers, Player, SkinData } from '../types/mineflayer.ts'
+import type { ClientboundPackets, EntityMetadataEntry, GameProfileProperty, ServerboundPackets } from '../types/protocol.ts'
+
+type PlayerInfoAction = ClientboundPackets['player_info']['action']
+/** player_info before 1.19.3: one action name per packet */
+type PlayerInfoLegacyPacket = ClientboundPackets['player_info'] & { action: Extract<PlayerInfoAction, string> }
+/** player_info 1.19.3+ (playerInfoActionIsBitfield): a set of action flags */
+type PlayerInfoBitfieldPacket = ClientboundPackets['player_info'] & { action: Extract<PlayerInfoAction, object> }
 
 // These values are only accurate for versions 1.14 and above (crouch hitbox changes)
 // Todo: hitbox sizes for sleeping, swimming/crawling, and flying with elytra
@@ -15,7 +29,10 @@ const CROUCH_EYEHEIGHT = 1.27
 
 export default inject
 
-const animationEvents = {
+type EntityEventName = 'entitySwingArm' | 'entityHurt' | 'entityWake' | 'entityEat' | 'entityCriticalEffect' | 'entityMagicCriticalEffect' |
+  'entityDead' | 'entityTaming' | 'entityTamed' | 'entityShakingOffWater' | 'entityEatingGrass' | 'entityHandSwap'
+
+const animationEvents: { [animation: number]: EntityEventName | undefined } = {
   0: 'entitySwingArm',
   1: 'entityHurt',
   2: 'entityWake',
@@ -24,7 +41,7 @@ const animationEvents = {
   5: 'entityMagicCriticalEffect'
 }
 
-const entityStatusEvents = {
+const entityStatusEvents: { [entityStatus: number]: EntityEventName | undefined } = {
   2: 'entityHurt',
   3: 'entityDead',
   6: 'entityTaming',
@@ -34,11 +51,11 @@ const entityStatusEvents = {
   55: 'entityHandSwap'
 }
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   const { mobs } = bot.registry
-  const Entity = prismarineEntity(bot.version)
-  const Item = prismarineItem(bot.version)
-  const ChatMessage = prismarineChat(bot.registry)
+  const Entity = (prismarineEntity as unknown as EntityLoader)(bot.version)
+  const Item = prismarineItem(bot.version) as ItemClass
+  const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
 
   // ONLY 1.17 has this destroy_entity packet which is the same thing as entity_destroy packet except the entity is singular
   // 1.17.1 reverted this change so this is just a simpler fix
@@ -46,16 +63,16 @@ function inject (bot) {
     bot._client.emit('entity_destroy', { entityIds: [packet.entityId] })
   })
 
-  bot.findPlayer = bot.findPlayers = (filter) => {
-    const filterFn = (entity) => {
+  bot.findPlayer = bot.findPlayers = ((filter: string | RegExp | ((entity: EntityT) => boolean) | null) => {
+    const filterFn = (entity: EntityT) => {
       if (entity.type !== 'player') return false
       if (filter === null) return true
       if (typeof filter === 'object' && filter instanceof RegExp) {
-        return entity.username.search(filter) !== -1
+        return entity.username!.search(filter) !== -1
       } else if (typeof filter === 'function') {
         return filter(entity)
       } else if (typeof filter === 'string') {
-        return entity.username.toLowerCase() === filter.toLowerCase()
+        return entity.username!.toLowerCase() === filter.toLowerCase()
       }
       return false
     }
@@ -73,7 +90,7 @@ function inject (bot) {
       }
     }
     return resultSet
-  }
+  }) as FindPlayers
 
   bot.players = {}
   bot.uuidToUsername = {}
@@ -81,8 +98,8 @@ function inject (bot) {
 
   bot._playerFromUUID = (uuid) => Object.values(bot.players).find(player => player.uuid === uuid)
 
-  bot.nearestEntity = (match = (entity) => { return true }) => {
-    let best = null
+  bot.nearestEntity = (match = (entity: EntityT) => { return true }) => {
+    let best: EntityT | null = null
     let bestDistance = Number.MAX_VALUE
 
     for (const entity of Object.values(bot.entities)) {
@@ -122,7 +139,7 @@ function inject (bot) {
     if (packet.equipments !== undefined) {
       packet.equipments.forEach(equipment => entity.setEquipment(equipment.slot, equipment.item ? Item.fromNotch(equipment.item) : null))
     } else {
-      entity.setEquipment(packet.slot, packet.item ? Item.fromNotch(packet.item) : null)
+      entity.setEquipment(packet.slot!, packet.item ? Item.fromNotch(packet.item) : null)
     }
     bot.emit('entityEquip', entity)
   })
@@ -161,16 +178,17 @@ function inject (bot) {
   // What is internalId?
   const entityDataByInternalId = Object.fromEntries(bot.registry.entitiesArray.map((e) => [e.internalId, e]))
 
-  function setEntityData (entity, type, entityData) {
+  function setEntityData (entity: EntityT, type: number, entityData: EntityData | undefined) {
     entityData ??= entityDataByInternalId[type]
     if (entityData) {
-      entity.type = entityData.type || 'object'
+      // minecraft-data types (animal, hostile, living, ...) are wider than prismarine-entity's EntityType
+      entity.type = (entityData.type || 'object') as EntityT['type']
       entity.displayName = entityData.displayName
       entity.entityType = entityData.id
       entity.name = entityData.name
       entity.kind = entityData.category
-      entity.height = entityData.height
-      entity.width = entityData.width
+      entity.height = entityData.height as number
+      entity.width = entityData.width as number
     } else {
       // unknown entity
       entity.type = 'other'
@@ -181,7 +199,7 @@ function inject (bot) {
     }
   }
 
-  function updateEntityPos (entity, pos) {
+  function updateEntityPos (entity: EntityT, pos: { x: number, y: number, z: number, yaw: number, pitch: number }) {
     if (bot.supportFeature('fixedPointPosition')) {
       entity.position.set(pos.x / 32, pos.y / 32, pos.z / 32)
     } else if (bot.supportFeature('doublePosition')) {
@@ -191,23 +209,24 @@ function inject (bot) {
     entity.pitch = conv.fromNotchianPitchByte(pos.pitch)
   }
 
-  function addNewPlayer (entityId, uuid, pos) {
+  function addNewPlayer (entityId: number, uuid: string | undefined, pos: { x: number, y: number, z: number, yaw: number, pitch: number }) {
     const entity = fetchEntity(entityId)
     entity.type = 'player'
     entity.name = 'player'
-    entity.username = bot.uuidToUsername[uuid]
+    entity.username = bot.uuidToUsername[uuid as string]
     entity.uuid = uuid
     updateEntityPos(entity, pos)
     entity.eyeHeight = PLAYER_EYEHEIGHT
     entity.height = PLAYER_HEIGHT
     entity.width = PLAYER_WIDTH
-    if (bot.players[entity.username] !== undefined && !bot.players[entity.username].entity) {
-      bot.players[entity.username].entity = entity
+    // an unknown uuid leaves username undefined, which looks up the key 'undefined'
+    if (bot.players[entity.username as string] !== undefined && !bot.players[entity.username as string].entity) {
+      bot.players[entity.username as string].entity = entity
     }
     return entity
   }
 
-  function addNewNonPlayer (entityId, uuid, entityType, pos) {
+  function addNewNonPlayer (entityId: number, uuid: string | undefined, entityType: number, pos: { x: number, y: number, z: number, yaw: number, pitch: number }) {
     const entity = fetchEntity(entityId)
     const entityData = bot.registry.entities[entityType]
     setEntityData(entity, entityType, entityData)
@@ -220,8 +239,8 @@ function inject (bot) {
     // in case player_info packet was not sent before named_entity_spawn : ignore named_entity_spawn (see #213)
     if (packet.playerUUID in bot.uuidToUsername) {
       // spawn named entity
-      const entity = addNewPlayer(packet.entityId, packet.playerUUID, packet, packet.metadata)
-      entity.dataBlobs = packet.data // this field doesn't appear to be listed on any version
+      const entity = addNewPlayer(packet.entityId, packet.playerUUID, packet)
+      entity.dataBlobs = (packet as { data?: unknown }).data // this field doesn't appear to be listed on any version
       entity.metadata = parseMetadata(packet.metadata, entity.metadata) // 1.8
       bot.emit('entitySpawn', entity)
     }
@@ -266,7 +285,7 @@ function inject (bot) {
     const entity = fetchEntity(packet.entityId)
     entity.type = 'mob'
     entity.uuid = packet.entityUUID
-    const entityData = mobs[packet.type]
+    const entityData: EntityData | undefined = mobs[packet.type]
 
     setEntityData(entity, packet.type, entityData)
 
@@ -376,6 +395,7 @@ function inject (bot) {
 
     if (eventName === 'entityHandSwap' && entity.equipment) {
       [entity.equipment[0], entity.equipment[1]] = [entity.equipment[1], entity.equipment[0]]
+      // @ts-expect-error heldItem is a getter-only accessor (typed read-only)
       entity.heldItem = entity.equipment[0] // Update held item like prismarine-entity does upon equipment updates
     }
 
@@ -393,7 +413,7 @@ function inject (bot) {
     const entity = fetchEntity(packet.entityId)
     if (packet.vehicleId === -1) {
       const vehicle = entity.vehicle
-      delete entity.vehicle
+      delete (entity as { vehicle?: EntityT }).vehicle
       bot.emit('entityDetach', entity, vehicle)
     } else {
       entity.vehicle = fetchEntity(packet.vehicleId)
@@ -402,7 +422,7 @@ function inject (bot) {
   })
 
   bot.fireworkRocketDuration = 0
-  function setElytraFlyingState (entity, elytraFlying) {
+  function setElytraFlyingState (entity: EntityT, elytraFlying: boolean) {
     let startedFlying = false
     if (elytraFlying) {
       startedFlying = !entity.elytraFlying
@@ -420,8 +440,8 @@ function inject (bot) {
     }
   }
 
-  const knownFireworks = new Set()
-  function handleBotUsedFireworkRocket (fireworkEntityId, fireworkInfo) {
+  const knownFireworks = new Set<number>()
+  function handleBotUsedFireworkRocket (fireworkEntityId: number, fireworkInfo: any) {
     if (knownFireworks.has(fireworkEntityId)) return
     knownFireworks.add(fireworkEntityId)
     let flightDur = fireworkInfo?.nbtData?.value?.Fireworks?.value?.Flight.value ?? 1
@@ -433,15 +453,15 @@ function inject (bot) {
     bot.emit('usedFirework', fireworkEntityId)
   }
 
-  let fireworkEntityName
+  let fireworkEntityName: string | undefined
   if (bot.supportFeature('fireworkNamePlural')) {
     fireworkEntityName = 'fireworks_rocket'
   } else if (bot.supportFeature('fireworkNameSingular')) {
     fireworkEntityName = 'firework_rocket'
   }
 
-  let fireworkMetadataIdx
-  let fireworkMetadataIsOpt
+  let fireworkMetadataIdx: number | undefined
+  let fireworkMetadataIsOpt: boolean | undefined
   if (bot.supportFeature('fireworkMetadataVarInt7')) {
     fireworkMetadataIdx = 7
     fireworkMetadataIsOpt = false
@@ -462,8 +482,8 @@ function inject (bot) {
     bot.emit('entityUpdate', entity)
 
     if (bot.supportFeature('mcDataHasEntityMetadata')) {
-      const metadataKeys = bot.registry.entitiesByName[entity.name]?.metadataKeys
-      const metas = metadataKeys ? Object.fromEntries(packet.metadata.map(e => [metadataKeys[e.key], e.value])) : {}
+      const metadataKeys = bot.registry.entitiesByName[entity.name as string]?.metadataKeys
+      const metas: { [key: string]: any } = metadataKeys ? Object.fromEntries(packet.metadata.map(e => [metadataKeys[e.key], e.value])) : {}
       if (packet.metadata.some(m => m.type === 'item_stack')) {
         bot.emit('itemDrop', entity)
       }
@@ -519,7 +539,7 @@ function inject (bot) {
       if (hasFireworkSupport && fireworkEntityName === entity.name) {
         const attachedToTarget = packet.metadata.find(e => e.key === fireworkMetadataIdx)
         if (attachedToTarget !== undefined) {
-          let entityId
+          let entityId: number | undefined
           if (fireworkMetadataIsOpt) {
             if (attachedToTarget.value !== 0) {
               entityId = attachedToTarget.value - 1
@@ -528,7 +548,7 @@ function inject (bot) {
             entityId = attachedToTarget.value
           }
           if (entityId !== undefined && entityId === bot.entity?.id) {
-            const fireworksItem = packet.metadata.find(e => e.key === (fireworkMetadataIdx - 1))
+            const fireworksItem = packet.metadata.find(e => e.key === (fireworkMetadataIdx! - 1))
             handleBotUsedFireworkRocket(entity.id, fireworksItem?.value)
           }
         }
@@ -555,7 +575,7 @@ function inject (bot) {
   bot._client.on('entity_effect', (packet) => {
     // entity effect
     const entity = fetchEntity(packet.entityId)
-    const effect = {
+    const effect: Effect = {
       id: packet.effectId,
       amplifier: packet.amplifier,
       duration: packet.duration
@@ -581,11 +601,11 @@ function inject (bot) {
     bot.emit('entityEffectEnd', entity, effect)
   })
 
-  const updateAttributes = (packet) => {
+  const updateAttributes = (packet: ClientboundPackets['entity_update_attributes']) => {
     const entity = fetchEntity(packet.entityId)
     if (!entity.attributes) entity.attributes = {}
     for (const prop of packet.properties) {
-      entity.attributes[prop.key] = {
+      entity.attributes[prop.key!] = {
         value: prop.value,
         modifiers: prop.modifiers
       }
@@ -600,7 +620,7 @@ function inject (bot) {
     const entity = fetchEntity(packet.entityId)
     entity.type = 'global'
     entity.globalType = 'thunderbolt'
-    entity.uuid = packet.entityUUID
+    entity.uuid = (packet as { entityUUID?: string }).entityUUID // no version sends one: always undefined
     entity.position.set(packet.x / 32, packet.y / 32, packet.z / 32)
     bot.emit('entitySpawn', entity)
   })
@@ -609,19 +629,21 @@ function inject (bot) {
     bot.emit('entitySpawn', bot.entity)
   })
 
-  function handlePlayerInfoBitfield (packet) {
+  function handlePlayerInfoBitfield (packet: PlayerInfoBitfieldPacket) {
     for (const item of packet.data) {
-      let player = bot._playerFromUUID(item.uuid)
+      // undefined only until the new-player branch below creates it
+      let player = bot._playerFromUUID(item.uuid) as Player
       const newPlayer = !player
 
       if (newPlayer) {
-        player = { uuid: item.uuid }
+        // filled in below; username comes with add_player, which is always sent for new players
+        player = { uuid: item.uuid } as Player
       }
 
       if (packet.action.add_player) {
-        player.username = item.player.name
-        player.displayName = new ChatMessage({ text: '', extra: [{ text: item.player.name }] })
-        player.skinData = extractSkinInformation(item.player.properties)
+        player.username = item.player!.name
+        player.displayName = new ChatMessage({ text: '', extra: [{ text: item.player!.name }] })
+        player.skinData = extractSkinInformation(item.player!.properties)
       }
       if (packet.action.initialize_chat && item.chatSession) {
         player.chatSession = {
@@ -630,13 +652,13 @@ function inject (bot) {
         }
       }
       if (packet.action.update_game_mode) {
-        player.gamemode = item.gamemode
+        player.gamemode = item.gamemode!
       }
       if (packet.action.update_listed) {
-        player.listed = item.listed
+        player.listed = item.listed!
       }
       if (packet.action.update_latency) {
-        player.ping = item.latency
+        player.ping = item.latency!
       }
       if (packet.action.update_display_name) {
         player.displayName = item.displayName ? ChatMessage.fromNotch(item.displayName) : new ChatMessage({ text: '', extra: [{ text: player.username }] })
@@ -663,7 +685,7 @@ function inject (bot) {
     }
   }
 
-  function handlePlayerInfoLegacy (packet) {
+  function handlePlayerInfoLegacy (packet: PlayerInfoLegacyPacket) {
     for (const item of packet.data) {
       let player = bot._playerFromUUID(item.uuid)
 
@@ -671,46 +693,49 @@ function inject (bot) {
         case 'add_player': {
           const newPlayer = !player
           if (newPlayer) {
-            player = bot.players[item.name] = {
+            // the rest is filled in below
+            player = bot.players[item.name!] = {
               username: item.name,
               uuid: item.uuid
-            }
-            bot.uuidToUsername[item.uuid] = item.name
+            } as Player
+            bot.uuidToUsername[item.uuid] = item.name!
           }
 
-          player.ping = item.ping
-          player.gamemode = item.gamemode
-          player.displayName = item.displayName ? ChatMessage.fromNotch(item.displayName) : new ChatMessage({ text: '', extra: [{ text: item.name }] })
+          // add_player always carries name, gamemode and ping
+          player!.ping = item.ping!
+          player!.gamemode = item.gamemode!
+          player!.displayName = item.displayName ? ChatMessage.fromNotch(item.displayName) : new ChatMessage({ text: '', extra: [{ text: item.name }] })
           if (item.properties) {
-            player.skinData = extractSkinInformation(item.properties)
+            player!.skinData = extractSkinInformation(item.properties)
           }
           if (item.crypto) {
-            player.profileKeys = {
+            player!.profileKeys = {
               publicKey: item.crypto.publicKey,
               signature: item.crypto.signature
             }
           }
 
           const playerEntity = Object.values(bot.entities).find(e => e.type === 'player' && e.username === item.name)
-          player.entity = playerEntity
+          player!.entity = playerEntity
           if (playerEntity === bot.entity) {
-            bot.player = player
+            bot.player = player!
           }
 
-          if (newPlayer) bot.emit('playerJoined', player)
-          else bot.emit('playerUpdated', player)
+          if (newPlayer) bot.emit('playerJoined', player!)
+          else bot.emit('playerUpdated', player!)
           break
         }
+        // @ts-expect-error the action is named update_game_mode
         case 'update_gamemode': {
           if (player) {
-            player.gamemode = item.gamemode
+            player.gamemode = item.gamemode!
             bot.emit('playerUpdated', player)
           }
           break
         }
         case 'update_latency': {
           if (player) {
-            player.ping = item.ping
+            player.ping = item.ping!
             bot.emit('playerUpdated', player)
           }
           break
@@ -736,7 +761,7 @@ function inject (bot) {
     }
   }
 
-  bot._client.on('player_info', bot.supportFeature('playerInfoActionIsBitfield') ? handlePlayerInfoBitfield : handlePlayerInfoLegacy)
+  bot._client.on('player_info', (bot.supportFeature('playerInfoActionIsBitfield') ? handlePlayerInfoBitfield : handlePlayerInfoLegacy) as (packet: ClientboundPackets['player_info']) => void)
 
   // 1.19.3+ - player(s) leave the game
   bot._client.on('player_remove', (packet) => {
@@ -761,7 +786,7 @@ function inject (bot) {
       const index = originalVehicle.passengers.indexOf(passenger)
       originalVehicle.passengers.splice(index, 1)
     }
-    passenger.vehicle = vehicle
+    passenger.vehicle = vehicle as EntityT // prismarine-entity types vehicle non-null; null when not riding
     if (vehicle) {
       vehicle.passengers.push(passenger)
     }
@@ -788,7 +813,7 @@ function inject (bot) {
         const index = originalVehicle.passengers.indexOf(passengerEntity)
         originalVehicle.passengers.splice(index, 1)
       }
-      passengerEntity.vehicle = vehicle
+      passengerEntity.vehicle = vehicle as EntityT // null when not riding
       if (vehicle) {
         vehicle.passengers.push(passengerEntity)
       }
@@ -814,7 +839,7 @@ function inject (bot) {
     }
     if (entity.passengers) {
       for (const passenger of entity.passengers) {
-        passenger.vehicle = null
+        passenger.vehicle = null as unknown as EntityT // null when not riding
       }
     }
     if (entity.vehicle) {
@@ -832,19 +857,19 @@ function inject (bot) {
   bot.useOn = useOn
   bot.moveVehicle = moveVehicle
 
-  function swingArm (arm = 'right', showHand = true) {
+  function swingArm (arm: 'left' | 'right' = 'right', showHand = true) {
     const hand = arm === 'right' ? 0 : 1
-    const packet = {}
+    const packet: ServerboundPackets['arm_animation'] = {}
     if (showHand) packet.hand = hand
     bot._client.write('arm_animation', packet)
   }
 
-  function useOn (target) {
+  function useOn (target: EntityT) {
     // TODO: check if not crouching will make make this action always use the item
     useEntity(target, 0)
   }
 
-  function attack (target, swing = true) {
+  function attack (target: EntityT, swing = true) {
     // arm animation comes before the use_entity packet on 1.8
     if (bot.supportFeature('armAnimationBeforeUse')) {
       if (swing) {
@@ -859,12 +884,12 @@ function inject (bot) {
     }
   }
 
-  function mount (target) {
+  function mount (target: EntityT) {
     // TODO: check if crouching will make make this action always mount
     useEntity(target, 0)
   }
 
-  function moveVehicle (left, forward) {
+  function moveVehicle (left: number, forward: number) {
     if (bot.supportFeature('newPlayerInputPacket')) {
       // docs:
       // * left can take -1 or 1 : -1 means right, 1 means left
@@ -906,7 +931,7 @@ function inject (bot) {
     }
   }
 
-  function useEntity (target, leftClick, x, y, z) {
+  function useEntity (target: EntityT, leftClick: number, x?: number, y?: number, z?: number) {
     const sneaking = bot.getControlState('sneak')
     if (leftClick && bot.supportFeature('attackUsesOwnPacket')) {
       bot._client.write('attack', {
@@ -932,12 +957,13 @@ function inject (bot) {
     }
   }
 
-  function fetchEntity (id) {
+  function fetchEntity (id: number): EntityT {
     return bot.entities[id] || (bot.entities[id] = new Entity(id))
   }
 }
 
-function parseMetadata (metadata, entityMetadata = {}) {
+// entity.metadata is an array indexed by metadata key; the {} default is never used
+function parseMetadata (metadata: EntityMetadataEntry[] | undefined, entityMetadata: EntityT['metadata'] = {} as EntityT['metadata']): EntityT['metadata'] {
   if (metadata !== undefined) {
     for (const { key, value } of metadata) {
       entityMetadata[key] = value
@@ -947,7 +973,7 @@ function parseMetadata (metadata, entityMetadata = {}) {
   return entityMetadata
 }
 
-function extractSkinInformation (properties) {
+function extractSkinInformation (properties: GameProfileProperty[] | undefined): SkinData | undefined {
   if (!properties) {
     return undefined
   }
@@ -957,9 +983,9 @@ function extractSkinInformation (properties) {
     return undefined
   }
 
-  let skinTexture
+  let skinTexture: any
   try { // Handles mojangson-style player data
-    skinTexture = JSON.parse(Buffer.from(props.textures.value, 'base64'))
+    skinTexture = JSON.parse(Buffer.from(props.textures.value, 'base64') as unknown as string) // JSON.parse stringifies the Buffer
   } catch (e) {
     skinTexture = mojangson.simplify(mojangson.parse(Buffer.from(props.textures.value, 'base64').toString('utf-8')))
   }
