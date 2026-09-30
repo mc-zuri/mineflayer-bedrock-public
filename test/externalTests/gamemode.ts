@@ -4,7 +4,7 @@ import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
 
 export default () => {
-  const tests = []
+  const tests = {}
 
   function addTest (name, f) {
     tests[name] = (bot) => f(bot)

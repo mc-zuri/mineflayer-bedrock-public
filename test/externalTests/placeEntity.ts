@@ -7,7 +7,7 @@ export default (version) => {
     await testFunction(bot)
   }
 
-  const tests = []
+  const tests = {}
 
   function addTest (name, f) {
     tests[name] = bot => runTest(bot, f)

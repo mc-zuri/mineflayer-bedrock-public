@@ -1,7 +1,7 @@
 import assert from 'assert'
 
 export default () => {
-  const tests = []
+  const tests = {}
 
   function addTest (name, f) {
     tests[name] = (bot) => f(bot)

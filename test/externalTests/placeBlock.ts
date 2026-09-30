@@ -4,7 +4,7 @@ import { once } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
 
 export default () => {
-  const tests = []
+  const tests = {}
 
   function addTest (name, f) {
     tests[name] = f

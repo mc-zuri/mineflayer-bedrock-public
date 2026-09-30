@@ -37,7 +37,7 @@ export default () => {
     await testFunction(b, renameCost, renameName, Item, bot, makeBook, makeItem)
   }
 
-  const tests = []
+  const tests = {}
 
   function addTest (name, f) {
     tests[name] = bot => runTest(bot, f)
