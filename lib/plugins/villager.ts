@@ -1,14 +1,29 @@
 import assert from 'assert'
 import { once } from '../promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { Entity } from 'prismarine-entity'
+import type { Window } from 'prismarine-windows'
+import type { BotOptions, ConditionalStorageEvents, TransferOptions, Villager, VillagerTrade } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { ChannelName, ClientboundPackets } from '../types/protocol.ts'
+import type { ItemClass } from '../types/vendor/prismarine-item.ts'
+
+/** trade_list (1.14+), or MC|TrList / minecraft:trader_list decoded with tradeListSchema */
+interface TradeList {
+  windowId: number
+  trades: ClientboundPackets['trade_list']['trades']
+}
+
+/** the merchant window while openVillager fills it in */
+type OpeningVillager = Window<ConditionalStorageEvents> & Partial<Pick<Villager, 'selectedTrade' | 'trade' | 'close'>> & { trades?: VillagerTrade[] | null }
 
 export default inject
 
-function inject (bot, { version }) {
+function inject (bot: BotInternal, { version }: BotOptions): void {
   const { entitiesByName } = bot.registry
-  const Item = prismarineItem(bot.registry)
+  const Item = prismarineItem(bot.registry) as ItemClass
 
-  let selectTrade
+  let selectTrade: (choice: number) => void
   if (bot.supportFeature('useMCTrSel')) {
     bot._client.registerChannel('MC|TrSel', 'i32')
     selectTrade = (choice) => {
@@ -59,7 +74,7 @@ function inject (bot, { version }) {
     ]
   ]
 
-  let tradeListPacket
+  let tradeListPacket: 'trade_list' | ChannelName
   if (bot.supportFeature('useMCTrList')) {
     tradeListPacket = 'MC|TrList'
     bot._client.registerChannel('MC|TrList', tradeListSchema)
@@ -70,13 +85,14 @@ function inject (bot, { version }) {
     tradeListPacket = 'trade_list'
   }
 
-  async function openVillager (villagerEntity) {
+  async function openVillager (villagerEntity: Entity): Promise<Villager> {
     const villagerType = entitiesByName.villager ? entitiesByName.villager.id : entitiesByName.Villager.id
     assert.strictEqual(villagerEntity.entityType, villagerType)
     let ready = false
 
-    const villagerPromise = bot.openEntity(villagerEntity)
-    bot._client.on(tradeListPacket, gotTrades)
+    const villagerPromise: Promise<OpeningVillager> = bot.openEntity(villagerEntity)
+    // one listener for the packet or the channel: gotTrades takes both shapes
+    bot._client.on(tradeListPacket as ChannelName, gotTrades)
     const villager = await villagerPromise
     if (villager.type !== 'minecraft:villager' && villager.type !== 'minecraft:merchant') {
       throw new Error('Expected minecraft:villager or minecraft:mechant type, but got ' + villager.type)
@@ -86,21 +102,22 @@ function inject (bot, { version }) {
     villager.selectedTrade = null
 
     villager.once('close', () => {
-      bot._client.removeListener(tradeListPacket, gotTrades)
+      bot._client.removeListener(tradeListPacket as ChannelName, gotTrades)
     })
 
     villager.trade = async (index, count) => {
-      await bot.trade(villager, index, count)
+      await bot.trade(villager as Villager, index, count)
     }
 
     if (!ready) await once(villager, 'ready')
-    return villager
+    return villager as Villager // trades are set once ready
 
-    async function gotTrades (packet) {
+    async function gotTrades (packet: TradeList): Promise<void> {
       const villager = await villagerPromise
       if (packet.windowId !== villager.id) return
       assert.ok(packet.trades)
-      villager.trades = packet.trades.map(trade => {
+      // each wire trade is turned into a VillagerTrade in place
+      villager.trades = packet.trades.map((trade: any): VillagerTrade => {
         trade.inputs = [trade.inputItem1 = Item.fromNotch(trade.inputItem1 || { blockId: -1 })]
         if (trade.inputItem2?.itemCount != null) {
           trade.inputs.push(trade.inputItem2 = Item.fromNotch(trade.inputItem2 || { blockId: -1 }))
@@ -124,8 +141,8 @@ function inject (bot, { version }) {
     }
   }
 
-  async function trade (villager, index, count) {
-    const choice = parseInt(index, 10) // allow string argument
+  async function trade (villager: Villager, index: string | number, count?: number): Promise<void> {
+    const choice = parseInt(index as string, 10) // allow string argument
     assert.notStrictEqual(villager.trades, null)
     assert.notStrictEqual(villager.trades[choice], null)
     const Trade = villager.trades[choice]
@@ -139,8 +156,8 @@ function inject (bot, { version }) {
     let hasEnoughItem2 = true
     let itemCount2 = 0
     if (Trade.hasItem2) {
-      itemCount2 = villager.count(Trade.inputItem2.type, Trade.inputItem2.metadata)
-      hasEnoughItem2 = itemCount2 >= Trade.inputItem2.count * count
+      itemCount2 = villager.count(Trade.inputItem2!.type, Trade.inputItem2!.metadata)
+      hasEnoughItem2 = itemCount2 >= Trade.inputItem2!.count * count
     }
     if (!hasEnoughItem1) {
       throw new Error('Not enough item 1 to trade')
@@ -151,7 +168,7 @@ function inject (bot, { version }) {
 
     selectTrade(choice)
     if (bot.supportFeature('selectingTradeMovesItems')) { // 1.14+ the server moves items around by itself after selecting a trade
-      const proms = []
+      const proms: Array<Promise<unknown>> = []
       proms.push(once(villager, 'updateSlot:0'))
       if (Trade.hasItem2) proms.push(once(villager, 'updateSlot:1'))
       if (bot.supportFeature('setSlotAsTransaction')) {
@@ -181,8 +198,8 @@ function inject (bot, { version }) {
         }
 
         if (slot2) {
-          assert.strictEqual(slot2.type, Trade.inputItem2.type)
-          const updatedCount2 = slot2.count - Trade.inputItem2.count
+          assert.strictEqual(slot2.type, Trade.inputItem2!.type)
+          const updatedCount2 = slot2.count - Trade.inputItem2!.count
           const updatedSlot2 = updatedCount2 <= 0
             ? null
             : { ...slot2, count: updatedCount2 }
@@ -205,7 +222,7 @@ function inject (bot, { version }) {
     }
   }
 
-  async function putRequirements (window, Trade) {
+  async function putRequirements (window: Villager, Trade: VillagerTrade): Promise<void> {
     const [slot1, slot2] = window.slots
     const { type: type1, metadata: metadata1 } = Trade.inputItem1
 
@@ -216,7 +233,7 @@ function inject (bot, { version }) {
       await deposit(window, type1, metadata1, input1, 0)
     }
     if (Trade.hasItem2) {
-      const { count: tradeCount2, type: type2, metadata: metadata2 } = Trade.inputItem2
+      const { count: tradeCount2, type: type2, metadata: metadata2 } = Trade.inputItem2!
 
       const input2 = slot2
         ? Math.max(0, tradeCount2 - slot2.count)
@@ -227,8 +244,8 @@ function inject (bot, { version }) {
     }
   }
 
-  async function deposit (window, itemType, metadata, count, slot) {
-    const options = {
+  async function deposit (window: Window, itemType: number, metadata: number | null, count: number, slot: number): Promise<void> {
+    const options: TransferOptions = {
       window,
       itemType,
       metadata,

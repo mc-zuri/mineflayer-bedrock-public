@@ -770,7 +770,7 @@ interface FurnaceEvents extends StorageEvents {
   update: () => void
 }
 
-interface ConditionalStorageEvents extends StorageEvents {
+export interface ConditionalStorageEvents extends StorageEvents {
   ready: () => void
 }
 
@@ -940,25 +940,36 @@ export interface Enchantment {
 
 export declare class Villager extends Window<ConditionalStorageEvents> {
   trades: VillagerTrade[]
+  /** the trade bot.trade last selected; null until then */
+  selectedTrade: VillagerTrade | null
 
   constructor ()
 
   close (): Promise<void>
+
+  /** bot.trade(this, tradeIndex, times) */
+  trade (tradeIndex: string | number, times?: number): Promise<void>
 }
 
 export interface VillagerTrade {
   inputItem1: Item
   outputItem: Item
   inputItem2: Item | null
+  /** [inputItem1] or [inputItem1, inputItem2] */
+  inputs: Item[]
+  /** [outputItem] */
+  outputs: Item[]
   hasItem2: boolean
   tradeDisabled: boolean
   nbTradeUses: number
   maximumNbTradeUses: number
+  // 1.14+
   xp?: number
   specialPrice?: number
   priceMultiplier?: number
   demand?: number
-  realPrice?: number
+  /** count of inputItem1 the trade costs, after demand and special price (1.14+) */
+  realPrice: number
 }
 
 export interface ScoreBoard {
