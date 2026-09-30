@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   await bot.test.runExample('examples/blockfinder.js', async (name) => {
     assert.strictEqual(name, 'finder')
     // The example answers 'Ready!' only after its own waitForChunksToLoad,

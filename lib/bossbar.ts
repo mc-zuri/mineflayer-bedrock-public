@@ -1,8 +1,10 @@
+import prismarineChat from 'prismarine-chat'
+
 const colors = ['pink', 'blue', 'red', 'green', 'yellow', 'purple', 'white']
 const divisions = [0, 6, 10, 12, 20]
 
 function loader (registry) {
-  const ChatMessage = require('prismarine-chat')(registry)
+  const ChatMessage = prismarineChat(registry)
   return class BossBar {
     constructor (uuid, title, health, dividers, color, flags) {
       this._entityUUID = uuid
@@ -106,4 +108,4 @@ function loader (registry) {
   }
 }
 
-module.exports = loader
+export default loader

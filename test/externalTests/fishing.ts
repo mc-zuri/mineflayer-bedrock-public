@@ -1,5 +1,7 @@
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+import prismarineItem from 'prismarine-item'
+
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
 
   bot.test.sayEverywhere('/fill ~-10 ~-1 ~-10 ~10 ~-1 ~10 water')
   bot.test.sayEverywhere('/weather rain') // rain shortens the vanilla bite wait

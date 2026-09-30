@@ -1,8 +1,9 @@
-const { Vec3 } = require('vec3')
-const assert = require('assert')
-const { onceWithCleanup } = require('../../lib/promise_utils')
+import { Vec3 } from 'vec3'
+import assert from 'assert'
+import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   // Closing a container while holding an item on the cursor makes the server
   // return it through Inventory.placeItemBackInInventory, synced on 1.21.3+
   // via set_player_inventory. Its slotId counts the vanilla player inventory
@@ -15,7 +16,7 @@ module.exports = () => async (bot) => {
 
   // A stone in hotbar slot 0 to pick up on the cursor
   const stoneId = bot.registry.itemsByName.stone.id
-  await bot.test.setInventorySlot(bot.inventory.hotbarStart, new (require('prismarine-item')(bot.registry))(stoneId, 1))
+  await bot.test.setInventorySlot(bot.inventory.hotbarStart, new (prismarineItem(bot.registry))(stoneId, 1))
 
   // Place a chest next to the bot and open it
   const chestPos = new Vec3(1, bot.test.groundY, 0)

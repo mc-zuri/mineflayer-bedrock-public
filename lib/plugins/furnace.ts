@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
   const allowedWindowTypes = ['minecraft:furnace', 'minecraft:blast_furnace', 'minecraft:smoker']

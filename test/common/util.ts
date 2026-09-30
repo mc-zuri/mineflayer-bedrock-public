@@ -1,4 +1,4 @@
-const net = require('net')
+import net from 'net'
 
 const getPort = () => new Promise(resolve => {
   const server = net.createServer()
@@ -9,4 +9,4 @@ const getPort = () => new Promise(resolve => {
   })
 })
 
-module.exports = { getPort }
+export { getPort }

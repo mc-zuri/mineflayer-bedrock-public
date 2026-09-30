@@ -76,7 +76,7 @@ Ref: ${mcdataPrURL}
     branchName,
     'master'
   )
-  console.log(`Pull request created`, pr)
+  console.log('Pull request created', pr)
 }
 
 main().catch(err => {

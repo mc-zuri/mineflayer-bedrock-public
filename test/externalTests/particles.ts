@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   const particleData = bot.registry.particles[0]
 
   return new Promise((resolve, reject) => {

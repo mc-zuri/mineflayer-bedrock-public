@@ -1,4 +1,4 @@
-const assert = require('assert')
+import assert from 'assert'
 
 const tests = [
   {
@@ -46,7 +46,7 @@ const tests = [
     wantedMessage: 'ladder x 3, diamond_boots x 1'
   }
 ]
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   await bot.test.runExample('examples/inventory.js', async (name) => {
     assert.strictEqual(name, 'inventory')
     bot.chat('/op inventory') // to counteract spawn protection

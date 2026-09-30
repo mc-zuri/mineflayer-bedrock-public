@@ -1,7 +1,7 @@
-const assert = require('assert')
-const { once } = require('../promise_utils')
+import assert from 'assert'
+import { once } from '../promise_utils.ts'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
   async function openEnchantmentTable (enchantmentTableBlock) {

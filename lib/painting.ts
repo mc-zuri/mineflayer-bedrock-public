@@ -4,4 +4,4 @@ function Painting (id, pos, name, direction) {
   this.name = name
   this.direction = direction
 }
-module.exports = Painting
+export default Painting

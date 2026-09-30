@@ -1,7 +1,8 @@
-const assert = require('assert')
-const { onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   await bot.test.becomeCreative()
   await bot.test.clearInventory()
   await bot.test.wait(100)
@@ -11,7 +12,7 @@ module.exports = () => async (bot) => {
   const diamondId = bot.registry.itemsByName.diamond.id
 
   // Put stone in the current held slot
-  await bot.test.setInventorySlot(bot.quickBarSlot + bot.inventory.hotbarStart, new (require('prismarine-item')(bot.registry))(stoneId, 1))
+  await bot.test.setInventorySlot(bot.quickBarSlot + bot.inventory.hotbarStart, new (prismarineItem(bot.registry))(stoneId, 1))
   await bot.test.wait(100)
   assert.strictEqual(bot.heldItem.type, stoneId, 'should be holding stone')
 
@@ -19,7 +20,7 @@ module.exports = () => async (bot) => {
   const heldItemPromise = onceWithCleanup(bot, 'heldItemChanged', {
     timeout: 5000
   })
-  await bot.test.setInventorySlot(bot.quickBarSlot + bot.inventory.hotbarStart, new (require('prismarine-item')(bot.registry))(diamondId, 1))
+  await bot.test.setInventorySlot(bot.quickBarSlot + bot.inventory.hotbarStart, new (prismarineItem(bot.registry))(diamondId, 1))
 
   const [newItem] = await heldItemPromise
   assert(newItem, 'heldItemChanged should fire with the new item')

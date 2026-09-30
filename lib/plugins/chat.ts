@@ -1,9 +1,10 @@
-const { onceWithCleanup } = require('../promise_utils')
+import { onceWithCleanup } from '../promise_utils.ts'
+import prismarineChat from 'prismarine-chat'
 
 const USERNAME_REGEX = '(?:\\(.{1,15}\\)|\\[.{1,15}\\]|.){0,5}?(\\w+)'
 const LEGACY_VANILLA_CHAT_REGEX = new RegExp(`^${USERNAME_REGEX}\\s?[>:\\-»\\]\\)~]+\\s(.*)$`)
 
-module.exports = inject
+export default inject
 
 function inject (bot, options) {
   const CHAT_LENGTH_LIMIT = options.chatLengthLimit ?? (bot.supportFeature('lessCharsInChat') ? 100 : 256)
@@ -11,7 +12,7 @@ function inject (bot, options) {
   bot._client.once('end', (reason) => { endReason = reason })
   const defaultChatPatterns = options.defaultChatPatterns ?? true
 
-  const ChatMessage = require('prismarine-chat')(bot.registry)
+  const ChatMessage = prismarineChat(bot.registry)
   // chat.pattern.type will emit an event for bot.on() of the same type, eg chatType = whisper will trigger bot.on('whisper')
   const _patterns = {}
   let _length = 0

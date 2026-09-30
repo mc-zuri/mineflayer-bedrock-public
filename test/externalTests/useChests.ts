@@ -1,9 +1,10 @@
-const { Vec3 } = require('vec3')
-const assert = require('assert')
-const { once } = require('../../lib/promise_utils')
+import { Vec3 } from 'vec3'
+import assert from 'assert'
+import { once } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
   // openContainer and placeBlock turn to face the block before acting.
   bot.physics.yawSpeed = bot.physics.pitchSpeed = 1e3
 

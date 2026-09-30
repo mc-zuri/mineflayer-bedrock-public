@@ -1,9 +1,11 @@
-const { performance } = require('perf_hooks')
-const { createDoneTask, createTask } = require('../promise_utils')
-const BlockFaces = require('prismarine-world').iterators.BlockFace
-const { Vec3 } = require('vec3')
+import { performance } from 'perf_hooks'
+import { createDoneTask, createTask } from '../promise_utils.ts'
+import { Vec3 } from 'vec3'
+import prismarineWorld from 'prismarine-world'
 
-module.exports = inject
+const BlockFaces = prismarineWorld.iterators.BlockFace
+
+export default inject
 
 function inject (bot) {
   let swingInterval = null

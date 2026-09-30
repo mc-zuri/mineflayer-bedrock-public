@@ -1,7 +1,9 @@
-const { Vec3 } = require('vec3')
-const { RaycastIterator } = require('prismarine-world').iterators
+import { Vec3 } from 'vec3'
+import prismarineWorld from 'prismarine-world'
 
-module.exports = (bot) => {
+const { RaycastIterator } = prismarineWorld.iterators
+
+export default (bot) => {
   function getViewDirection (pitch, yaw) {
     const csPitch = Math.cos(pitch)
     const snPitch = Math.sin(pitch)

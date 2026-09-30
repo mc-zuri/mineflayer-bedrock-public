@@ -1,7 +1,8 @@
-const assert = require('assert')
+import assert from 'assert'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
 
   await bot.test.becomeCreative()
   await bot.test.clearInventory()

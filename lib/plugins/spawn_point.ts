@@ -1,6 +1,6 @@
-const { Vec3 } = require('vec3')
+import { Vec3 } from 'vec3'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
   bot.spawnPoint = new Vec3(0, 0, 0)

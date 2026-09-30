@@ -1,8 +1,10 @@
-const assert = require('assert')
-module.exports = inject
+import assert from 'assert'
+import prismarineItem from 'prismarine-item'
+
+export default inject
 
 function inject (bot) {
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
   /**
    *
    * @param {import('prismarine-block').Block} referenceBlock

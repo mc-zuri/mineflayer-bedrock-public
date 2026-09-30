@@ -1,5 +1,5 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   assert.strictEqual(bot._getDimensionName(), 'minecraft:overworld')
 }

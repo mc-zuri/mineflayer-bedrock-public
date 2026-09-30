@@ -7,10 +7,10 @@
 // Serialization must never run on the bot's thread: a burst of chunk packets
 // would stall its event loop. `pending` is the number of records posted but not
 // yet on disk and must reach zero before the process exits.
-const fs = require('fs')
-const os = require('os')
-const path = require('path')
-const { Worker, isMainThread, parentPort, workerData } = require('worker_threads')
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { Worker, isMainThread, parentPort, workerData } from 'worker_threads'
 
 // pid keeps concurrent mocha processes (one per version in CI) from sharing a file
 const file = process.env.TRACE ?? path.join(os.tmpdir(), `mineflayer-trace-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}.jsonl`)
@@ -31,39 +31,39 @@ if (!isMainThread) {
       Atomics.notify(pending, 0)
     })
   })
-} else {
-  let worker
-  let pending
-  const getWorker = () => {
-    if (worker) return worker
-    pending = new Int32Array(new SharedArrayBuffer(4))
-    worker = new Worker(__filename, { workerData: { file, pending } })
-    worker.unref()
-    console.log(`trace: ${file}`)
-    process.on('exit', () => {
-      let n
-      while ((n = Atomics.load(pending, 0)) > 0) Atomics.wait(pending, 0, n, 10000)
-    })
-    return worker
-  }
-
-  function emit (record) {
-    const w = getWorker()
-    Atomics.add(pending, 0, 1)
-    w.postMessage({ ts: Date.now(), ...record })
-  }
-
-  function write (type, name, data = null) {
-    emit({ type, name, data })
-  }
-
-  function packet (dir, name, data) {
-    emit({ type: 'PACKET', dir, name, data })
-  }
-
-  function log (msg, args) {
-    emit({ type: 'LOG', msg, args })
-  }
-
-  module.exports = { write, packet, log }
 }
+
+let worker
+let pending
+const getWorker = () => {
+  if (worker) return worker
+  pending = new Int32Array(new SharedArrayBuffer(4))
+  worker = new Worker(import.meta.filename, { workerData: { file, pending } })
+  worker.unref()
+  console.log(`trace: ${file}`)
+  process.on('exit', () => {
+    let n
+    while ((n = Atomics.load(pending, 0)) > 0) Atomics.wait(pending, 0, n, 10000)
+  })
+  return worker
+}
+
+function emit (record) {
+  const w = getWorker()
+  Atomics.add(pending, 0, 1)
+  w.postMessage({ ts: Date.now(), ...record })
+}
+
+function write (type, name, data = null) {
+  emit({ type, name, data })
+}
+
+function packet (dir, name, data) {
+  emit({ type: 'PACKET', dir, name, data })
+}
+
+function log (msg, args) {
+  emit({ type: 'LOG', msg, args })
+}
+
+export { write, packet, log }

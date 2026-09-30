@@ -1,7 +1,9 @@
-module.exports = inject
+import particleModule from '../particle.ts'
+
+export default inject
 
 function inject (bot, { version }) {
-  const Particle = require('../particle')(bot.registry)
+  const Particle = particleModule(bot.registry)
 
   bot._client.on('world_particles', (packet) => {
     bot.emit('particle', Particle.fromNetwork(packet))

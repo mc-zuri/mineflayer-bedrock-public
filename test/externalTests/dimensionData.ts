@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = () => {
+export default () => {
   const tests = []
 
   function addTest (name, f) {

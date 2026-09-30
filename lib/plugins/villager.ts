@@ -1,11 +1,12 @@
-const assert = require('assert')
-const { once } = require('../promise_utils')
+import assert from 'assert'
+import { once } from '../promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = inject
+export default inject
 
 function inject (bot, { version }) {
   const { entitiesByName } = bot.registry
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   let selectTrade
   if (bot.supportFeature('useMCTrSel')) {

@@ -1,5 +1,7 @@
-const { Vec3 } = require('vec3')
-const assert = require('assert')
+import { Vec3 } from 'vec3'
+import assert from 'assert'
+import prismarineRegistry from 'prismarine-registry'
+import prismarineItem from 'prismarine-item'
 
 // this test takes about 20min
 
@@ -47,8 +49,8 @@ const excludedBlocks = [
   'obsidian'
 ]
 
-module.exports = (version) => {
-  const registry = require('prismarine-registry')(version)
+export default (version) => {
+  const registry = prismarineRegistry(version)
 
   const funcs = {}
   for (const id in registry.blocks) {
@@ -66,7 +68,7 @@ module.exports = (version) => {
 }
 
 async function digSomething (blockId, bot) {
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   await bot.test.setInventorySlot(36, new Item(blockId, 1, 0))
   await bot.test.placeBlock(36, bot.entity.position.plus(new Vec3(1, 0, 0)))

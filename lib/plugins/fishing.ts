@@ -1,7 +1,7 @@
-const { Vec3 } = require('vec3')
-const { createDoneTask, createTask } = require('../promise_utils')
+import { Vec3 } from 'vec3'
+import { createDoneTask, createTask } from '../promise_utils.ts'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
   let bobberId = 90

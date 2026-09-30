@@ -1,7 +1,9 @@
-module.exports = inject
+import bossbarModule from '../bossbar.ts'
+
+export default inject
 
 function inject (bot, { version }) {
-  const BossBar = require('../bossbar')(bot.registry)
+  const BossBar = bossbarModule(bot.registry)
   const bars = {}
 
   function extractTitle (title) {

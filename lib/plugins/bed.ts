@@ -1,6 +1,6 @@
-const { Vec3 } = require('vec3')
+import { Vec3 } from 'vec3'
 
-module.exports = inject
+export default inject
 
 const CARDINAL_DIRECTIONS = ['south', 'west', 'north', 'east']
 

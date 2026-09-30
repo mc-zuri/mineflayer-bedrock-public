@@ -1,8 +1,8 @@
-const assert = require('assert')
-const { Vec3 } = require('vec3')
-const { once, onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { Vec3 } from 'vec3'
+import { once, onceWithCleanup } from '../../lib/promise_utils.ts'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   const command = `/say ${Math.floor(Math.random() * 1000)}`
   const commandBlockPos = new Vec3(1, 5, 1)
   const commandBlockPosText = commandBlockPos.toArray().join(' ')

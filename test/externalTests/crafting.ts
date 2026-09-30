@@ -1,9 +1,10 @@
-const { once } = require('../../lib/promise_utils')
-const { Vec3 } = require('vec3')
+import { once } from '../../lib/promise_utils.ts'
+import { Vec3 } from 'vec3'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   const { blocksByName, itemsByName } = bot.registry
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   let populateBlockInventory
   let craftItem

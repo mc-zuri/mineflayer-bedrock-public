@@ -1,8 +1,8 @@
-const assert = require('assert')
-const { Vec3 } = require('vec3')
-const { once } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { Vec3 } from 'vec3'
+import { once } from '../../lib/promise_utils.ts'
 
-module.exports = (version) => {
+export default (version) => {
   async function runTest (bot, testFunction) {
     await testFunction(bot)
   }

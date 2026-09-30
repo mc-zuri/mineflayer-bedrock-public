@@ -1,4 +1,4 @@
-module.exports = inject
+export default inject
 
 // One block prediction sequence shared by dig start/stop, use_item_on and use_item. Sent values
 // start at 1; abort, release and drop actions send 0 and must not consume a value. Versions

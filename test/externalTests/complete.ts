@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   const matches = await bot.tabComplete('/weather ')
   if (bot.supportFeature('tabCompleteHasAToolTip')) {
     assert.deepStrictEqual(matches, [

@@ -1,4 +1,4 @@
-module.exports = inject
+export default inject
 
 // ClientboundPlayerAbilitiesPacket's flag bits.
 const FLAG_INVULNERABLE = 1

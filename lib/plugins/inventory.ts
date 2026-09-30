@@ -1,9 +1,12 @@
-const assert = require('assert')
-const { Vec3 } = require('vec3')
-const { once, sleep, createDoneTask, createTask, withTimeout } = require('../promise_utils')
-const { toNotchianYaw, toNotchianPitch } = require('../conversions')
+import assert from 'assert'
+import { Vec3 } from 'vec3'
+import { once, sleep, createDoneTask, createTask, withTimeout } from '../promise_utils.ts'
+import { toNotchianYaw, toNotchianPitch } from '../conversions.ts'
+import prismarineItem from 'prismarine-item'
+import prismarineWindows from 'prismarine-windows'
+import prismarineChat from 'prismarine-chat'
 
-module.exports = inject
+export default inject
 
 // ms to wait before clicking on a tool so the server can send the new
 // damage information
@@ -23,9 +26,9 @@ const ALWAYS_CONSUMABLES = [
 ]
 
 function inject (bot, { hideErrors }) {
-  const Item = require('prismarine-item')(bot.registry)
-  const windows = require('prismarine-windows')(bot.version)
-  const ChatMessage = require('prismarine-chat')(bot.registry)
+  const Item = prismarineItem(bot.registry)
+  const windows = prismarineWindows(bot.version)
+  const ChatMessage = prismarineChat(bot.registry)
 
   let eatingTask = createDoneTask()
 

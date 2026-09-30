@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = inject
+export default inject
 
 const QUICK_BAR_COUNT = 9
 const QUICK_BAR_START = 36

@@ -1,11 +1,12 @@
-const assert = require('assert')
-const { sleep } = require('../promise_utils')
-const { once } = require('../promise_utils')
+import assert from 'assert'
+import { sleep } from '../promise_utils.ts'
+import { once } from '../promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   const matchWindowType = window => /minecraft:(?:chipped_|damaged_)?anvil/.test(window.type)
 

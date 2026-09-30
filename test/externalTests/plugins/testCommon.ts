@@ -1,14 +1,13 @@
-const { Vec3 } = require('vec3')
-
-const { spawn } = require('child_process')
-const { once } = require('../../../lib/promise_utils')
-const process = require('process')
-const assert = require('assert')
-const { sleep, onceWithCleanup } = require('../../../lib/promise_utils')
-const trace = require('../../common/trace')
+import { Vec3 } from 'vec3'
+import { spawn } from 'child_process'
+import { once } from '../../../lib/promise_utils.ts'
+import process from 'process'
+import assert from 'assert'
+import { sleep, onceWithCleanup } from '../../../lib/promise_utils.ts'
+import * as trace from '../../common/trace.ts'
 
 const timeout = 5000
-module.exports = inject
+export default inject
 
 function inject (bot, wrap) {
   console.log(bot.version)

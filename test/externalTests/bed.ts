@@ -1,7 +1,7 @@
-const assert = require('assert')
-const { once, onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { once, onceWithCleanup } from '../../lib/promise_utils.ts'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   // The bed is placed relative to the bot; blockAt cannot see it until the
   // surrounding chunks are loaded.
   await bot.waitForChunksToLoad()

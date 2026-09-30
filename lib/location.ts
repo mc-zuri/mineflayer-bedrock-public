@@ -1,4 +1,5 @@
-const { Vec3 } = require('vec3')
+import { Vec3 } from 'vec3'
+
 const CHUNK_SIZE = new Vec3(16, 16, 16)
 
 class Location {
@@ -11,4 +12,4 @@ class Location {
     this.chunkYIndex = Math.floor(absoluteVector.y / 16)
   }
 }
-module.exports = Location
+export default Location

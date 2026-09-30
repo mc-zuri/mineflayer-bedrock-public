@@ -1,7 +1,7 @@
-const assert = require('assert')
-const { once, onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { once, onceWithCleanup } from '../../lib/promise_utils.ts'
 
-module.exports = (version) => async (bot) => {
+export default (version) => async (bot) => {
   // Skip test for versions older than 1.13 (bossbar command not available)
   if (bot.registry.isOlderThan('1.13')) return
 

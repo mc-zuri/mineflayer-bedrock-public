@@ -1,10 +1,11 @@
-const assert = require('assert')
-const { onceWithCleanup } = require('../promise_utils')
+import assert from 'assert'
+import { onceWithCleanup } from '../promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   let editBook
   if (bot.supportFeature('editBookIsPluginChannel')) {

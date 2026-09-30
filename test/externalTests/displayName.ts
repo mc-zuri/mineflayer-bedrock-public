@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   const player = bot.players[bot.username]
   assert.strictEqual(player.displayName.toString(), bot.username)
 }

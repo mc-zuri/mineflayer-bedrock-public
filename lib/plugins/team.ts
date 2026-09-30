@@ -1,10 +1,12 @@
-module.exports = inject
+import teamModule from '../team.ts'
+
+export default inject
 
 // TODO: apply this to all versions and rename scoreboard_team -> teams in minecraft-data
 const TEAM_MODES = ['add', 'remove', 'change', 'join', 'leave']
 
 function inject (bot) {
-  const Team = require('../team')(bot.registry)
+  const Team = teamModule(bot.registry)
   const teams = {}
 
   function teamHandler (packet) {

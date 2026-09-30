@@ -1,7 +1,7 @@
-const assert = require('assert')
-const { onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { onceWithCleanup } from '../../lib/promise_utils.ts'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   await bot.test.becomeSurvival()
 
   // Initial state

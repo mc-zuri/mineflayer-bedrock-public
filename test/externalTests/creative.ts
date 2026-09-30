@@ -1,9 +1,12 @@
-const assert = require('assert')
-const wait = require('util').promisify(setTimeout)
+import assert from 'assert'
+import util_ from 'util'
+import prismarineItem from 'prismarine-item'
+
+const wait = util_.promisify(setTimeout)
 const SLOT = 36
 
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
 
   const item1 = new Item(1, 1, 0)
   const item2 = new Item(2, 1, 0)

@@ -1,8 +1,8 @@
-const { Vec3 } = require('vec3')
-const assert = require('assert')
-const { onceWithCleanup } = require('../../lib/promise_utils')
+import { Vec3 } from 'vec3'
+import assert from 'assert'
+import { onceWithCleanup } from '../../lib/promise_utils.ts'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   const groundY = bot.test.groundY
 
   const testX = 10

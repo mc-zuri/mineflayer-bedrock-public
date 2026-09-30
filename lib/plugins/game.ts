@@ -1,5 +1,6 @@
-const nbt = require('prismarine-nbt')
-module.exports = inject
+import nbt from 'prismarine-nbt'
+
+export default inject
 
 const difficultyNames = ['peaceful', 'easy', 'normal', 'hard']
 const gameModes = ['survival', 'creative', 'adventure', 'spectator']

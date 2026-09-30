@@ -112,7 +112,7 @@ function withTimeout (promise, timeout) {
   ])
 }
 
-module.exports = {
+export {
   once,
   sleep,
   createTask,

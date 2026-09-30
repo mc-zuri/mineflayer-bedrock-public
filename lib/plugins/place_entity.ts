@@ -1,10 +1,11 @@
-const assert = require('assert')
-const { toNotchianYaw, toNotchianPitch } = require('../conversions')
+import assert from 'assert'
+import { toNotchianYaw, toNotchianPitch } from '../conversions.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   /**
    *

@@ -1,4 +1,4 @@
-module.exports = inject
+export default inject
 const states = ['no_respawn_block_available', 'start_raining', 'stop_raining', 'change_game_mode', 'win_game', 'demo_event', 'play_arrow_hit_sound', 'rain_level_change', 'thunder_level_change', 'puffer_fish_sting', 'guardian_elder_effect', 'immediate_respawn', 'limited_crafting', 'level_chunks_load_start']
 
 function inject (bot) {

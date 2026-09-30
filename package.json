@@ -3,6 +3,7 @@
   "version": "4.39.0",
   "description": "create minecraft bots with a stable, high level API",
   "main": "index.ts",
+  "type": "module",
   "types": "index.d.ts",
   "scripts": {
     "mocha_test": "mocha --reporter ./test/common/durationsReporter.ts --extension ts --spec \"test/*.ts\" --exit",

@@ -1,7 +1,7 @@
 // The spec reporter, plus a JSON file of { "<test full title>": <ms> } for every
 // passing test, written to $DURATIONS. CI compares it against master's run.
-const fs = require('fs')
-const { reporters, Runner } = require('mocha')
+import fs from 'fs'
+import { reporters, Runner } from 'mocha'
 
 class DurationsReporter extends reporters.Spec {
   constructor (runner, options) {
@@ -16,4 +16,5 @@ class DurationsReporter extends reporters.Spec {
   }
 }
 
-module.exports = DurationsReporter
+// mocha loads reporters with require()
+export { DurationsReporter as 'module.exports' }

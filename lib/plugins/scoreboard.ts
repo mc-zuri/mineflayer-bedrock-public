@@ -1,7 +1,9 @@
-module.exports = inject
+import scoreboardModule from '../scoreboard.ts'
+
+export default inject
 
 function inject (bot) {
-  const ScoreBoard = require('../scoreboard')(bot)
+  const ScoreBoard = scoreboardModule(bot)
   const scoreboards = {}
 
   bot._client.on('scoreboard_objective', (packet) => {

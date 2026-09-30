@@ -1,8 +1,9 @@
-const assert = require('assert')
-const { onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
 
   const furnacePos = bot.entity.position.offset(2, 0, 0).floored()
   const coalId = bot.registry.itemsByName.coal.id

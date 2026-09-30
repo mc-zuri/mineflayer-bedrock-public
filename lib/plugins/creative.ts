@@ -1,12 +1,13 @@
-const assert = require('assert')
-const { Vec3 } = require('vec3')
-const { sleep, onceWithCleanup } = require('../promise_utils')
-const { once } = require('../promise_utils')
+import assert from 'assert'
+import { Vec3 } from 'vec3'
+import { sleep, onceWithCleanup } from '../promise_utils.ts'
+import { once } from '../promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   // these features only work when you are in creative mode.
   bot.creative = {

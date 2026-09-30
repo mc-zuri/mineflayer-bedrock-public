@@ -71,7 +71,7 @@ export interface BotEvents {
   spawn: () => Promise<void> | void
   respawn: () => Promise<void> | void
   game: () => Promise<void> | void
-  title: (text: string, type: "subtitle" | "title") => Promise<void> | void
+  title: (text: string, type: 'subtitle' | 'title') => Promise<void> | void
   rain: () => Promise<void> | void
   time: () => Promise<void> | void
   kicked: (reason: string, loggedIn: boolean) => Promise<void> | void
@@ -391,8 +391,6 @@ export interface Bot extends TypedEmitter<BotEvents> {
     times?: number
   ) => Promise<void>
 
-
-
   setCommandBlock: (pos: Vec3, command: string, options: CommandBlockOptions) => void
 
   clickWindow: (
@@ -650,7 +648,7 @@ export class Location {
   biomeBlockIndex: number
   chunkYIndex: number
 
-  constructor (absoluteVector: Vec3);
+  constructor (absoluteVector: Vec3)
 }
 
 export class Painting {
@@ -659,7 +657,7 @@ export class Painting {
   name: string
   direction: Vec3
 
-  constructor (id: number, position: Vec3, name: string, direction: Vec3);
+  constructor (id: number, position: Vec3, name: string, direction: Vec3)
 }
 
 interface StorageEvents {
@@ -677,92 +675,92 @@ interface ConditionalStorageEvents extends StorageEvents {
 }
 
 export class Chest extends Window<StorageEvents> {
-  constructor ();
+  constructor ()
 
-  close (): Promise<void>;
+  close (): Promise<void>
 
   deposit (
     itemType: number,
     metadata: number | null,
     count: number | null
-  ): Promise<void>;
+  ): Promise<void>
 
   withdraw (
     itemType: number,
     metadata: number | null,
     count: number | null
-  ): Promise<void>;
+  ): Promise<void>
 }
 
 export class Furnace extends Window<FurnaceEvents> {
   fuel: number
   progress: number
 
-  constructor ();
+  constructor ()
 
-  close (): Promise<void>;
+  close (): Promise<void>
 
-  takeInput (): Promise<Item>;
+  takeInput (): Promise<Item>
 
-  takeFuel (): Promise<Item>;
+  takeFuel (): Promise<Item>
 
-  takeOutput (): Promise<Item>;
+  takeOutput (): Promise<Item>
 
   putInput (
     itemType: number,
     metadata: number | null,
     count: number
-  ): Promise<void>;
+  ): Promise<void>
 
   putFuel (
     itemType: number,
     metadata: number | null,
     count: number
-  ): Promise<void>;
+  ): Promise<void>
 
-  inputItem (): Item;
+  inputItem (): Item
 
-  fuelItem (): Item;
+  fuelItem (): Item
 
-  outputItem (): Item;
+  outputItem (): Item
 }
 
 export class Dispenser extends Window<StorageEvents> {
-  constructor ();
+  constructor ()
 
-  close (): Promise<void>;
+  close (): Promise<void>
 
   deposit (
     itemType: number,
     metadata: number | null,
     count: number | null
-  ): Promise<void>;
+  ): Promise<void>
 
   withdraw (
     itemType: number,
     metadata: number | null,
     count: number | null
-  ): Promise<void>;
+  ): Promise<void>
 }
 
 export class EnchantmentTable extends Window<ConditionalStorageEvents> {
   enchantments: Enchantment[]
 
-  constructor ();
+  constructor ()
 
-  close (): Promise<void>;
+  close (): Promise<void>
 
-  targetItem (): Item;
+  targetItem (): Item
 
   enchant (
     choice: string | number
-  ): Promise<Item>;
+  ): Promise<Item>
 
-  takeTargetItem (): Promise<Item>;
+  takeTargetItem (): Promise<Item>
 
-  putTargetItem (item: Item): Promise<Item>;
+  putTargetItem (item: Item): Promise<Item>
 
-  putLapis (item: Item): Promise<Item>;
+  putLapis (item: Item): Promise<Item>
 }
 
 export class Anvil {
@@ -778,9 +776,9 @@ export interface Enchantment {
 export class Villager extends Window<ConditionalStorageEvents> {
   trades: VillagerTrade[]
 
-  constructor ();
+  constructor ()
 
-  close (): Promise<void>;
+  close (): Promise<void>
 }
 
 export interface VillagerTrade {
@@ -804,13 +802,13 @@ export class ScoreBoard {
   itemsMap: { [name: string]: ScoreBoardItem }
   items: ScoreBoardItem[]
 
-  constructor (packet: object);
+  constructor (packet: object)
 
-  setTitle (title: string): void;
+  setTitle (title: string): void
 
-  add(name: string, value: number): ScoreBoardItem;
+  add (name: string, value: number): ScoreBoardItem
 
-  remove (name: string): ScoreBoardItem;
+  remove (name: string): ScoreBoardItem
 }
 
 export interface ScoreBoardItem {
@@ -831,17 +829,17 @@ export class Team {
   memberMap: { [name: string]: '' }
   members: string[]
 
-  constructor(team: string, name: string, friendlyFire: boolean, nameTagVisibility: string, collisionRule: string, formatting: number, prefix: string, suffix: string);
+  constructor (team: string, name: string, friendlyFire: boolean, nameTagVisibility: string, collisionRule: string, formatting: number, prefix: string, suffix: string)
 
-  parseMessage (value: string): ChatMessage;
+  parseMessage (value: string): ChatMessage
 
-  add (name: string, value: number): void;
+  add (name: string, value: number): void
 
-  remove (name: string): void;
+  remove (name: string): void
 
-  update (name: string, friendlyFire: boolean, nameTagVisibility: string, collisionRule: string, formatting: number, prefix: string, suffix: string): void;
+  update (name: string, friendlyFire: boolean, nameTagVisibility: string, collisionRule: string, formatting: number, prefix: string, suffix: string): void
 
-  displayName (member: string): ChatMessage;
+  displayName (member: string): ChatMessage
 }
 
 export type DisplaySlot =
@@ -883,7 +881,7 @@ export class BossBar {
     dividers: number,
     color: number,
     flags: number
-  );
+  )
 }
 
 export class Particle {
@@ -893,16 +891,16 @@ export class Particle {
   count: number
   movementSpeed: number
   longDistanceRender: boolean
-  static fromNetwork(packet: Object): Particle
+  static fromNetwork (packet: Object): Particle
 
-  constructor(
+  constructor (
     id: number,
     position: Vec3,
     offset: Vec3,
     count?: number,
     movementSpeed?: number,
     longDistanceRender?: boolean
-  );
+  )
 }
 
 export let testedVersions: string[]

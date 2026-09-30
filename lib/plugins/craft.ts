@@ -1,11 +1,13 @@
-const assert = require('assert')
-const { once } = require('../promise_utils')
+import assert from 'assert'
+import { once } from '../promise_utils.ts'
+import prismarineItem from 'prismarine-item'
+import prismarineRecipe from 'prismarine-recipe'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
-  const Item = require('prismarine-item')(bot.registry)
-  const Recipe = require('prismarine-recipe')(bot.registry).Recipe
+  const Item = prismarineItem(bot.registry)
+  const Recipe = prismarineRecipe(bot.registry).Recipe
   let windowCraftingTable
 
   async function craft (recipe, count, craftingTable) {

@@ -1,7 +1,8 @@
-const assert = require('assert')
+import assert from 'assert'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
 
   const lapisId = bot.registry.itemsByName.lapis_lazuli ? bot.registry.itemsByName.lapis_lazuli.id : bot.registry.itemsByName.dye.id
   const lapisData = bot.registry.itemsByName.lapis_lazuli ? 0 : 4

@@ -1,7 +1,9 @@
-const assert = require('assert')
-const { BlockFace } = require('prismarine-world').iterators
+import assert from 'assert'
+import prismarineWorld from 'prismarine-world'
 
-module.exports = () => async (bot) => {
+const { BlockFace } = prismarineWorld.iterators
+
+export default () => async (bot) => {
   const { position } = bot.entity
   await bot.lookAt(position.offset(0, 3, 0), true)
 

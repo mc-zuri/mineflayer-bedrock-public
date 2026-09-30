@@ -1,10 +1,11 @@
-const assert = require('assert')
-const Vec3 = require('vec3')
-const { once, sleep, onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import Vec3 from 'vec3'
+import { once, sleep, onceWithCleanup } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   // Test spawn event on death
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
   const portalName = bot.registry.blocksByName.nether_portal ? 'nether_portal' : 'portal'
 
   let signItem = null

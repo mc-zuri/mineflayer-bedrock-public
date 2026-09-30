@@ -1,8 +1,8 @@
 // Usage: node test/common/compareDurations.js <baselineDir> <currentDir> <slowerFile>
 // Writes every test that got more than 2x slower than master's baseline to <slowerFile>,
 // one line each, so CI can post them as a PR comment. Never fails: durations are noisy.
-const fs = require('fs')
-const path = require('path')
+import fs from 'fs'
+import path from 'path'
 
 const [baselineDir, currentDir, slowerFile] = process.argv.slice(2)
 const FACTOR = 2

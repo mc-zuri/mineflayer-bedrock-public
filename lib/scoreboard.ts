@@ -1,11 +1,13 @@
+import prismarineChat from 'prismarine-chat'
+
 const sortItems = (a, b) => {
   if (a.value > b.value) return -1
   if (a.value < b.value) return 1
   return 1
 }
 
-module.exports = (bot) => {
-  const ChatMessage = require('prismarine-chat')(bot.registry)
+export default (bot) => {
+  const ChatMessage = prismarineChat(bot.registry)
 
   class ScoreBoard {
     constructor (packet) {

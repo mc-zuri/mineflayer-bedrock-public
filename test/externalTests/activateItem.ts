@@ -1,8 +1,9 @@
-const assert = require('assert')
-const { onceWithCleanup } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
 
   await bot.test.becomeCreative()
   await bot.test.clearInventory()

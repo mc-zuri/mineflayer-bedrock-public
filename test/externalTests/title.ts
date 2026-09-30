@@ -1,6 +1,6 @@
-const { once } = require('../../lib/promise_utils')
+import { once } from '../../lib/promise_utils.ts'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   // Test title
   bot.chat('/title @a title {"text":"Test Title"}')
   const [title, type] = await once(bot, 'title', 2000)

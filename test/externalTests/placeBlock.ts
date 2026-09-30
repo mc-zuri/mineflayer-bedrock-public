@@ -1,8 +1,9 @@
-const assert = require('assert')
-const { Vec3 } = require('vec3')
-const { once } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { Vec3 } from 'vec3'
+import { once } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => {
+export default () => {
   const tests = []
 
   function addTest (name, f) {
@@ -13,7 +14,7 @@ module.exports = () => {
   const target = bot => new Vec3(1, bot.test.groundY, 0)
 
   async function holdDirt (bot) {
-    const Item = require('prismarine-item')(bot.registry)
+    const Item = prismarineItem(bot.registry)
     await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.dirt.id, 1, 0))
   }
 
@@ -56,7 +57,7 @@ module.exports = () => {
   })
 
   addTest('rejects when the held item cannot be placed', async (bot) => {
-    const Item = require('prismarine-item')(bot.registry)
+    const Item = prismarineItem(bot.registry)
     await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.stick.id, 1, 0))
     await expectRefusal(bot, bot.test.placeBlock(36, target(bot)), 'stick')
     assert.strictEqual(bot.blockAt(target(bot)).name, 'air')

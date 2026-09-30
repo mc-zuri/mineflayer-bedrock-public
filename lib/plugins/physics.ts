@@ -1,13 +1,13 @@
-const { Vec3 } = require('vec3')
-const assert = require('assert')
-const math = require('../math')
-const conv = require('../conversions')
-const { performance } = require('perf_hooks')
-const { createDoneTask, createTask } = require('../promise_utils')
+import { Vec3 } from 'vec3'
+import assert from 'assert'
+import * as math from '../math.ts'
+import * as conv from '../conversions.ts'
+import { performance } from 'perf_hooks'
+import { createDoneTask, createTask } from '../promise_utils.ts'
+import { Physics, PlayerState } from 'prismarine-physics'
+import minecraftData from 'minecraft-data'
 
-const { Physics, PlayerState } = require('prismarine-physics')
-
-module.exports = inject
+export default inject
 
 const PI = Math.PI
 const PI_2 = Math.PI * 2
@@ -237,7 +237,7 @@ function inject (bot, { physicsEnabled, maxCatchupTicks }) {
       throw new Error('Unable to elytra fly while in water')
     }
 
-    const mcData = require('minecraft-data')(bot.version)
+    const mcData = minecraftData(bot.version)
     if (getEffectLevel(mcData, 'Levitation', bot.entity.effects) > 0) {
       throw new Error('Unable to elytra fly with levitation effect')
     }

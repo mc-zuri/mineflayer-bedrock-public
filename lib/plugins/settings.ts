@@ -1,6 +1,6 @@
-const assert = require('assert')
+import assert from 'assert'
 
-module.exports = inject
+export default inject
 
 const chatToBits = {
   enabled: 0,

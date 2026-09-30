@@ -1,6 +1,6 @@
-const { onceWithCleanup } = require('../promise_utils')
+import { onceWithCleanup } from '../promise_utils.ts'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
   // Placements in flight per destination. The server's replies carry no

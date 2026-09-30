@@ -1,7 +1,7 @@
-const mineflayer = require('mineflayer')
-const { once } = require('../../lib/promise_utils')
+import mineflayer from 'mineflayer'
+import { once } from '../../lib/promise_utils.ts'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   // Test spawn event on login
   const spawnBot = mineflayer.createBot({
     username: 'spawnbot',

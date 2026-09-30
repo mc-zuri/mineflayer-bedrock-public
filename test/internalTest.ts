@@ -1,20 +1,24 @@
-/* eslint-env mocha */
-
-const mineflayer = require('../')
-const vec3 = require('vec3')
-const mc = require('minecraft-protocol')
-const assert = require('assert')
-const { sleep } = require('../lib/promise_utils')
-const nbt = require('prismarine-nbt')
-const { once, onceWithCleanup } = require('../lib/promise_utils')
-const { EventEmitter } = require('events')
-const { getPort } = require('./common/util')
+import * as mineflayer from '../index.ts'
+import vec3 from 'vec3'
+import mc from 'minecraft-protocol'
+import assert from 'assert'
+import { sleep } from '../lib/promise_utils.ts'
+import nbt from 'prismarine-nbt'
+import { once, onceWithCleanup } from '../lib/promise_utils.ts'
+import { EventEmitter } from 'events'
+import { getPort } from './common/util.ts'
+import prismarineRegistry from 'prismarine-registry'
+import prismarineChunk from 'prismarine-chunk'
+import prismarineItem from 'prismarine-item'
+import resourcePackModule from '../lib/plugins/resource_pack.ts'
+import prismarineWindows from 'prismarine-windows'
+import * as conversionsModule from '../lib/conversions.ts'
 
 for (const supportedVersion of mineflayer.testedVersions) {
-  const registry = require('prismarine-registry')(supportedVersion)
+  const registry = prismarineRegistry(supportedVersion)
   const version = registry.version
-  const Chunk = require('prismarine-chunk')(supportedVersion)
-  const Item = require('prismarine-item')(registry)
+  const Chunk = prismarineChunk(supportedVersion)
+  const Item = prismarineItem(registry)
 
   const hasSignedChat = registry.supportFeature('signedChat')
   function chatText (text) {
@@ -682,7 +686,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         const fakeBot = new EventEmitter()
         fakeBot._client = client
         fakeBot.supportFeature = registry.supportFeature.bind(registry)
-        require('../lib/plugins/resource_pack')(fakeBot)
+        resourcePackModule(fakeBot)
 
         client.emit('add_resource_pack', {
           uuid: packUuid,
@@ -814,7 +818,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
 
       it('window titles are ChatMessages whatever shape the server sends', async () => {
-        const Item = require('prismarine-item')(registry)
+        const Item = prismarineItem(registry)
         // A component title plus the bare-string form third-party servers send.
         const titles = registry.supportFeature('chatPacketsUseNbtComponents')
           ? [nbt.comp({ text: nbt.string('Test Chest') }), nbt.string('Test Chest')]
@@ -1740,7 +1744,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
     describe('heldItemChanged', () => {
       it('emits heldItemChanged when the held slot is updated via set_slot', (done) => {
-        const Item = require('prismarine-item')(supportedVersion)
+        const Item = prismarineItem(supportedVersion)
         const QUICK_BAR_SLOT = 0
         const HOTBAR_START = 36
         const stoneId = registry.itemsByName.stone.id
@@ -1769,7 +1773,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
 
       it('emits heldItemChanged via updateSlot on the inventory', (done) => {
-        const Item = require('prismarine-item')(supportedVersion)
+        const Item = prismarineItem(supportedVersion)
         const QUICK_BAR_SLOT = 0
         const stoneId = registry.itemsByName.stone.id
         const stoneItem = new Item(stoneId, 1)
@@ -1881,8 +1885,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
     })
 
     describe('windows', () => {
-      const Item = require('prismarine-item')(supportedVersion)
-      const pWindows = require('prismarine-windows')(supportedVersion)
+      const Item = prismarineItem(supportedVersion)
+      const pWindows = prismarineWindows(supportedVersion)
       // legacy 'minecraft:chest' has a dynamic size resolved from the packet's
       // slotCount (container slots only); the modern equivalent is fixed
       const chestData = pWindows.windows['minecraft:generic_9x3'] ?? { type: 'minecraft:chest', slots: 63 }
@@ -2254,7 +2258,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           this.skip()
           return
         }
-        const { toNotchianYaw, toNotchianPitch } = require('../lib/conversions')
+        const { toNotchianYaw, toNotchianPitch } = conversionsModule
         const testYaw = 1.5
         const testPitch = -0.3
         server.on('playerJoin', async (client) => {
@@ -2475,7 +2479,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
               bot._client.emit('player_rotation', { yaw: 90, pitch: 0 })
               await once(bot, 'forcedMove')
               assert.deepStrictEqual(replies, [30], 'the teleport is answered with its own rotation')
-              assert.strictEqual(bot.entity.yaw, require('../lib/conversions').fromNotchianYaw(90), 'the later rotation wins')
+              assert.strictEqual(bot.entity.yaw, conversionsModule.fromNotchianYaw(90), 'the later rotation wins')
             } finally {
               bot._client.write = write
             }

@@ -1,11 +1,12 @@
-const assert = require('assert')
+import assert from 'assert'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   // don't continue unless this version supports elytra
   if (!bot.supportFeature('hasElytraFlying')) return
   const supportsFireworkRockets = bot.supportFeature('fireworkNamePlural') || bot.supportFeature('fireworkNameSingular')
 
-  const Item = require('prismarine-item')(bot.registry)
+  const Item = prismarineItem(bot.registry)
 
   await bot.test.setInventorySlot(6, new Item(bot.registry.itemsByName.elytra.id, 1))
   if (supportsFireworkRockets) {

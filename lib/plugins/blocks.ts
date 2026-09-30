@@ -1,11 +1,14 @@
-const { Vec3 } = require('vec3')
-const assert = require('assert')
-const Painting = require('../painting')
-const { onceWithCleanup } = require('../promise_utils')
+import { Vec3 } from 'vec3'
+import assert from 'assert'
+import Painting from '../painting.ts'
+import { onceWithCleanup } from '../promise_utils.ts'
+import prismarineWorld from 'prismarine-world'
+import prismarineBlock from 'prismarine-block'
+import prismarineChunk from 'prismarine-chunk'
 
-const { OctahedronIterator } = require('prismarine-world').iterators
+const { OctahedronIterator } = prismarineWorld.iterators
 
-module.exports = inject
+export default inject
 
 const paintingFaceToVec = [
   new Vec3(0, 0, -1),
@@ -21,9 +24,9 @@ const dimensionNames = {
 }
 
 function inject (bot, { version, storageBuilder, hideErrors }) {
-  const Block = require('prismarine-block')(bot.registry)
-  const Chunk = require('prismarine-chunk')(bot.registry)
-  const World = require('prismarine-world')(bot.registry)
+  const Block = prismarineBlock(bot.registry)
+  const Chunk = prismarineChunk(bot.registry)
+  const World = prismarineWorld(bot.registry)
   const paintingsByPos = {}
   const paintingsById = {}
 

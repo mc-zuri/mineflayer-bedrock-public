@@ -1,8 +1,9 @@
-const assert = require('assert')
-const { once } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { once } from '../../lib/promise_utils.ts'
+import prismarineItem from 'prismarine-item'
 
-module.exports = () => async (bot) => {
-  const Item = require('prismarine-item')(bot.registry)
+export default () => async (bot) => {
+  const Item = prismarineItem(bot.registry)
 
   const maxUses = 3
   const trades = maxUses - 1 // each trade starts with one use spent

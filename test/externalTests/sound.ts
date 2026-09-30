@@ -1,7 +1,7 @@
-const assert = require('assert')
-const { once } = require('../../lib/promise_utils')
+import assert from 'assert'
+import { once } from '../../lib/promise_utils.ts'
 
-module.exports = () => async (bot) => {
+export default () => async (bot) => {
   // Helper function to check if positions are close enough
   const positionsAreClose = (pos1, pos2, tolerance = 1.0) => {
     return Math.abs(pos1.x - pos2.x) <= tolerance &&

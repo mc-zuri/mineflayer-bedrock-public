@@ -1,11 +1,13 @@
-module.exports = inject
+import prismarineChat from 'prismarine-chat'
+
+export default inject
 
 const escapeValueNewlines = str => {
   return str.replace(/(": *"(?:\\"|[^"])+")/g, (_, match) => match.replace(/\n/g, '\\n'))
 }
 
 function inject (bot) {
-  const ChatMessage = require('prismarine-chat')(bot.registry)
+  const ChatMessage = prismarineChat(bot.registry)
 
   bot.tablist = {
     header: new ChatMessage(''),

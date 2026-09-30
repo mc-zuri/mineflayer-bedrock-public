@@ -1,7 +1,7 @@
-const assert = require('assert')
-const { ProtoDef } = require('protodef')
+import assert from 'assert'
+import { ProtoDef } from 'protodef'
 
-module.exports = inject
+export default inject
 
 function inject (bot) {
   function setCommandBlock (pos, command, options = {}) {

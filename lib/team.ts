@@ -1,3 +1,5 @@
+import prismarineChat from 'prismarine-chat'
+
 function colorString (color) {
   const formatting = [
     'black',
@@ -28,7 +30,7 @@ function colorString (color) {
 }
 
 function loader (registry) {
-  const ChatMessage = require('prismarine-chat')(registry)
+  const ChatMessage = prismarineChat(registry)
   const MessageBuilder = ChatMessage.MessageBuilder
   return class Team {
     constructor (team, name, friendlyFire, nameTagVisibility, collisionRule, formatting, prefix, suffix) {
@@ -83,4 +85,4 @@ function loader (registry) {
   }
 }
 
-module.exports = loader
+export default loader

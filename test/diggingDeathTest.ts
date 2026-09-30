@@ -1,8 +1,6 @@
-/* eslint-env mocha */
-
-const EventEmitter = require('events')
-const assert = require('assert')
-const inject = require('../lib/plugins/digging')
+import EventEmitter from 'events'
+import assert from 'assert'
+import inject from '../lib/plugins/digging.ts'
 
 describe('digging plugin death handler', () => {
   function createMockBot () {

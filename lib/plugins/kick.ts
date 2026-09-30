@@ -1,4 +1,4 @@
-module.exports = inject
+export default inject
 
 function inject (bot) {
   bot._client.on('kick_disconnect', (packet) => {

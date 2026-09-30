@@ -1,10 +1,8 @@
-/* eslint-env mocha */
-
-const assert = require('assert')
-const fs = require('fs')
-const os = require('os')
-const path = require('path')
-const { execFileSync } = require('child_process')
+import assert from 'assert'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { execFileSync } from 'child_process'
 
 describe('packet trace', () => {
   const RECORDS = 40
@@ -12,7 +10,7 @@ describe('packet trace', () => {
 
   // Records posted before an immediate process.exit must still reach disk.
   const child = `
-    const trace = require(${JSON.stringify(path.resolve(__dirname, 'common/trace.js'))})
+    const trace = require(${JSON.stringify(path.resolve(import.meta.dirname, 'common/trace.ts'))})
     const data = Buffer.alloc(${CHUNK_BYTES}, 1)
     const start = process.hrtime.bigint()
     for (let i = 0; i < ${RECORDS}; i++) trace.packet('S2C', 'map_chunk_bulk', { i, data })

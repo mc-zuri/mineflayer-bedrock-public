@@ -1,6 +1,10 @@
-const { Vec3 } = require('vec3')
-const conv = require('../conversions')
-const mojangson = require('mojangson')
+import { Vec3 } from 'vec3'
+import * as conv from '../conversions.ts'
+import mojangson from 'mojangson'
+import prismarineEntity from 'prismarine-entity'
+import prismarineItem from 'prismarine-item'
+import prismarineChat from 'prismarine-chat'
+
 // These values are only accurate for versions 1.14 and above (crouch hitbox changes)
 // Todo: hitbox sizes for sleeping, swimming/crawling, and flying with elytra
 const PLAYER_HEIGHT = 1.8
@@ -9,7 +13,7 @@ const PLAYER_WIDTH = 0.6
 const PLAYER_EYEHEIGHT = 1.62
 const CROUCH_EYEHEIGHT = 1.27
 
-module.exports = inject
+export default inject
 
 const animationEvents = {
   0: 'entitySwingArm',
@@ -32,9 +36,9 @@ const entityStatusEvents = {
 
 function inject (bot) {
   const { mobs } = bot.registry
-  const Entity = require('prismarine-entity')(bot.version)
-  const Item = require('prismarine-item')(bot.version)
-  const ChatMessage = require('prismarine-chat')(bot.registry)
+  const Entity = prismarineEntity(bot.version)
+  const Item = prismarineItem(bot.version)
+  const ChatMessage = prismarineChat(bot.registry)
 
   // ONLY 1.17 has this destroy_entity packet which is the same thing as entity_destroy packet except the entity is singular
   // 1.17.1 reverted this change so this is just a simpler fix
