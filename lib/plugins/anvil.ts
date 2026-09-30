@@ -60,7 +60,8 @@ function inject (bot: BotInternal): void {
       if (normalCost === 0 && inverseCost === 0) err('Not anvil-able (in either direction), cancelling.')
 
       const smallest = (normalCost < inverseCost ? normalCost : inverseCost) === 0 ? inverseCost : 0
-      if (bot.game.gameMode !== 'creative' && bot.experience.level < smallest) {
+      // level is null until the first experience packet, which compares as 0
+      if (bot.game.gameMode !== 'creative' && bot.experience.level! < smallest) {
         err('Player does not have enough xp to do action, cancelling.')
       }
 
@@ -84,7 +85,7 @@ function inject (bot: BotInternal): void {
       const { xpCost: normalCost } = Item.anvil(item, null, bot.game.gameMode === 'creative', name)
       if (normalCost === 0) err('Not valid rename, cancelling.')
 
-      if (bot.game.gameMode !== 'creative' && bot.experience.level < normalCost) {
+      if (bot.game.gameMode !== 'creative' && bot.experience.level! < normalCost) {
         err('Player does not have enough xp to do action, cancelling.')
       }
       const xpPromise = once(bot, 'experience')
