@@ -380,11 +380,19 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
             await once(bot, 'chunkColumnLoad')
 
+            // 1.21.2+: the packet carries a velocity (dx/dy/dz). Like vanilla (PositionMoveRotation.calculateAbsolute)
+            // the velocity is then absolute or, with the dx/dy/dz flags, added to the current one; the x/y/z
+            // flags only make the position relative. Before 1.21.2 the x/y/z flags keep the velocity, else it is 0.
+            const hasVelocity = bot.registry.version['>=']('1.21.3')
+
             // --- Test 1: Absolute Position ---
             const absolutePositionPacket = {
               x: 1.5,
               y: 80,
               z: 1.5,
+              dx: 0, // 1.21.2+
+              dy: 0,
+              dz: 0,
               pitch: 0,
               yaw: 0,
               teleportId: 1,
@@ -406,6 +414,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
               x: 1.0,
               y: -2.0,
               z: 0.5,
+              dx: 0.25, // 1.21.2+: absolute velocity (no dx/dy/dz flags)
+              dy: 0.5,
+              dz: -0.25,
               pitch: 0,
               yaw: 0,
               teleportId: 2,
@@ -422,8 +433,40 @@ for (const supportedVersion of mineflayer.testedVersions) {
             const afterRelative = await p2
 
             // Assertions for relative teleport
-            assert.notStrictEqual(afterRelative.velocity.y, 0, 'Velocity should be preserved after a relative teleport')
+            if (hasVelocity) {
+              assert.deepStrictEqual(afterRelative.velocity, vec3(0.25, 0.5, -0.25), 'Velocity should be the packet velocity')
+            } else {
+              assert.notStrictEqual(afterRelative.velocity.y, 0, 'Velocity should be preserved after a relative teleport')
+            }
             assert.deepStrictEqual(afterRelative.position, expectedPosition, 'Position should be updated relatively')
+
+            if (hasVelocity) {
+              // --- Test 3: relative velocity, turned with the rotation (yawDelta) ---
+              // set the state as the packet arrives, so no physics tick changes it in between
+              bot._client.prependOnceListener('position', () => {
+                bot.entity.yaw = Math.PI // Notchian yaw 0
+                bot.entity.pitch = 0
+                bot.entity.velocity.set(1, -1, 0)
+              })
+              const p3 = onForcedMove()
+              client.write('position', {
+                x: 0,
+                y: 0,
+                z: 0,
+                dx: 0,
+                dy: 0.5,
+                dz: 0,
+                pitch: 0,
+                yaw: 90,
+                teleportId: 3,
+                flags: { x: true, y: true, z: true, yaw: false, pitch: false, dx: true, dy: true, dz: true, yawDelta: true }
+              })
+              const afterRotate = await p3
+              // turning from yaw 0 to 90 turns the +x velocity into +z; dy is added to the current y velocity
+              assert.ok(Math.abs(afterRotate.velocity.x) < 1e-9, `x velocity ${afterRotate.velocity.x}`)
+              assert.strictEqual(afterRotate.velocity.y, -0.5)
+              assert.ok(Math.abs(afterRotate.velocity.z - 1) < 1e-9, `z velocity ${afterRotate.velocity.z}`)
+            }
 
             done()
           } catch (err) {
@@ -536,6 +579,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
             x: 1.5,
             y: 80,
             z: 1.5,
+            dx: 0, // 1.21.2+
+            dy: 0,
+            dz: 0,
             pitch: 0,
             yaw: 0,
             flags: bot.supportFeature('positionPacketHasBitflags') ? { x: false, y: false, z: false, yaw: false, pitch: false } : 0,
@@ -754,6 +800,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
           x: 1.5,
           y: 80,
           z: 1.5,
+          dx: 0, // 1.21.2+
+          dy: 0,
+          dz: 0,
           pitch: 0,
           yaw: 0,
           flags: 0,
@@ -1687,6 +1736,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
           x: playerPos.x,
           y: playerPos.y,
           z: playerPos.z,
+          dx: 0, // 1.21.2+
+          dy: 0,
+          dz: 0,
           yaw: 0,
           pitch: 0,
           flags: 0,

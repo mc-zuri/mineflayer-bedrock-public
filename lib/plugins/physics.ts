@@ -425,8 +425,29 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     let newYaw: number, newPitch: number
 
     // Note: 1.20.5+ uses a bitflags object, older versions use a bitmask number
-    if (typeof packet.flags === 'object') {
-      // Modern path with bitflags object
+    if (typeof packet.flags === 'object' && packet.dx !== undefined) {
+      // 1.21.2+: the packet carries a velocity, like vanilla PositionMoveRotation.calculateAbsolute.
+      // Position and rotation are absolute or, with their flag, relative; the pitch is clamped.
+      const flags = packet.flags
+      pos.set(
+        (flags.x ? pos.x : 0) + packet.x,
+        (flags.y ? pos.y : 0) + packet.y,
+        (flags.z ? pos.z : 0) + packet.z
+      )
+      const oldYaw = conv.toNotchianYaw(bot.entity.yaw)
+      const oldPitch = conv.toNotchianPitch(bot.entity.pitch)
+      newYaw = (flags.yaw ? oldYaw : 0) + packet.yaw
+      newPitch = math.clamp(-90, (flags.pitch ? oldPitch : 0) + packet.pitch, 90)
+      // yawDelta (rotate delta): the kept velocity turns with the rotation change
+      if (flags.yawDelta) math.rotateDeltaMovement(vel, oldPitch - newPitch, oldYaw - newYaw)
+      // The velocity is absolute or, with its dx/dy/dz flag, added to the current one
+      vel.set(
+        (flags.dx ? vel.x : 0) + packet.dx,
+        (flags.dy ? vel.y : 0) + packet.dy!,
+        (flags.dz ? vel.z : 0) + packet.dz!
+      )
+    } else if (typeof packet.flags === 'object') {
+      // 1.20.5 - 1.21.1: bitflags object
       // Velocity is only set to 0 if the flag is not set, otherwise keep current velocity
       vel.set(
         packet.flags.x ? vel.x : 0,
