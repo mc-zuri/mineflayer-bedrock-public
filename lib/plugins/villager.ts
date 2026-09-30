@@ -90,7 +90,7 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
     assert.strictEqual(villagerEntity.entityType, villagerType)
     let ready = false
 
-    const villagerPromise: Promise<OpeningVillager> = bot.openEntity(villagerEntity)
+    const villagerPromise = bot.openEntity(villagerEntity) as Promise<OpeningVillager> // emits ready (below) and close
     // one listener for the packet or the channel: gotTrades takes both shapes
     bot._client.on(tradeListPacket as ChannelName, gotTrades)
     const villager = await villagerPromise

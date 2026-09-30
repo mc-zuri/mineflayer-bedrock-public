@@ -79,7 +79,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
   // 0-8, null = uninitialized
   // which quick bar slot is selected
   bot.quickBarSlot = null as unknown as number // number once the server's held_item_slot arrives (login)
-  bot.inventory = windows.createWindow(0, 'minecraft:inventory', 'Inventory')
+  bot.inventory = windows.createWindow<StorageEvents>(0, 'minecraft:inventory', 'Inventory')
   bot.currentWindow = null
   bot.usingHeldItem = false
 
@@ -407,7 +407,8 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     }
   }
 
-  function extendWindow (window: Window<StorageEvents> & Partial<WindowMethods>): asserts window is OpenedWindow {
+  // any window: the event map its type declares does not matter here
+  function extendWindow (window: Window<any> & Partial<WindowMethods>): asserts window is OpenedWindow {
     window.close = () => {
       const closed = closeWindow(window)
       window.emit('close')

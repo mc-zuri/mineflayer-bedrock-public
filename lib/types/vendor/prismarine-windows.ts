@@ -22,6 +22,7 @@ declare module 'prismarine-windows' {
   }
 
   interface WindowsExports {
-    createWindow (id: number, type: number | string, title: string | ChatMessage, slotCount?: number): Window
+    /** T: the events the caller emits on the window besides updateSlot / updateSlot:<slot> */
+    createWindow<T = unknown> (id: number, type: number | string, title: string | ChatMessage, slotCount?: number): Window<T>
   }
 }
