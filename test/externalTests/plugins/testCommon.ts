@@ -5,24 +5,77 @@ import process from 'process'
 import assert from 'assert'
 import { sleep, onceWithCleanup } from '../../../lib/promise_utils.ts'
 import * as trace from '../../common/trace.ts'
+import type { Item } from 'prismarine-item'
+import type { Entity } from 'prismarine-entity'
+import type { WrapServer } from 'minecraft-wrap'
+import type {} from '../../../lib/types/vendor/minecraft-wrap.ts'
+import type { BotInternal } from '../../../lib/types/internal.ts'
+import type { TypedClient } from '../../../lib/types/protocol.ts'
+
+/** helpers this plugin adds to the bot as `bot.test` */
+export interface TestHelpers {
+  /** set by externalTest.ts after inject */
+  port?: number
+  /** set by externalTest.ts once the bot's connection ended */
+  disconnected?: boolean
+  /** nether.ts: attempt counter, to use a fresh portal spot on each retry */
+  netherAttempts?: number
+  dumpMarker: (msg: string) => void
+  groundY: number
+  sayEverywhere: (message: string) => void
+  clearInventory: () => Promise<void>
+  becomeSurvival: () => Promise<void>
+  becomeCreative: () => Promise<void>
+  fly: (delta: Vec3) => Promise<void>
+  teleport: (position: Vec3) => Promise<unknown[]>
+  resetState: () => Promise<void>
+  awaitCommandsProcessed: (marker: string) => Promise<void>
+  setInventorySlot: (targetSlot: number, item: Item | null) => Promise<void>
+  placeBlock: (slot: number, position: Vec3) => Promise<void>
+  runExample: (file: string, run: (childBotName: string) => unknown) => Promise<void>
+  tellAndListen: (to: string, what: string, listen: (message: string) => unknown) => Promise<[username: string, message: string, ...rest: unknown[]]>
+  selfKill: () => void
+  killEntity: (entity: Entity) => Promise<void>
+  wait: (ms: number) => Promise<void>
+  awaitItemReceived: (command: string) => Promise<void>
+  setBlock: (options: { x?: number, y?: number, z?: number, relative?: boolean, blockName: string }) => Promise<void>
+  abortRunningExample: () => void
+}
+
+/** the bot the external tests run against: the tests also use a few internals (_client, _getBlockAtEyeLevel) */
+export interface TestBot extends BotInternal {
+  test: TestHelpers
+}
+
+/** one e2e test: resolve (or call done) when it passed */
+export type TestFunction = (bot: TestBot, done: Mocha.Done) => unknown
+
+/** what every test/externalTests/*.ts module exports: one test, or a record of named tests */
+export type TestModule = (version: string) => TestFunction | Record<string, TestFunction>
+
+declare global {
+  interface BigInt {
+    toJSON?: () => string
+  }
+}
 
 const timeout = 5000
 export default inject
 
-function inject (bot, wrap) {
+function inject (bot: TestBot, wrap: WrapServer): void {
   console.log(bot.version)
 
-  bot.test = {}
+  bot.test = {} as TestHelpers // filled in below
   bot._client.on('packet', (data, meta) => trace.packet('S2C', meta.name, data))
   const oldWrite = bot._client.write
-  bot._client.write = function (name, data) {
+  bot._client.write = function (this: TypedClient, name, data) {
     trace.packet('C2S', name, data)
-    oldWrite.apply(this, arguments)
+    oldWrite.apply(this, arguments as unknown as Parameters<TypedClient['write']>)
   }
   bot.test.dumpMarker = msg => trace.log(msg)
   bot.once('spawn', () => {
     const orig = bot.inventory.updateSlot.bind(bot.inventory)
-    bot.inventory.updateSlot = (slot, item) => {
+    bot.inventory.updateSlot = (slot: number, item: Item | null) => {
       trace.write('MODEL', 'updateSlot', { slot, item: item ? { name: item.name, count: item.count } : null })
       return orig(slot, item)
     }
@@ -54,7 +107,7 @@ function inject (bot, wrap) {
   // setting relative to true makes x, y, & z relative using ~
   bot.test.setBlock = async ({ x = 0, y = 0, z = 0, relative, blockName }) => {
     const { x: _x, y: _y, z: _z } = relative ? bot.entity.position.floored().offset(x, y, z) : { x, y, z }
-    const block = bot.blockAt(new Vec3(_x, _y, _z))
+    const block = bot.blockAt(new Vec3(_x, _y, _z))! // next to the bot: loaded
     if (block.name === blockName) {
       return
     }
@@ -64,7 +117,7 @@ function inject (bot, wrap) {
     await p
   }
 
-  let grassName
+  let grassName: string | undefined
   if (bot.supportFeature('itemsAreNotBlocks')) {
     grassName = 'grass_block'
   } else if (bot.supportFeature('itemsAreAlsoBlocks')) {
@@ -139,7 +192,7 @@ function inject (bot, wrap) {
   // end, so a caller reading blocks a command just changed still has to wait
   // for them; but block interaction packets are not ordered behind commands
   // on 1.21.9+, so this must precede acting on such a block.
-  async function awaitCommandsProcessed (marker) {
+  async function awaitCommandsProcessed (marker: string) {
     const echo = onceWithCleanup(bot, 'messagestr', {
       timeout: 5000,
       checkCondition: (message) => message.includes(marker)
@@ -148,10 +201,10 @@ function inject (bot, wrap) {
     await echo
   }
 
-  async function placeBlock (slot, position) {
+  async function placeBlock (slot: number, position: Vec3) {
     bot.setQuickBarSlot(slot - 36)
     // always place the block on the top of the block below it, i guess.
-    const referenceBlock = bot.blockAt(position.plus(new Vec3(0, -1, 0)))
+    const referenceBlock = bot.blockAt(position.plus(new Vec3(0, -1, 0)))! // next to the bot: loaded
     return bot.placeBlock(referenceBlock, new Vec3(0, 1, 0))
   }
 
@@ -194,7 +247,7 @@ function inject (bot, wrap) {
     return setCreativeMode(false)
   }
 
-  async function setCreativeMode (value) {
+  async function setCreativeMode (value: boolean) {
     const mode = value ? 'creative' : 'survival'
     const modeId = value ? 1 : 0
     if (bot.game.gameMode === mode) return
@@ -256,16 +309,16 @@ function inject (bot, wrap) {
   }
 
   // you need to be in creative mode for this to work
-  async function setInventorySlot (targetSlot, item) {
+  async function setInventorySlot (targetSlot: number, item: Item | null) {
     assert(item === null || item.name !== 'unknown', `item should not be unknown ${JSON.stringify(item)}`)
     return bot.creative.setInventorySlot(targetSlot, item)
   }
 
-  async function teleport (position) {
+  async function teleport (position: Vec3) {
     // Integer x/z land on the block centre. 'move' also fires for periodic
     // position packets with no movement, so the wait must match the landing
     // point exactly rather than a radius the bot may already be inside.
-    const centre = (v) => Number.isInteger(v) ? v + 0.5 : v
+    const centre = (v: number) => Number.isInteger(v) ? v + 0.5 : v
     const landing = new Vec3(centre(position.x), position.y, centre(position.z))
     // Use server console for teleport — works even if bot is in a bad state
     if (bot.supportFeature('hasExecuteCommand')) {
@@ -279,17 +332,17 @@ function inject (bot, wrap) {
     })
   }
 
-  function sayEverywhere (message) {
+  function sayEverywhere (message: string) {
     if (bot.test.dumpMarker) bot.test.dumpMarker(message)
     bot.chat(message)
     console.log(message)
   }
 
-  async function fly (delta) {
+  async function fly (delta: Vec3) {
     return bot.creative.flyTo(bot.entity.position.plus(delta))
   }
 
-  async function tellAndListen (to, what, listen) {
+  async function tellAndListen (to: string, what: string, listen: (message: string) => unknown) {
     const chatMessagePromise = onceWithCleanup(bot, 'chat', {
       timeout,
       checkCondition: (username, message) => username === to && listen(message)
@@ -302,14 +355,14 @@ function inject (bot, wrap) {
 
   // The example currently running, if any. Aborting it drops every listener the
   // attempt armed on the shared bot.
-  let runningExample = null
+  let runningExample: AbortController | null = null
   bot.test.abortRunningExample = () => {
     runningExample?.abort(new Error('a previous attempt of this example is still running'))
     runningExample = null
   }
 
-  async function runExample (file, run) {
-    let childBotName
+  async function runExample (file: string, run: (childBotName: string) => unknown) {
+    let childBotName: string
     const abort = new AbortController()
     runningExample = abort
 
@@ -324,7 +377,7 @@ function inject (bot, wrap) {
       // confirming the server has processed the TP
       const targetPos = new Vec3(50, bot.test.groundY, 0)
       while (!bot.players[childBotName]?.entity ||
-             bot.players[childBotName].entity.position.distanceTo(targetPos) > 5) {
+             bot.players[childBotName].entity!.position.distanceTo(targetPos) > 5) {
         await sleep(100)
       }
       bot.chat('loaded')
@@ -352,7 +405,7 @@ function inject (bot, wrap) {
         throw new Error(`${file} exited before the test finished (code ${code}, signal ${signal})`)
       })
 
-    const closeExample = async (err) => {
+    const closeExample = async (err?: unknown) => {
       // Drop this attempt's listeners first, so a retry never inherits them.
       abort.abort(err ?? new Error(`${file} finished`))
       if (runningExample === abort) runningExample = null
@@ -362,7 +415,7 @@ function inject (bot, wrap) {
       } else {
         console.log('kill process ' + child.pid)
         try {
-          process.kill(child.pid, 'SIGTERM')
+          process.kill(child.pid!, 'SIGTERM') // the child is running: it has a pid
           const [code] = await onceWithCleanup(child, 'close', { timeout: 5000 })
           console.log('close requested', code)
         } catch (e) {
@@ -394,7 +447,7 @@ function inject (bot, wrap) {
 
   // /kill only starts the death animation; until the server removes the
   // entity about a second later it still blocks placing blocks where it stands
-  async function killEntity (entity) {
+  async function killEntity (entity: Entity) {
     const gone = onceWithCleanup(bot, 'entityGone', { timeout: 5000, checkCondition: (e) => e.id === entity.id })
     bot.chat(`/kill @e[type=${entity.name}]`)
     await gone
@@ -410,7 +463,7 @@ function inject (bot, wrap) {
     bot._client.write = function (name, data) {
       if (['alive', 'pong', 'ping'].some(e => name.includes(e))) return
       console.log('<-', name, JSON.stringify(data)?.slice(0, 250))
-      oldWrite.apply(bot._client, arguments)
+      oldWrite.apply(bot._client, arguments as unknown as Parameters<TypedClient['write']>)
     }
       BigInt.prototype.toJSON ??= function () { // eslint-disable-line
       return this.toString()

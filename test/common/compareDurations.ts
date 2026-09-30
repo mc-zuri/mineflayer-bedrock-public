@@ -10,15 +10,16 @@ const FACTOR = 2
 // (nether, fishing) is 5-10s, so anything smaller is server/network jitter.
 const MIN_REGRESSION_MS = 10000
 
-const slower = []
+const slower: string[] = []
 for (const file of fs.readdirSync(currentDir).filter(f => f.startsWith('durations-')).sort()) {
   const baselineFile = path.join(baselineDir, file)
   if (!fs.existsSync(baselineFile)) {
     console.log(`${file}: no baseline yet, skipping`)
     continue
   }
-  const baseline = JSON.parse(fs.readFileSync(baselineFile))
-  const current = JSON.parse(fs.readFileSync(path.join(currentDir, file)))
+  // JSON.parse stringifies the Buffer (as utf8)
+  const baseline: Record<string, number> = JSON.parse(fs.readFileSync(baselineFile) as unknown as string)
+  const current: Record<string, number> = JSON.parse(fs.readFileSync(path.join(currentDir, file)) as unknown as string)
   console.log(`\n${file}`)
   for (const [title, ms] of Object.entries(current)) {
     const base = baseline[title]

@@ -1,13 +1,17 @@
 import assert from 'assert'
 import * as mineflayer from '../index.ts'
 import commonTest from './externalTests/plugins/testCommon.ts'
+import type { TestBot, TestFunction, TestModule } from './externalTests/plugins/testCommon.ts'
 import mc from 'minecraft-protocol'
+import type { NewPingResult } from 'minecraft-protocol'
 import fs from 'fs'
 import path from 'path'
 import { getPort } from './common/util.ts'
 import * as trace from './common/trace.ts'
 import { once } from '../lib/promise_utils.ts'
 import minecraftWrap from 'minecraft-wrap'
+import type { ServerProperties } from 'minecraft-wrap'
+import type {} from '../lib/types/vendor/minecraft-wrap.ts'
 import prismarineRegistry from 'prismarine-registry'
 import { createRequire } from 'module'
 
@@ -18,9 +22,12 @@ const START_THE_SERVER = true
 // if you want to have time to look what's happening increase this (milliseconds)
 const TEST_TIMEOUT_MS = 90000
 
+/** mocha's Runnable keeps its retry count in the private _currentRetry */
+interface RetriedTest { _currentRetry: number }
+
 const excludedTests = ['digEverything', 'anvil', 'placeEntity']
 
-const propOverrides = {
+const propOverrides: ServerProperties = {
   'level-type': 'FLAT',
   'spawn-npcs': 'true',
   'spawn-animals': 'false',
@@ -44,12 +51,12 @@ const MC_SERVER_PATH = path.join(import.meta.dirname, 'server')
 // the server answering status requests — by ~80ms on 26.1. That gap is version
 // dependent, so retry rather than sleep a fixed time, and keep closeTimeout well
 // under the 120s hook budget so the retries fit.
-async function pingUntilReady (port, host, version, attempts = 5) {
+async function pingUntilReady (port: number, host: string, version: string, attempts = 5) {
   for (let attempt = 1; ; attempt++) {
     try {
-      return await mc.ping({ port, host, version, closeTimeout: 5 * 1000 })
+      return await mc.ping({ port, host, version, closeTimeout: 5 * 1000 }) as NewPingResult // 1.7+ servers
     } catch (err) {
-      console.log(`ping attempt ${attempt} failed: ${err.message}`)
+      console.log(`ping attempt ${attempt} failed: ${(err as Error).message}`)
       if (attempt === attempts) throw err
       await new Promise(resolve => setTimeout(resolve, 250))
     }
@@ -63,12 +70,12 @@ for (const supportedVersion of mineflayer.testedVersions) {
   const MC_SERVER_JAR_DIR = process.env.MC_SERVER_JAR_DIR || `${process.cwd()}/server_jars`
   const MC_SERVER_JAR = `${MC_SERVER_JAR_DIR}/minecraft_server.${version.minecraftVersion}.jar`
   const wrap = new Wrap(MC_SERVER_JAR, `${MC_SERVER_PATH}_${supportedVersion}`)
-  wrap.on('line', (line) => {
+  wrap.on('line', (line: string) => {
     console.log(line)
   })
 
   describe(`mineflayer_external ${supportedVersion}v`, function () {
-    let bot
+    let bot: TestBot
     this.timeout(10 * 60 * 1000)
     before(async function () {
       PORT = await getPort()
@@ -86,7 +93,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           // Dimension travel can stall the server thread past the 30s
           // keepalive default; mocha's per-test timeout is the real watchdog.
           checkTimeoutInterval: TEST_TIMEOUT_MS
-        })
+        }) as TestBot // commonTest adds bot.test
         commonTest(bot, wrap)
         bot.test.port = PORT
         // bot.entity survives a disconnect, so only the end event proves the
@@ -108,7 +115,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           } else {
             wrap.writeServer('gamerule spawnMonsters false\n')
           }
-          bot.once('messagestr', msg => {
+          bot.once('messagestr', (msg: string) => {
             if (msg.includes('Made flatbot a server operator') || msg === '[Server: Opped flatbot]') {
               trace.log('bot opped, setup done')
               done()
@@ -120,7 +127,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       if (START_THE_SERVER) {
         console.log('downloading and starting server')
         trace.log('downloading server jar', { version: version.minecraftVersion, port: PORT })
-        download(version.minecraftVersion, MC_SERVER_JAR, (err) => {
+        download(version.minecraftVersion!, MC_SERVER_JAR, (err) => {
           if (err) {
             console.log(err)
             done(err)
@@ -129,7 +136,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           trace.log('server jar downloaded, starting server')
           propOverrides['server-port'] = PORT
           if (process.env.LEVEL_SEED) propOverrides['level-seed'] = process.env.LEVEL_SEED
-          wrap.startServer(propOverrides, (err) => {
+          wrap.startServer(propOverrides, (err: Error | null) => {
             if (err) return done(err)
             // The seed is otherwise unrecoverable from a failed run: the log never
             // prints it and the login packet only carries a hash of it.
@@ -153,11 +160,11 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
     after((done) => {
       if (bot) bot.quit()
-      wrap.stopServer((err) => {
+      wrap.stopServer((err: Error | null) => {
         if (err) {
           console.log(err)
         }
-        wrap.deleteServerData((err) => {
+        wrap.deleteServerData((err: Error | null) => {
           if (err) {
             console.log(err)
           }
@@ -183,7 +190,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         host: '127.0.0.1',
         version: supportedVersion,
         checkTimeoutInterval: TEST_TIMEOUT_MS
-      })
+      }) as TestBot // commonTest adds bot.test
       commonTest(bot, wrap)
       bot.test.port = PORT
       bot.once('end', () => { bot.test.disconnected = true })
@@ -209,15 +216,15 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
       .forEach((test) => {
         test = path.basename(test, '.ts')
-        const testFunctions = require(`./externalTests/${test}.ts`).default(supportedVersion)
-        const runTest = (testName, testFunction) => {
-          return function (done) {
+        const testFunctions = (require(`./externalTests/${test}.ts`).default as TestModule)(supportedVersion)
+        const runTest = (testName: string, testFunction: TestFunction) => {
+          return function (this: Mocha.Context, done: Mocha.Done) {
             this.timeout(TEST_TIMEOUT_MS)
             // Disable retries if too many different tests have already failed
             // on their first attempt (indicates a systemic issue, not flakiness)
             if (distinctFailures >= 3) this.retries(0)
-            if (this.test._currentRetry > 0) {
-              console.log(`  [retry ${this.test._currentRetry}] ${testName}`)
+            if ((this.test as unknown as RetriedTest)._currentRetry > 0) {
+              console.log(`  [retry ${(this.test as unknown as RetriedTest)._currentRetry}] ${testName}`)
             }
             // Reconnect if bot got disconnected by a previous test
             const reconnect = (!bot.entity || bot.test.disconnected)
@@ -230,7 +237,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
               })
               .then(res => done())
               .catch(e => {
-                if (this.test._currentRetry === 0) {
+                if ((this.test as unknown as RetriedTest)._currentRetry === 0) {
                   distinctFailures++
                 }
                 done(e)

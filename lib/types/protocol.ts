@@ -800,6 +800,8 @@ export interface ClientEvents {
   state: (newState: States, oldState: States) => void
   playerChat: (data: PlayerChatEvent) => void
   systemChat: (data: { positionId: number, formattedMessage: string }) => void
+  /** every clientbound packet (minecraft-protocol client.js), before its named event */
+  packet: (data: unknown, meta: PacketMeta, buffer: Buffer, fullBuffer: Buffer) => void
 }
 
 export interface PlayerChatEvent {

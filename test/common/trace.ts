@@ -18,14 +18,14 @@ const file = process.env.TRACE ?? path.join(os.tmpdir(), `mineflayer-trace-${new
 if (!isMainThread) {
   const { file, pending } = workerData
   const stream = fs.createWriteStream(file, { flags: 'w' })
-  const bigintSafe = (k, v) => typeof v === 'bigint' ? v.toString() : v
+  const bigintSafe = (k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v
   // Buffers arrive as plain Uint8Arrays and must still serialize in Buffer's {type,data} form.
-  const rewrap = (o) => {
+  const rewrap = (o: any): any => {
     if (o instanceof Uint8Array) return Buffer.from(o.buffer, o.byteOffset, o.byteLength)
     if (o && typeof o === 'object') for (const k in o) o[k] = rewrap(o[k])
     return o
   }
-  parentPort.on('message', (record) => {
+  parentPort!.on('message', (record: unknown) => {
     stream.write(`${JSON.stringify(rewrap(record), bigintSafe)}\n`, () => {
       Atomics.sub(pending, 0, 1)
       Atomics.notify(pending, 0)
@@ -33,8 +33,8 @@ if (!isMainThread) {
   })
 }
 
-let worker
-let pending
+let worker: Worker | undefined
+let pending: Int32Array
 const getWorker = () => {
   if (worker) return worker
   pending = new Int32Array(new SharedArrayBuffer(4))
@@ -48,21 +48,21 @@ const getWorker = () => {
   return worker
 }
 
-function emit (record) {
+function emit (record: Record<string, unknown>) {
   const w = getWorker()
   Atomics.add(pending, 0, 1)
   w.postMessage({ ts: Date.now(), ...record })
 }
 
-function write (type, name, data = null) {
+function write (type: string, name: string, data: unknown = null) {
   emit({ type, name, data })
 }
 
-function packet (dir, name, data) {
+function packet (dir: 'S2C' | 'C2S', name: string, data: unknown) {
   emit({ type: 'PACKET', dir, name, data })
 }
 
-function log (msg, args) {
+function log (msg: string, args?: Record<string, unknown>) {
   emit({ type: 'LOG', msg, args })
 }
 

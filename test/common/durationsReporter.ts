@@ -2,12 +2,13 @@
 // passing test, written to $DURATIONS. CI compares it against master's run.
 import fs from 'fs'
 import { reporters, Runner } from 'mocha'
+import type { MochaOptions, Test } from 'mocha'
 
 class DurationsReporter extends reporters.Spec {
-  constructor (runner, options) {
+  constructor (runner: Runner, options?: MochaOptions) {
     super(runner, options)
-    const durations = {}
-    runner.on(Runner.constants.EVENT_TEST_PASS, test => {
+    const durations: Record<string, number | undefined> = {}
+    runner.on(Runner.constants.EVENT_TEST_PASS, (test: Test) => {
       durations[test.fullTitle()] = test.duration
     })
     runner.once(Runner.constants.EVENT_RUN_END, () => {
