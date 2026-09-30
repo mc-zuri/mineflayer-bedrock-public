@@ -1,11 +1,14 @@
+import type { BotInternal } from '../types/internal.ts'
+import type { TextComponent } from '../types/protocol.ts'
+
 export default inject
-function inject (bot) {
-  function parseTitle (text) {
+function inject (bot: BotInternal): void {
+  function parseTitle (text: TextComponent | undefined): string {
     try {
-      const parsed = JSON.parse(text)
+      const parsed = JSON.parse(text as string)
       return typeof parsed === 'string' ? parsed : (parsed.text || text)
     } catch {
-      return typeof text === 'string' ? text.replace(/^"|"$/g, '') : text
+      return typeof text === 'string' ? text.replace(/^"|"$/g, '') : text as unknown as string
     }
   }
 
@@ -13,16 +16,16 @@ function inject (bot) {
     bot._client.on('title', (packet) => {
       if (packet.action === 0) bot.emit('title', parseTitle(packet.text), 'title')
       else if (packet.action === 1) bot.emit('title', parseTitle(packet.text), 'subtitle')
-      else if (packet.action === 2) bot.emit('title_times', packet.fadeIn, packet.stay, packet.fadeOut)
+      else if (packet.action === 2) bot.emit('title_times', packet.fadeIn!, packet.stay!, packet.fadeOut!)
       else if (packet.action === 3) {
-        if (packet.fadeIn !== undefined) bot.emit('title_times', packet.fadeIn, packet.stay, packet.fadeOut)
+        if (packet.fadeIn !== undefined) bot.emit('title_times', packet.fadeIn, packet.stay!, packet.fadeOut!)
         else bot.emit('title_clear')
       } else if (packet.action === 4) bot.emit('title_clear')
     })
   } else if (bot.supportFeature('titleUsesNewPackets')) {
-    function getText (packet) {
+    function getText (packet: { text: TextComponent }) {
       let text = packet.text
-      if (typeof text === 'object' && text.value !== undefined) text = text.value
+      if (typeof text === 'object' && text.value !== undefined) text = text.value as TextComponent
       return parseTitle(text)
     }
     bot._client.on('set_title_text', (packet) => bot.emit('title', getText(packet), 'title'))

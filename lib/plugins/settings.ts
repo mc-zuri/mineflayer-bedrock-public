@@ -1,27 +1,29 @@
 import assert from 'assert'
+import type { BotOptions, GameSettings } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
 
 export default inject
 
-const chatToBits = {
+const chatToBits: Record<string, number> = {
   enabled: 0,
   commandsOnly: 1,
   disabled: 2
 }
 
-const handToBits = {
+const handToBits: Record<string, number> = {
   left: 0,
   right: 1
 }
 
-const viewDistanceToBits = {
+const viewDistanceToBits: Record<string, number> = {
   far: 12,
   normal: 10,
   short: 8,
   tiny: 6
 }
 
-function inject (bot, options) {
-  function setSettings (settings) {
+function inject (bot: BotInternal, options: BotOptions): void {
+  function setSettings (settings: Partial<GameSettings>) {
     extend(bot.settings, settings)
 
     // chat
@@ -29,7 +31,7 @@ function inject (bot, options) {
     assert.ok(chatBits != null, `invalid chat setting: ${bot.settings.chat}`)
 
     // view distance
-    let viewDistanceBits = null
+    let viewDistanceBits: number | null = null
     if (typeof bot.settings.viewDistance === 'string') {
       viewDistanceBits = viewDistanceToBits[bot.settings.viewDistance]
     } else if (typeof bot.settings.viewDistance === 'number' && bot.settings.viewDistance > 0) { // Make sure view distance is a valid # || should be 2 or more
@@ -44,18 +46,18 @@ function inject (bot, options) {
     // skin
     // cape is inverted, not used at all (legacy?)
     // bot.settings.showCape = !!bot.settings.showCape
-    const skinParts = bot.settings.skinParts.showCape << 0 |
-          bot.settings.skinParts.showJacket << 1 |
-          bot.settings.skinParts.showLeftSleeve << 2 |
-          bot.settings.skinParts.showRightSleeve << 3 |
-          bot.settings.skinParts.showLeftPants << 4 |
-          bot.settings.skinParts.showRightPants << 5 |
-          bot.settings.skinParts.showHat << 6
+    const skinParts = (bot.settings.skinParts.showCape as unknown as number) << 0 |
+          (bot.settings.skinParts.showJacket as unknown as number) << 1 |
+          (bot.settings.skinParts.showLeftSleeve as unknown as number) << 2 |
+          (bot.settings.skinParts.showRightSleeve as unknown as number) << 3 |
+          (bot.settings.skinParts.showLeftPants as unknown as number) << 4 |
+          (bot.settings.skinParts.showRightPants as unknown as number) << 5 |
+          (bot.settings.skinParts.showHat as unknown as number) << 6
 
     // write the packet
     bot._client.write('settings', {
       locale: bot.settings.locale || 'en_US',
-      viewDistance: viewDistanceBits,
+      viewDistance: viewDistanceBits!,
       chatFlags: chatBits,
       chatColors: bot.settings.colorsEnabled,
       skinParts,
@@ -100,9 +102,9 @@ function inject (bot, options) {
 }
 
 const hasOwn = {}.hasOwnProperty
-function extend (obj, src) {
+function extend<T extends object> (obj: T, src: Partial<T>): T {
   for (const key in src) {
-    if (hasOwn.call(src, key)) obj[key] = src[key]
+    if (hasOwn.call(src, key)) obj[key] = src[key]!
   }
   return obj
 }

@@ -8,7 +8,7 @@ import type { Block } from 'prismarine-block'
 import type { Entity } from 'prismarine-entity'
 import type { ChatMessage } from 'prismarine-chat'
 import type { world } from 'prismarine-world'
-import type { Registry } from 'prismarine-registry'
+import type { Registry, RegistryPc } from 'prismarine-registry'
 import type { IndexedData, SupportsFeature } from 'minecraft-data'
 import type { ChatSession, ClientboundPackets, TextComponent } from './protocol.ts'
 import type { RaycastHitBlock, RaycastMatcher } from './vendor/prismarine-world.ts'
@@ -39,6 +39,10 @@ export interface BotOptions extends Omit<ClientOptions, 'version'> {
   brand?: string
   defaultChatPatterns?: boolean
   respawn?: boolean
+  /** initial bot.settings.skinParts; all shown by default */
+  skinParts?: SkinParts
+  enableTextFiltering?: boolean
+  enableServerListing?: boolean
 }
 
 export type ChatLevel = 'enabled' | 'commandsOnly' | 'disabled'
@@ -56,25 +60,26 @@ export interface BotEvents {
   newListener: (event: string | symbol, listener: (...args: any[]) => void) => void
   /** node EventEmitter: a listener was removed */
   removeListener: (event: string | symbol, listener: (...args: any[]) => void) => void
+  /** deprecated chat pattern: the pattern's capture groups, then the message's translate key and the ChatMessage */
   chat: (
     username: string,
     message: string,
-    translate: string | null,
-    jsonMsg: ChatMessage,
-    matches: string[] | null
+    translate: string | undefined,
+    jsonMsg: ChatMessage
   ) => Promise<void> | void
   whisper: (
     username: string,
     message: string,
-    translate: string | null,
-    jsonMsg: ChatMessage,
-    matches: string[] | null
+    translate: string | undefined,
+    jsonMsg: ChatMessage
   ) => Promise<void> | void
-  actionBar: (jsonMsg: ChatMessage) => Promise<void> | void
+  actionBar: (jsonMsg: ChatMessage, verified: null) => Promise<void> | void
   error: (err: Error) => Promise<void> | void
-  message: (jsonMsg: ChatMessage, position: string) => Promise<void> | void
-  messagestr: (message: string, position: string, jsonMsg: ChatMessage) => Promise<void> | void
-  unmatchedMessage: (stringMsg: string, jsonMsg: ChatMessage) => Promise<void> | void
+  /** position 'chat', 'system' or 'game_info'; sender is the player UUID for player chat, null for system chat */
+  message: (jsonMsg: ChatMessage, position: string, sender?: string | null, verified?: boolean) => Promise<void> | void
+  messagestr: (message: string, position: string, jsonMsg: ChatMessage, sender?: string | null, verified?: boolean) => Promise<void> | void
+  /** a pattern added with addChatPattern (the matched messages) or addChatPatternSet with parse (the capture groups per pattern) */
+  [event: `chat:${string}`]: (matches: string[] | string[][]) => Promise<void> | void
   inject_allowed: () => Promise<void> | void
   connect: () => Promise<void> | void
   login: () => Promise<void> | void
@@ -83,9 +88,14 @@ export interface BotEvents {
   respawn: () => Promise<void> | void
   game: () => Promise<void> | void
   title: (text: string, type: 'subtitle' | 'title') => Promise<void> | void
+  title_times: (fadeIn: number, stay: number, fadeOut: number) => Promise<void> | void
+  title_clear: () => Promise<void> | void
   rain: () => Promise<void> | void
+  /** bot.rainState or bot.thunderState changed */
+  weatherUpdate: () => Promise<void> | void
   time: () => Promise<void> | void
-  kicked: (reason: string, loggedIn: boolean) => Promise<void> | void
+  /** reason is the chat component: a JSON string before 1.20.3, NBT after */
+  kicked: (reason: TextComponent, loggedIn: boolean) => Promise<void> | void
   end: (reason: string) => Promise<void> | void
   spawnReset: () => Promise<void> | void
   death: () => Promise<void> | void
@@ -140,7 +150,8 @@ export interface BotEvents {
   ) => Promise<void> | void
   hardcodedSoundEffectHeard: (
     soundId: number,
-    soundCategory: number,
+    /** category id before 1.19.3, name after ('master' for named_sound_effect) */
+    soundCategory: number | string,
     position: Vec3,
     volume: number,
     pitch: number
@@ -184,7 +195,8 @@ export interface BotEvents {
   bossBarCreated: (bossBar: BossBar) => Promise<void> | void
   bossBarDeleted: (bossBar: BossBar) => Promise<void> | void
   bossBarUpdated: (bossBar: BossBar) => Promise<void> | void
-  resourcePack: (url: string, hash?: string, uuid?: string) => Promise<void> | void
+  /** second argument: the pack hash before 1.20.3, the pack UUID after */
+  resourcePack: (url: string, hashOrUuid: string) => Promise<void> | void
   heldItemChanged: (newItem: Item | null) => Promise<void> | void
   // per-window events of the inventory plugin, keyed by window id / click action number
   /** window_items for that window was applied */
@@ -223,8 +235,9 @@ export interface Bot extends TypedEmitter<BotEvents> {
   players: { [username: string]: Player }
   uuidToUsername: { [uuid: string]: string }
   isRaining: boolean
+  /** rain level, 0 – 1 */
+  rainState: number
   thunderState: number
-  chatPatterns: ChatPattern[]
   settings: GameSettings
   experience: Experience
   health: number
@@ -258,7 +271,8 @@ export interface Bot extends TypedEmitter<BotEvents> {
   currentWindow: Window | null
   simpleClick: simpleClick
   tablist: Tablist
-  registry: Registry
+  readonly bossBars: BossBar[]
+  registry: RegistryPc
 
   connect: (options: BotOptions) => void
 
@@ -304,7 +318,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
     assumeCommand?: boolean,
     sendBlockInSight?: boolean,
     timeout?: number
-  ) => Promise<string[]>
+  ) => Promise<string[] | TabCompleteMatch[]>
 
   chat: (message: string) => void
 
@@ -414,6 +428,8 @@ export interface Bot extends TypedEmitter<BotEvents> {
     pages: string[]
   ) => Promise<void>
 
+  signBook: (slot: number, pages: string[], author: string, title: string) => Promise<void>
+
   openContainer: (chest: Block | Entity, direction?: Vec3, cursorPos?: Vec3) => Promise<Chest | Dispenser>
 
   openChest: (chest: Block | Entity, direction?: Vec3, cursorPos?: Vec3) => Promise<Chest>
@@ -436,7 +452,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
     times?: number
   ) => Promise<void>
 
-  setCommandBlock: (pos: Vec3, command: string, options: CommandBlockOptions) => void
+  setCommandBlock: (pos: Vec3, command: string, options?: Partial<CommandBlockOptions>) => void
 
   clickWindow: (
     slot: number,
@@ -481,13 +497,14 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   waitForTicks: (ticks: number) => Promise<void>
 
-  addChatPattern: (name: string, pattern: RegExp, options?: chatPatternOptions) => number
+  addChatPattern: (name: string, pattern: RegExp, options?: Partial<chatPatternOptions>) => number
 
-  addChatPatternSet: (name: string, patterns: RegExp[], options?: chatPatternOptions) => number
+  addChatPatternSet: (name: string, patterns: RegExp[], options?: Partial<chatPatternOptions>) => number
 
   removeChatPattern: (name: string | number) => void
 
-  awaitMessage: (...args: string[] | RegExp[]) => Promise<string>
+  /** strings / regexps (or arrays of them) to wait for, optionally followed by a timeout in ms (default 20000) */
+  awaitMessage: (...args: Array<string | RegExp | Array<string | RegExp> | number>) => Promise<string>
 
   acceptResourcePack: () => void
 
@@ -524,16 +541,23 @@ export interface Tablist {
 export interface chatPatternOptions {
   repeat: boolean
   parse: boolean
+  /** emit like chatAddPattern: an event named after the pattern with the capture groups */
+  deprecated?: boolean
 }
 
 export interface GameState {
   levelType: LevelType
   gameMode: GameMode
   hardcore: boolean
-  dimension: Dimension
+  /** dimension type name without the minecraft: prefix; any name the server defines */
+  dimension: Dimension | (string & {})
   difficulty: Difficulty
   maxPlayers: number
   serverBrand: string
+  /** 1.15+, only once the server enabled it */
+  enableRespawnScreen?: boolean
+  /** 1.14+ */
+  serverViewDistance?: number
   /** lowest block y of the dimension (0 before 1.18) */
   minY: number
   /** block height of the dimension (256 before 1.18) */
@@ -604,12 +628,18 @@ export interface GameSettings {
   difficulty: number
   skinParts: SkinParts
   mainHand: MainHands
+  /** 'en_US' when unset */
+  locale?: string
+  enableTextFiltering: boolean
+  enableServerListing: boolean
+  particleStatus: 'all' | 'decreased' | 'minimal'
 }
 
+/** null until the server's first experience packet */
 export interface Experience {
-  level: number
-  points: number
-  progress: number
+  level: number | null
+  points: number | null
+  progress: number | null
 }
 
 export interface Abilities {
@@ -657,16 +687,32 @@ export interface PhysicsOptions {
   adjustPositionHeight: (pos: Vec3) => void
 }
 
+/** null until the server's first update_time packet */
 export interface Time {
-  doDaylightCycle: boolean
-  bigTime: BigInt
-  time: number
-  timeOfDay: number
-  day: number
-  isDay: boolean
-  moonPhase: number
-  bigAge: BigInt
-  age: number
+  doDaylightCycle: boolean | null
+  bigTime: bigint | null
+  time: number | null
+  timeOfDay: number | null
+  day: number | null
+  isDay: boolean | null
+  moonPhase: number | null
+  bigAge: bigint | null
+  age: number | null
+  /** 26.1+: the world clocks, keyed by dimension name, advanced every physics tick */
+  clocks: { [dimension: string]: WorldClock }
+}
+
+export interface WorldClock {
+  id: number
+  totalTicks: number
+  partialTick: number
+  rate: number
+}
+
+export interface TabCompleteMatch {
+  match: string
+  /** JSON string before 1.20.3, NBT after */
+  tooltip?: TextComponent
 }
 
 export interface ControlStateStatus {

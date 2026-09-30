@@ -1,3 +1,5 @@
+import type { BotInternal } from '../types/internal.ts'
+
 export default inject
 
 // ClientboundPlayerAbilitiesPacket's flag bits.
@@ -6,7 +8,7 @@ const FLAG_FLYING = 2
 const FLAG_MAY_FLY = 4
 const FLAG_INSTANT_BUILD = 8
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   // Abilities' defaults, until the server says otherwise.
   bot.abilities = {
     invulnerable: false,

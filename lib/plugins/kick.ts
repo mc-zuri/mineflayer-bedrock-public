@@ -1,6 +1,8 @@
+import type { BotInternal } from '../types/internal.ts'
+
 export default inject
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   bot._client.on('kick_disconnect', (packet) => {
     bot.emit('kicked', packet.reason, true)
   })

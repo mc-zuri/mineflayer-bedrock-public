@@ -1,13 +1,15 @@
 import prismarineChat from 'prismarine-chat'
+import type { BotInternal } from '../types/internal.ts'
+import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
 
 export default inject
 
-const escapeValueNewlines = str => {
+const escapeValueNewlines = (str: string) => {
   return str.replace(/(": *"(?:\\"|[^"])+")/g, (_, match) => match.replace(/\n/g, '\\n'))
 }
 
-function inject (bot) {
-  const ChatMessage = prismarineChat(bot.registry)
+function inject (bot: BotInternal): void {
+  const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
 
   bot.tablist = {
     header: new ChatMessage(''),
@@ -20,12 +22,12 @@ function inject (bot) {
       bot.tablist.footer = ChatMessage.fromNotch(packet.footer)
     } else {
       if (packet.header) {
-        const header = escapeValueNewlines(packet.header)
+        const header = escapeValueNewlines(packet.header as string)
         bot.tablist.header = ChatMessage.fromNotch(header)
       }
 
       if (packet.footer) {
-        const footer = escapeValueNewlines(packet.footer)
+        const footer = escapeValueNewlines(packet.footer as string)
         bot.tablist.footer = ChatMessage.fromNotch(footer)
       }
     }

@@ -1,27 +1,43 @@
 import { onceWithCleanup } from '../promise_utils.ts'
 import prismarineChat from 'prismarine-chat'
+import type { ChatMessage as ChatMessageInstance } from 'prismarine-chat'
+import type { Vec3 } from 'vec3'
+import type { BotOptions, chatPatternOptions } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
 
 const USERNAME_REGEX = '(?:\\(.{1,15}\\)|\\[.{1,15}\\]|.){0,5}?(\\w+)'
 const LEGACY_VANILLA_CHAT_REGEX = new RegExp(`^${USERNAME_REGEX}\\s?[>:\\-»\\]\\)~]+\\s(.*)$`)
 
 export default inject
 
-function inject (bot, options) {
+interface ChatPatternState {
+  name: string
+  patterns: RegExp[]
+  position: number
+  matches: string[]
+  messages: ChatMessageInstance[]
+  deprecated?: boolean
+  repeat: boolean
+  parse: boolean
+}
+
+function inject (bot: BotInternal, options: BotOptions): void {
   const CHAT_LENGTH_LIMIT = options.chatLengthLimit ?? (bot.supportFeature('lessCharsInChat') ? 100 : 256)
-  let endReason
+  let endReason: string | undefined
   bot._client.once('end', (reason) => { endReason = reason })
   const defaultChatPatterns = options.defaultChatPatterns ?? true
 
-  const ChatMessage = prismarineChat(bot.registry)
+  const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
   // chat.pattern.type will emit an event for bot.on() of the same type, eg chatType = whisper will trigger bot.on('whisper')
-  const _patterns = {}
+  const _patterns: { [index: number]: ChatPatternState | undefined } = {}
   let _length = 0
   // deprecated
-  bot.chatAddPattern = (patternValue, typeValue) => {
+  bot.chatAddPattern = (patternValue: RegExp, typeValue: string) => {
     return bot.addChatPattern(typeValue, patternValue, { deprecated: true })
   }
 
-  bot.addChatPatternSet = (name, patterns, opts = {}) => {
+  bot.addChatPatternSet = (name: string, patterns: RegExp[], opts: Partial<chatPatternOptions> = {}) => {
     if (!patterns.every(p => p instanceof RegExp)) throw new Error('Pattern parameter should be of type RegExp')
     const { repeat = true, parse = false } = opts
     _patterns[_length++] = {
@@ -36,7 +52,7 @@ function inject (bot, options) {
     return _length
   }
 
-  bot.addChatPattern = (name, pattern, opts = {}) => {
+  bot.addChatPattern = (name: string, pattern: RegExp, opts: Partial<chatPatternOptions> & { deprecated?: boolean } = {}) => {
     if (!(pattern instanceof RegExp)) throw new Error('Pattern parameter should be of type RegExp')
     const { repeat = true, deprecated = false, parse = false } = opts
     _patterns[_length] = {
@@ -52,7 +68,7 @@ function inject (bot, options) {
     return _length++ // increment length after we give it back to the user
   }
 
-  bot.removeChatPattern = name => {
+  bot.removeChatPattern = (name: string | number) => {
     if (typeof name === 'number') {
       _patterns[name] = undefined
     } else {
@@ -63,8 +79,8 @@ function inject (bot, options) {
     }
   }
 
-  function findMatchingPatterns (msg) {
-    const found = []
+  function findMatchingPatterns (msg: string) {
+    const found: number[] = []
     for (const [indexString, pattern] of Object.entries(_patterns)) {
       if (!pattern) continue
       const { position, patterns } = pattern
@@ -79,24 +95,26 @@ function inject (bot, options) {
     const foundPatterns = findMatchingPatterns(msg)
 
     for (const ix of foundPatterns) {
-      _patterns[ix].matches.push(msg)
-      _patterns[ix].messages.push(originalMsg)
-      _patterns[ix].position++
+      _patterns[ix]!.matches.push(msg)
+      _patterns[ix]!.messages.push(originalMsg)
+      _patterns[ix]!.position++
 
-      if (_patterns[ix].deprecated) {
-        const [, ...matches] = _patterns[ix].matches[0].match(_patterns[ix].patterns[0])
-        bot.emit(_patterns[ix].name, ...matches, _patterns[ix].messages[0].translate, ..._patterns[ix].messages)
-        _patterns[ix].messages = [] // clear out old messages
+      if (_patterns[ix]!.deprecated) {
+        // the pattern just matched this message
+        const [, ...matches] = _patterns[ix]!.matches[0].match(_patterns[ix]!.patterns[0])!
+        // deprecated patterns emit under the user's chat type name
+        ;(bot.emit as (event: string, ...args: unknown[]) => boolean)(_patterns[ix]!.name, ...matches, _patterns[ix]!.messages[0].translate, ..._patterns[ix]!.messages)
+        _patterns[ix]!.messages = [] // clear out old messages
       } else { // regular parsing
-        if (_patterns[ix].patterns.length > _patterns[ix].matches.length) return // we have all the matches, so we can emit the done event
-        if (_patterns[ix].parse) {
-          const matches = _patterns[ix].patterns.map((pattern, i) => {
-            const [, ...matches] = _patterns[ix].matches[i].match(pattern) // delete full message match
+        if (_patterns[ix]!.patterns.length > _patterns[ix]!.matches.length) return // we have all the matches, so we can emit the done event
+        if (_patterns[ix]!.parse) {
+          const matches = _patterns[ix]!.patterns.map((pattern, i) => {
+            const [, ...matches] = _patterns[ix]!.matches[i].match(pattern)! // delete full message match
             return matches
           })
-          bot.emit(`chat:${_patterns[ix].name}`, matches)
+          bot.emit(`chat:${_patterns[ix]!.name}`, matches)
         } else {
-          bot.emit(`chat:${_patterns[ix].name}`, _patterns[ix].matches)
+          bot.emit(`chat:${_patterns[ix]!.name}`, _patterns[ix]!.matches)
         }
         // these are possibly null-ish if the user deletes them as soon as the event for the match is emitted
       }
@@ -114,21 +132,21 @@ function inject (bot, options) {
   bot._client.on('playerChat', (data) => {
     const message = data.formattedMessage
     const verified = data.verified
-    let msg
+    let msg: ChatMessageInstance
     if (bot.supportFeature('clientsideChatFormatting')) {
       const parameters = {
         sender: data.senderName ? JSON.parse(data.senderName) : undefined,
         target: data.targetName ? JSON.parse(data.targetName) : undefined,
         content: message ? JSON.parse(message) : { text: data.plainMessage }
       }
-      const registryIndex = data.type.chatType != null ? data.type.chatType : data.type
+      const registryIndex = (data.type as { chatType?: number }).chatType != null ? (data.type as { chatType: number }).chatType : data.type as number
       msg = ChatMessage.fromNetwork(registryIndex, parameters)
 
       if (data.unsignedContent) {
         msg.unsigned = ChatMessage.fromNetwork(registryIndex, { sender: parameters.sender, target: parameters.target, content: JSON.parse(data.unsignedContent) })
       }
     } else {
-      msg = ChatMessage.fromNotch(message)
+      msg = ChatMessage.fromNotch(message!)
     }
     bot.emit('message', msg, 'chat', data.sender, verified)
     bot.emit('messagestr', msg.toString(), 'chat', msg, data.sender, verified)
@@ -136,7 +154,7 @@ function inject (bot, options) {
 
   bot._client.on('systemChat', (data) => {
     const msg = ChatMessage.fromNotch(data.formattedMessage)
-    const chatPositions = {
+    const chatPositions: { [positionId: number]: string } = {
       1: 'system',
       2: 'game_info'
     }
@@ -145,13 +163,13 @@ function inject (bot, options) {
     if (data.positionId === 2) bot.emit('actionBar', msg, null)
   })
 
-  let send = (message) => bot._client.chat(message)
+  let send = (message: string) => bot._client.chat(message)
   if (bot.supportFeature('chatCommandsQueuedToMainThread')) {
     // 1.19.0 rejects a queued command as out-of-order if a chat message overtakes
     // it; a tab_complete reply proves every earlier command has been processed.
     let sendChain = Promise.resolve()
     let commandPending = false
-    send = (message) => {
+    send = (message: string) => {
       const isCommand = message.startsWith('/')
       sendChain = sendChain.then(async () => {
         if (!isCommand && commandPending) {
@@ -164,7 +182,7 @@ function inject (bot, options) {
     }
   }
 
-  function chatWithHeader (header, message) {
+  function chatWithHeader (header: string, message: string | number) {
     if (typeof message === 'number') message = message.toString()
     if (typeof message !== 'string') {
       throw new Error('Chat message type must be a string or number: ' + typeof message)
@@ -186,8 +204,8 @@ function inject (bot, options) {
     const lengthLimit = CHAT_LENGTH_LIMIT - header.length
     message.split('\n').forEach((subMessage) => {
       if (!subMessage) return
-      let i
-      let smallMsg
+      let i: number
+      let smallMsg: string
       for (i = 0; i < subMessage.length; i += lengthLimit) {
         smallMsg = header + subMessage.substring(i, i + lengthLimit)
         send(smallMsg)
@@ -195,8 +213,8 @@ function inject (bot, options) {
     })
   }
 
-  async function tabComplete (text, assumeCommand = false, sendBlockInSight = true, timeout = 5000) {
-    let position
+  async function tabComplete (text: string, assumeCommand = false, sendBlockInSight = true, timeout = 5000) {
+    let position: Vec3 | undefined
 
     if (sendBlockInSight) {
       const block = bot.blockAtCursor()
@@ -216,10 +234,10 @@ function inject (bot, options) {
     return packet.matches
   }
 
-  bot.whisper = (username, message) => {
+  bot.whisper = (username: string, message: string) => {
     chatWithHeader(`/tell ${username} `, message)
   }
-  bot.chat = (message) => {
+  bot.chat = (message: string) => {
     chatWithHeader('', message)
   }
 
@@ -234,16 +252,16 @@ function inject (bot, options) {
     bot.addChatPattern('chat', LEGACY_VANILLA_CHAT_REGEX, { deprecated: true })
   }
 
-  function awaitMessage (...args) {
-    const timeout = typeof args[args.length - 1] === 'number' ? args.pop() : 20000
-    return new Promise((resolve, reject) => {
-      const resolveMessages = args.flatMap(x => x)
+  function awaitMessage (...args: Array<string | RegExp | Array<string | RegExp> | number>) {
+    const timeout = typeof args[args.length - 1] === 'number' ? args.pop() as number : 20000
+    return new Promise<string>((resolve, reject) => {
+      const resolveMessages = (args as Array<string | RegExp | Array<string | RegExp>>).flatMap(x => x)
       const timeoutHandle = setTimeout(() => {
         bot.off('messagestr', messageListener)
         reject(new Error(`Timeout waiting for message after ${timeout}ms`))
       }, timeout)
 
-      function messageListener (msg) {
+      function messageListener (msg: string) {
         if (resolveMessages.some(x => x instanceof RegExp ? x.test(msg) : msg === x)) {
           clearTimeout(timeoutHandle)
           resolve(msg)

@@ -1,9 +1,12 @@
 import { Vec3 } from 'vec3'
+import type { Entity } from 'prismarine-entity'
+import type { world } from 'prismarine-world'
+import type { BotInternal } from '../types/internal.ts'
 
 export default inject
 
 // https://minecraft.wiki/w/Explosion
-function calcExposure (playerPos, explosionPos, world) {
+function calcExposure (playerPos: Vec3, explosionPos: Vec3, world: world.WorldSync) {
   const dx = 1 / (0.6 * 2 + 1)
   const dy = 1 / (1.8 * 2 + 1)
   const dz = 1 / (0.6 * 2 + 1)
@@ -30,14 +33,14 @@ function calcExposure (playerPos, explosionPos, world) {
 }
 
 // https://minecraft.wiki/w/Armor#Damage_protection
-function getDamageAfterAbsorb (damages, armorValue, toughness) {
+function getDamageAfterAbsorb (damages: number, armorValue: number, toughness: number) {
   const var3 = 2 + toughness / 4
   const var4 = Math.min(Math.max(armorValue - damages / var3, armorValue * 0.2), 20)
   return damages * (1 - var4 / 25)
 }
 
 // https://minecraft.wiki/w/Attribute#Operations
-function getAttributeValue (prop) {
+function getAttributeValue (prop: NonNullable<Entity['attributes']>[string]) {
   let X = prop.value
   for (const mod of prop.modifiers) {
     if (mod.operation !== 0) continue
@@ -55,11 +58,11 @@ function getAttributeValue (prop) {
   return Y
 }
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   const damageMultiplier = 7 // for 1.12+ 8 for 1.8 TODO check when the change occur (likely 1.9)
   const armorThoughnessKey = 'generic.armorToughness' // was renamed in 1.16
 
-  const difficultyValues = {
+  const difficultyValues: Record<string, number> = {
     peaceful: 0,
     easy: 1,
     normal: 2,
@@ -77,15 +80,15 @@ function inject (bot) {
     // The following modifiers are constant for the input targetEntity and doesnt depend
     // on the source position, so if the goal is to compare between positions they can be
     // ignored to save computations
-    if (!rawDamages && targetEntity.attributes['generic.armor']) {
-      const armor = getAttributeValue(targetEntity.attributes['generic.armor'])
-      const armorToughness = getAttributeValue(targetEntity.attributes[armorThoughnessKey])
+    if (!rawDamages && targetEntity.attributes!['generic.armor']) {
+      const armor = getAttributeValue(targetEntity.attributes!['generic.armor'])
+      const armorToughness = getAttributeValue(targetEntity.attributes![armorThoughnessKey])
       damages = getDamageAfterAbsorb(damages, armor, armorToughness)
 
       // TODO: protection enchantment and resistance effects
 
       if (targetEntity.type === 'player') damages *= difficultyValues[bot.game.difficulty] * 0.5
-    } else if (!rawDamages && !targetEntity.attributes['generic.armor']) {
+    } else if (!rawDamages && !targetEntity.attributes!['generic.armor']) {
       return null
     }
     return Math.floor(damages)

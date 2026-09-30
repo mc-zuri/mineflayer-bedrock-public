@@ -14,5 +14,12 @@ export interface ItemStatics {
   fromNotch (item: Slot, stackId?: number): Item | null
 }
 
+declare module 'prismarine-item' {
+  interface Item {
+    /** 1.20.5+ (itemsWithComponents): data components by type */
+    componentMap?: Map<string, { type: string, data: any }>
+  }
+}
+
 /** what `prismarineItem(registry)` returns */
 export type ItemClass = ItemStatics & typeof Item

@@ -1,10 +1,12 @@
 import scoreboardModule from '../scoreboard.ts'
+import type { ScoreBoard as ScoreBoardInstance } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
 
 export default inject
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   const ScoreBoard = scoreboardModule(bot)
-  const scoreboards = {}
+  const scoreboards: { [name: string]: ScoreBoardInstance } = {}
 
   bot._client.on('scoreboard_objective', (packet) => {
     if (packet.action === 0) {
@@ -20,11 +22,11 @@ function inject (bot) {
       delete scoreboards[packet.name]
 
       for (const position in ScoreBoard.positions) {
-        if (!ScoreBoard.positions[position]) continue
-        const scoreboard = ScoreBoard.positions[position]
+        if (!ScoreBoard.positions[position as unknown as number]) continue
+        const scoreboard = ScoreBoard.positions[position as unknown as number]
 
         if (scoreboard && scoreboard.name === packet.name) {
-          delete ScoreBoard.positions[position]
+          delete ScoreBoard.positions[position as unknown as number]
           break
         }
       }
@@ -43,7 +45,7 @@ function inject (bot) {
   bot._client.on('scoreboard_score', (packet) => {
     const scoreboard = scoreboards[packet.scoreName]
     if (scoreboard !== undefined && packet.action === 0) {
-      const updated = scoreboard.add(packet.itemName, packet.value)
+      const updated = scoreboard.add(packet.itemName, packet.value!)
       bot.emit('scoreUpdated', scoreboard, updated)
     }
 
@@ -80,8 +82,8 @@ function inject (bot) {
     for (const name of Object.keys(scoreboards)) delete scoreboards[name]
     for (const position of Object.keys(ScoreBoard.positions)) {
       // The named slots are accessors over the numeric slots and must stay.
-      if (Object.getOwnPropertyDescriptor(ScoreBoard.positions, position).get) continue
-      delete ScoreBoard.positions[position]
+      if (Object.getOwnPropertyDescriptor(ScoreBoard.positions, position)!.get) continue
+      delete ScoreBoard.positions[position as unknown as number]
     }
   })
 }

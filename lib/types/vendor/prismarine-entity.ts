@@ -25,6 +25,9 @@ declare module 'prismarine-entity' {
     isInWeb?: boolean
     isCollidedHorizontally?: boolean
     isCollidedVertically?: boolean
+    // flight state copied from the abilities packet (abilities.ts, bot entity only) for prismarine-physics
+    flying?: boolean
+    flyingSpeed?: number
     /** null clears the slot */
     setEquipment (index: number, item: Item | null): void
   }

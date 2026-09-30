@@ -1,6 +1,8 @@
+import type { BotInternal } from '../types/internal.ts'
+
 export default inject
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   if (bot.supportFeature('mcDataHasEntityMetadata')) {
     // this is handled inside entities.js. We don't yet have entity metadataKeys for all versions but once we do
     // we can delete the numerical checks here and in entities.js https://github.com/extremeheat/mineflayer/blob/eb9982aa04973b0086aac68a2847005d77f01a3d/lib/plugins/entities.js#L469

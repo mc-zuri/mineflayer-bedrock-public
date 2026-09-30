@@ -54,6 +54,7 @@ import ScoreBoard from './scoreboard.ts'
 import BossBar from './bossbar.ts'
 import Particle from './particle.ts'
 import prismarineRegistry from 'prismarine-registry'
+import type { RegistryPc } from 'prismarine-registry'
 import type { Bot, BotOptions, Plugin } from './types/mineflayer.ts'
 import type { BotInternal } from './types/internal.ts'
 import type { TypedClient } from './types/protocol.ts'
@@ -175,7 +176,8 @@ function createBot (options: Partial<BotOptions> = {}): Bot {
   else bot._client.once('connect_allowed', next)
   function next () {
     const serverPingVersion = bot._client.version
-    bot.registry = prismarineRegistry(serverPingVersion)
+    // a pc version string: the pc registry
+    bot.registry = prismarineRegistry(serverPingVersion) as RegistryPc
     if (!bot.registry?.version) throw new Error(`Server version '${serverPingVersion}' is not supported, no data for version`)
 
     const versionData = bot.registry.version

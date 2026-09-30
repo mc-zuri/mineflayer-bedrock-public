@@ -1,9 +1,11 @@
+import type { BotInternal } from '../types/internal.ts'
+
 export default inject
 
-function inject (bot) {
-  let latestHash
-  let latestUUID
-  let activeResourcePacks = {}
+function inject (bot: BotInternal): void {
+  let latestHash: string | undefined
+  let latestUUID: string | undefined
+  let activeResourcePacks: { [uuid: string]: string } = {}
   const TEXTURE_PACK_RESULTS = {
     SUCCESSFULLY_LOADED: 0,
     DECLINED: 1,
@@ -38,8 +40,9 @@ function inject (bot) {
 
   bot._client.on('resource_pack_send', (data) => {
     if (bot.supportFeature('resourcePackUsesUUID')) {
-      bot.emit('resourcePack', data.uuid, data.url)
-      latestUUID = data.uuid
+      // unreachable: resource_pack_send (1.8 – 1.20.2) has no uuid, resourcePackUsesUUID is 1.20.3+
+      bot.emit('resourcePack', (data as { uuid?: string }).uuid!, data.url)
+      latestUUID = (data as { uuid?: string }).uuid
     } else {
       bot.emit('resourcePack', data.url, data.hash)
       latestHash = data.hash

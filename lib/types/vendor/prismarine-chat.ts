@@ -15,3 +15,10 @@ export interface ChatMessageClass {
 }
 
 export type ChatLoader = (registryOrVersion: Registry | string) => ChatMessageClass
+
+declare module 'prismarine-chat' {
+  interface ChatMessage {
+    /** 1.19 – 1.19.2 playerChat: the unsigned (server-modified) content, set by the chat plugin */
+    unsigned?: ChatMessage
+  }
+}

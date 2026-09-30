@@ -1,8 +1,10 @@
 import { Vec3 } from 'vec3'
 
+import type { BotInternal } from '../types/internal.ts'
+
 export default inject
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   bot._client.on('named_sound_effect', (packet) => {
     const soundName = packet.soundName
     const pt = new Vec3(packet.x / 8, packet.y / 8, packet.z / 8)
@@ -27,7 +29,8 @@ function inject (bot) {
     const volume = packet.volume
     const pitch = packet.pitch
 
-    let soundId, soundName
+    let soundId: number | undefined
+    let soundName: string | undefined
 
     if (packet.sound) { // ItemSoundHolder
       if (packet.sound.data) soundName = packet.sound.data.soundName
@@ -37,12 +40,12 @@ function inject (bot) {
     }
 
     // If we have an ID but no name yet, try to look it up in the registry
-    soundName ??= bot.registry?.sounds?.[soundId]?.name
+    soundName ??= bot.registry?.sounds?.[soundId as number]?.name
 
     if (soundName) {
       bot.emit('soundEffectHeard', soundName, pt, volume, pitch)
     } else if (soundId !== null) {
-      bot.emit('hardcodedSoundEffectHeard', soundId, soundCategory, pt, volume, pitch)
+      bot.emit('hardcodedSoundEffectHeard', soundId as number, soundCategory, pt, volume, pitch)
     }
   })
 }

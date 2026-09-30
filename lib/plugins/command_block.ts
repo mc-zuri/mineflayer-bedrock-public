@@ -1,14 +1,17 @@
 import assert from 'assert'
 import { ProtoDef } from 'protodef'
+import type { Vec3 } from 'vec3'
+import type { CommandBlockOptions } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
 
 export default inject
 
-function inject (bot) {
-  function setCommandBlock (pos, command, options = {}) {
+function inject (bot: BotInternal): void {
+  function setCommandBlock (pos: Vec3, command: string, options: Partial<CommandBlockOptions> = {}) {
     assert.strictEqual(bot.player.gamemode, 1, new Error('The bot has to be in creative mode to open the command block window'))
     assert.notStrictEqual(pos, null)
     assert.notStrictEqual(command, null)
-    assert.strictEqual(bot.blockAt(pos).name.includes('command_block'), true, new Error("The block isn't a command block"))
+    assert.strictEqual(bot.blockAt(pos)!.name.includes('command_block'), true, new Error("The block isn't a command block"))
 
     // Default values when a command block is placed in vanilla minecraft
     options.trackOutput = options.trackOutput ?? false
@@ -118,7 +121,7 @@ function inject (bot) {
       bot._client.write('update_command_block', {
         location: pos,
         command,
-        mode: options.mode,
+        mode: options.mode!,
         flags
       })
     }

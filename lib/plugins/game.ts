@@ -1,24 +1,44 @@
 import nbt from 'prismarine-nbt'
+import type { BotOptions, Difficulty, GameMode, GameState, LevelType } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { ServerboundPackets } from '../types/protocol.ts'
 
 export default inject
 
-const difficultyNames = ['peaceful', 'easy', 'normal', 'hard']
-const gameModes = ['survival', 'creative', 'adventure', 'spectator']
+/** the fields read from a login (1.8 – 1.20.4), respawn (1.8 – 1.20.4) or their shared worldState (1.20.5+) */
+interface SpawnData {
+  levelType?: string
+  isFlat?: boolean
+  isHardcore?: boolean
+  /** login */
+  gameMode?: number
+  /** respawn; worldState (name) */
+  gamemode?: number | GameMode
+  /** id (before 1.16, 1.20.5+ worldState), NBT (1.16 – 1.18) or name */
+  dimension?: any
+  worldType?: string
+  worldName?: string
+  dimensionCodec?: any
+  difficulty?: number
+}
 
-const dimensionNames = {
+const difficultyNames: Difficulty[] = ['peaceful', 'easy', 'normal', 'hard']
+const gameModes: GameMode[] = ['survival', 'creative', 'adventure', 'spectator']
+
+const dimensionNames: Record<string, string> = {
   '-1': 'the_nether',
   0: 'overworld',
   1: 'the_end'
 }
 
-const parseGameMode = gameModeBits => {
+const parseGameMode = (gameModeBits: number): GameMode => {
   if (gameModeBits < 0 || gameModeBits > 0b11) {
     return 'survival'
   }
   return gameModes[(gameModeBits & 0b11)] // lower two bits
 }
 
-function inject (bot, options) {
+function inject (bot: BotInternal, options: BotOptions): void {
   function getBrandCustomChannelName () {
     if (bot.supportFeature('customChannelMCPrefixed')) {
       return 'MC|Brand'
@@ -28,18 +48,18 @@ function inject (bot, options) {
     throw new Error('Unsupported brand channel name')
   }
 
-  function handleRespawnPacketData (packet) {
-    bot.game.levelType = packet.levelType ?? (packet.isFlat ? 'flat' : 'default')
-    bot.game.hardcore = packet.isHardcore ?? Boolean(packet.gameMode & 0b100)
+  function handleRespawnPacketData (packet: SpawnData) {
+    bot.game.levelType = (packet.levelType as LevelType | undefined) ?? (packet.isFlat ? 'flat' : 'default')
+    bot.game.hardcore = packet.isHardcore ?? Boolean(packet.gameMode! & 0b100)
     // Either a respawn packet or a login packet. Depending on the packet it can be "gamemode" or "gameMode"
     if (bot.supportFeature('spawnRespawnWorldDataField')) { // 1.20.5
-      bot.game.gameMode = packet.gamemode
+      bot.game.gameMode = packet.gamemode as GameMode
     } else {
-      bot.game.gameMode = parseGameMode(packet.gamemode ?? packet.gameMode)
+      bot.game.gameMode = parseGameMode((packet.gamemode as number | undefined) ?? packet.gameMode!)
     }
     if (bot.supportFeature('segmentedRegistryCodecData')) { // 1.20.5
       if (typeof packet.dimension === 'number') {
-        bot.game.dimension = bot.registry.dimensionsArray[packet.dimension]?.name?.replace('minecraft:', '')
+        bot.game.dimension = bot.registry.dimensionsArray![packet.dimension]?.name?.replace('minecraft:', '')
       } else if (typeof packet.dimension === 'string') { // iirc, in 1.21 it's back to a string
         bot.game.dimension = packet.dimension.replace('minecraft:', '')
       }
@@ -56,9 +76,9 @@ function inject (bot, options) {
         const dimType = packet.worldType ?? packet.dimension
         bot.game.dimension = typeof dimType === 'string'
           ? dimType.replace('minecraft:', '')
-          : packet.worldName.replace('minecraft:', '')
+          : packet.worldName!.replace('minecraft:', '')
       } else {
-        bot.game.dimension = packet.worldName.replace('minecraft:', '')
+        bot.game.dimension = packet.worldName!.replace('minecraft:', '')
       }
     } else {
       throw new Error('Unsupported dimension type in login packet')
@@ -72,7 +92,7 @@ function inject (bot, options) {
     bot.game.height = 256
 
     if (bot.supportFeature('dimensionDataInCodec')) { // 1.19+
-      const dimData = bot.registry.dimensionsByName[bot.game.dimension]
+      const dimData = bot.registry.dimensionsByName![bot.game.dimension]
       if (dimData) {
         bot.game.minY = dimData.minY
         bot.game.height = dimData.height
@@ -88,7 +108,7 @@ function inject (bot, options) {
     }
   }
 
-  bot.game = {}
+  bot.game = {} as GameState
 
   const brandChannel = getBrandCustomChannelName()
   bot._client.registerChannel(brandChannel, ['string', []])
@@ -124,7 +144,7 @@ function inject (bot, options) {
 
   bot._client.on('game_state_change', (packet) => {
     if ((packet.reason === 4 || packet.reason === 'win_game') && packet.gameMode === 1) {
-      bot._client.write('client_command', { action: 0 })
+      bot._client.write('client_command', { action: 0 } as unknown as ServerboundPackets['client_command'])
     }
     if ((packet.reason === 3) || (packet.reason === 'change_game_mode')) {
       bot.game.gameMode = parseGameMode(packet.gameMode)
@@ -133,10 +153,10 @@ function inject (bot, options) {
   })
 
   bot._client.on('difficulty', (packet) => {
-    bot.game.difficulty = difficultyNames[packet.difficulty]
+    bot.game.difficulty = difficultyNames[packet.difficulty as number]
   })
 
-  bot._client.on(brandChannel, (serverBrand) => {
+  bot._client.on(brandChannel, (serverBrand: string) => {
     bot.game.serverBrand = serverBrand
   })
 

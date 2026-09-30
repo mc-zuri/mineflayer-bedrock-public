@@ -1,6 +1,9 @@
+import type { BotOptions } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+
 export default inject
 
-function inject (bot, options) {
+function inject (bot: BotInternal, options: BotOptions): void {
   bot.isAlive = true
 
   bot._client.on('respawn', (packet) => {

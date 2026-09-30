@@ -1,15 +1,19 @@
 import teamModule from '../team.ts'
+import type { Team as TeamInstance } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { ClientboundPackets } from '../types/protocol.ts'
 
 export default inject
 
 // TODO: apply this to all versions and rename scoreboard_team -> teams in minecraft-data
 const TEAM_MODES = ['add', 'remove', 'change', 'join', 'leave']
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   const Team = teamModule(bot.registry)
-  const teams = {}
+  const teams: { [name: string]: TeamInstance } = {}
 
-  function teamHandler (packet) {
+  // scoreboard_team (1.8) carries a subset of the teams fields
+  function teamHandler (packet: ClientboundPackets['teams']) {
     const { team: teamName, players = [] } = packet
     const mode = typeof packet.mode === 'number' ? TEAM_MODES[packet.mode] : packet.mode
 
@@ -19,13 +23,13 @@ function inject (bot) {
       case 'add':
         team = new Team(
           teamName,
-          packet.name,
-          packet.friendlyFire,
-          packet.nameTagVisibility,
-          packet.collisionRule,
+          packet.name!,
+          packet.friendlyFire as number,
+          packet.nameTagVisibility as string,
+          packet.collisionRule as string,
           packet.formatting,
-          packet.prefix,
-          packet.suffix
+          packet.prefix!,
+          packet.suffix!
         )
         for (const player of players) {
           team.add(player)
@@ -47,13 +51,13 @@ function inject (bot) {
       case 'change':
         if (!team) break
         team.update(
-          packet.name,
-          packet.friendlyFire,
-          packet.nameTagVisibility,
-          packet.collisionRule,
+          packet.name!,
+          packet.friendlyFire as number,
+          packet.nameTagVisibility as string,
+          packet.collisionRule as string,
           packet.formatting,
-          packet.prefix,
-          packet.suffix
+          packet.prefix!,
+          packet.suffix!
         )
         bot.emit('teamUpdated', teams[teamName])
         break

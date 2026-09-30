@@ -77,7 +77,7 @@ export interface SpawnInfo {
   dimension: number
   name: string
   hashedSeed: Int64
-  gamemode: number | 'survival' | 'creative' | 'adventure' | 'spectator'
+  gamemode: 'survival' | 'creative' | 'adventure' | 'spectator'
   previousGamemode: number
   isDebug: boolean
   isFlat: boolean
@@ -86,7 +86,7 @@ export interface SpawnInfo {
   seaLevel?: number // 1.21.2+
 }
 
-export type SoundHolder = { soundId: number } | { data: { soundName: string, fixedRange?: number } }
+export type SoundHolder = { soundId: number, data?: undefined } | { soundId?: undefined, data: { soundName: string, fixedRange?: number } }
 
 export interface Particle { type: string | number, [key: string]: any }
 
@@ -556,6 +556,15 @@ export interface ClientboundPackets {
     suffix?: TextComponent
     players?: string[]
   }
+  /** answer to the serverbound tab_complete */
+  tab_complete: {
+    /** strings before 1.13 */
+    matches: string[] | Array<{ match: string, tooltip?: TextComponent }>
+    // 1.13+
+    transactionId?: number
+    start?: number
+    length?: number
+  }
   tile_entity_data: { location: Position, action: number, nbtData?: NBT }
   /** 1.8 – 1.16 */
   title: { action: number, text?: string, fadeIn?: number, stay?: number, fadeOut?: number }
@@ -589,7 +598,8 @@ export interface ClientboundPackets {
     time?: Int64 // before 26.1
     tickDayTime?: boolean // 1.21.2 – 1.21.11
     /** 26.1+ */
-    clockUpdates?: Array<{ id: number, totalTicks: Int64, partialTick: number, rate: number }>
+    /** totalTicks is a varlong, which minecraft-protocol reads as a plain number */
+    clockUpdates?: Array<{ id: number, totalTicks: number, partialTick: number, rate: number }>
   }
   window_items: {
     windowId: number
@@ -795,7 +805,8 @@ export interface PlayerChatEvent {
   plainMessage: string
   unsignedContent?: string
   formattedMessage?: string
-  type: number | { registryIndex?: number, [key: string]: any }
+  /** chat type registry id; 1.21.2+ a registry entry holder: { chatType } or an inline { data } */
+  type: number | { chatType?: number, data?: any }
   sender: string
   senderName?: string
   senderTeam?: string

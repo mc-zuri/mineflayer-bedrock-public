@@ -1,27 +1,31 @@
 import bossbarModule from '../bossbar.ts'
+import type { BossBar as BossBarInstance, BotOptions } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { ClientboundPackets, TextComponent } from '../types/protocol.ts'
 
 export default inject
 
-function inject (bot, { version }) {
+function inject (bot: BotInternal, { version }: BotOptions): void {
   const BossBar = bossbarModule(bot.registry)
-  const bars = {}
+  const bars: { [uuid: string]: BossBarInstance } = {}
 
-  function extractTitle (title) {
+  function extractTitle (title: TextComponent | undefined): TextComponent {
     if (!title) return ''
     if (typeof title === 'string') return title
     // Return the original object for BossBar to handle
     return title
   }
 
-  function handleBossBarPacket (packet) {
+  function handleBossBarPacket (packet: ClientboundPackets['boss_bar']) {
     if (packet.action === 0) {
       bars[packet.entityUUID] = new BossBar(
         packet.entityUUID,
         extractTitle(packet.title),
-        packet.health,
-        packet.dividers,
-        packet.color,
-        packet.flags
+        // action 0 (add) carries every field
+        packet.health!,
+        packet.dividers!,
+        packet.color!,
+        packet.flags!
       )
       bot.emit('bossBarCreated', bars[packet.entityUUID])
     } else if (packet.action === 1) {

@@ -1,6 +1,9 @@
+import type { BotInternal } from '../types/internal.ts'
+import type { Int64 } from '../types/protocol.ts'
+
 export default inject
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   bot.time = {
     doDaylightCycle: null,
     bigTime: null,
@@ -15,16 +18,16 @@ function inject (bot) {
   }
   bot._client.on('update_time', (packet) => {
     const age = longToBigInt(packet.age)
-    let time
-    let doDaylightCycle
+    let time: bigint
+    let doDaylightCycle: boolean
     if (packet.clockUpdates) {
       for (const update of packet.clockUpdates) {
-        bot.time.clocks[bot.registry.dimensionsById[update.id].name] = update
+        bot.time.clocks[bot.registry.dimensionsById![update.id].name] = update
       }
       time = BigInt(bot.time.clocks[bot.game.dimension]?.totalTicks ?? 0)
-      doDaylightCycle = bot.time.clocks[bot.game.dimension]?.rate > 0
+      doDaylightCycle = bot.time.clocks[bot.game.dimension]?.rate! > 0
     } else {
-      time = longToBigInt(packet.time)
+      time = longToBigInt(packet.time!)
       doDaylightCycle = (packet.tickDayTime !== undefined) ? !!packet.tickDayTime : time >= 0n
     }
     // When doDaylightCycle is false, we need to take the absolute value of time
@@ -52,6 +55,6 @@ function inject (bot) {
   })
 }
 
-function longToBigInt (arr) {
+function longToBigInt (arr: Int64): bigint {
   return BigInt.asIntN(64, (BigInt(arr[0]) << 32n)) | BigInt(arr[1])
 }
