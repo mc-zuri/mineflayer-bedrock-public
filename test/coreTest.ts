@@ -4,6 +4,7 @@ import EventEmitter from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import nbt from 'prismarine-nbt'
+import { Vec3 } from 'vec3'
 import bossbarLoader from '../lib/bossbar.ts'
 import teamPlugin from '../lib/plugins/team.ts'
 import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
@@ -11,6 +12,7 @@ import titlePlugin from '../lib/plugins/title.ts'
 import gamePlugin from '../lib/plugins/game.ts'
 import resourcePackPlugin from '../lib/plugins/resource_pack.ts'
 import settingsPlugin from '../lib/plugins/settings.ts'
+import explosionPlugin from '../lib/plugins/explosion.ts'
 
 interface Write { name: string, params: any }
 
@@ -225,6 +227,40 @@ describe('core', () => {
       bot._client.emit('login', {})
       assert.strictEqual(bot.settings.enableServerListing, false)
       assert.strictEqual(bot._client.writes[0].params.enableServerListing, false)
+    })
+  })
+
+  describe('explosion', () => {
+    function explosionBot (version: string) {
+      const bot = fakeBot(version)
+      bot.world = { raycast: () => null } // nothing between the explosion and the entity
+      bot.game = { difficulty: 'normal' }
+      explosionPlugin(bot)
+      return bot
+    }
+    const attribute = (value: number) => ({ value, modifiers: [] })
+    const target = (attributes?: object) => ({ position: new Vec3(0, 0, 0), type: 'player', attributes })
+    const source = new Vec3(2, 0, 0)
+
+    it('finds the armor attributes of each version', () => {
+      const cases: Array<[string, object]> = [
+        ['1.12.2', { 'generic.armor': attribute(10), 'generic.armorToughness': attribute(2) }],
+        ['1.16.5', { 'minecraft:generic.armor': attribute(10), 'minecraft:generic.armor_toughness': attribute(2) }],
+        ['1.20.6', { 'generic.armor': attribute(10), 'generic.armor_toughness': attribute(2) }]
+      ]
+      for (const [version, attributes] of cases) {
+        const bot = explosionBot(version)
+        const raw = bot.getExplosionDamages(target(attributes), source, 4, true)
+        const damages = bot.getExplosionDamages(target(attributes), source, 4)
+        assert.strictEqual(typeof damages, 'number', version)
+        assert.ok(damages < raw, version)
+      }
+    })
+
+    it('returns null for an entity without armor attributes', () => {
+      const bot = explosionBot('1.20.6')
+      assert.strictEqual(bot.getExplosionDamages(target(), source, 4), null)
+      assert.strictEqual(typeof bot.getExplosionDamages(target(), source, 4, true), 'number')
     })
   })
 })

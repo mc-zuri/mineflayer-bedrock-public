@@ -58,9 +58,20 @@ function getAttributeValue (prop: NonNullable<Entity['attributes']>[string]) {
   return Y
 }
 
+// attribute keys: 1.9 – 1.15, 1.16 – 1.20.4 (namespaced ids), 1.20.5+ (minecraft-data names)
+const ARMOR_KEYS = ['generic.armor', 'minecraft:generic.armor']
+const ARMOR_TOUGHNESS_KEYS = ['generic.armorToughness', 'minecraft:generic.armor_toughness', 'generic.armor_toughness']
+
+function findAttribute (entity: Entity, keys: string[]) {
+  for (const key of keys) {
+    const attribute = entity.attributes?.[key]
+    if (attribute) return attribute
+  }
+  return undefined
+}
+
 function inject (bot: BotInternal): void {
   const damageMultiplier = 7 // for 1.12+ 8 for 1.8 TODO check when the change occur (likely 1.9)
-  const armorThoughnessKey = 'generic.armorToughness' // was renamed in 1.16
 
   const difficultyValues: Record<string, number> = {
     peaceful: 0,
@@ -80,15 +91,17 @@ function inject (bot: BotInternal): void {
     // The following modifiers are constant for the input targetEntity and doesnt depend
     // on the source position, so if the goal is to compare between positions they can be
     // ignored to save computations
-    if (!rawDamages && targetEntity.attributes!['generic.armor']) {
-      const armor = getAttributeValue(targetEntity.attributes!['generic.armor'])
-      const armorToughness = getAttributeValue(targetEntity.attributes![armorThoughnessKey])
+    const armorAttribute = findAttribute(targetEntity, ARMOR_KEYS)
+    if (!rawDamages && armorAttribute) {
+      const armor = getAttributeValue(armorAttribute)
+      const armorToughnessAttribute = findAttribute(targetEntity, ARMOR_TOUGHNESS_KEYS)
+      const armorToughness = armorToughnessAttribute ? getAttributeValue(armorToughnessAttribute) : 0
       damages = getDamageAfterAbsorb(damages, armor, armorToughness)
 
       // TODO: protection enchantment and resistance effects
 
       if (targetEntity.type === 'player') damages *= difficultyValues[bot.game.difficulty] * 0.5
-    } else if (!rawDamages && !targetEntity.attributes!['generic.armor']) {
+    } else if (!rawDamages && !armorAttribute) {
       return null
     }
     return Math.floor(damages)
