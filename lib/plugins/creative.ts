@@ -142,7 +142,7 @@ function inject (bot: BotInternal): void {
   }
 
   function stopFlying () {
-    bot.physics.gravity = normalGravity as number // null when startFlying never ran
+    if (normalGravity != null) bot.physics.gravity = normalGravity // null: startFlying never ran, gravity untouched
   }
 }
 

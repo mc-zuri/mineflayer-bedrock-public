@@ -178,6 +178,17 @@ describe('creative plugin (1.21.3+, no set_creative_slot ack)', () => {
     await assert.rejects(clear, { message: 'Server rejected' })
   })
 
+  it('stopFlying without startFlying keeps gravity', () => {
+    const { bot } = createCreativeBot()
+    bot.physics = { gravity: 0.08 }
+    bot.creative.stopFlying()
+    assert.strictEqual(bot.physics.gravity, 0.08)
+    bot.creative.startFlying()
+    assert.strictEqual(bot.physics.gravity, 0)
+    bot.creative.stopFlying()
+    assert.strictEqual(bot.physics.gravity, 0.08)
+  })
+
   it('resolves when the server keeps the item', async () => {
     const { bot, Item, registry } = createCreativeBot()
     const stone = new Item(registry.itemsByName.stone.id, 1)
