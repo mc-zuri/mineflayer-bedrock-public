@@ -9,3 +9,5 @@ if (typeof process !== 'undefined' && !process.browser && (process.platform as s
 export * from './lib/loader.ts'
 // require('mineflayer') returns the same object as before the ESM migration
 export { mineflayer as 'module.exports' }
+// import mineflayer from 'mineflayer' keeps working as it did for the CommonJS package
+export default mineflayer
