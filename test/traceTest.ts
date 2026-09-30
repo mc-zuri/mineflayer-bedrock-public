@@ -22,7 +22,8 @@ describe('packet trace', () => {
   it('does not block the caller and loses nothing on exit', function () {
     this.timeout(60000)
     const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'trace-')), 'trace.jsonl')
-    const elapsedMs = Number(execFileSync(process.execPath, ['-e', child], { env: { ...process.env, TRACE: file } }))
+    // trace prints its file path on stdout first; the timing is the last line
+    const elapsedMs = Number(execFileSync(process.execPath, ['-e', child], { env: { ...process.env, TRACE: file } }).toString().split('\n').pop())
 
     assert.ok(elapsedMs < 500, `emitting ${RECORDS} records blocked the caller for ${elapsedMs}ms`)
 
