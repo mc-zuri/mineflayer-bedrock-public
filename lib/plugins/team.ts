@@ -27,7 +27,7 @@ function inject (bot: BotInternal): void {
           packet.friendlyFire as number,
           packet.nameTagVisibility as string,
           packet.collisionRule as string,
-          packet.formatting,
+          packet.formatting ?? packet.color, // color before 1.13
           packet.prefix!,
           packet.suffix!
         )
@@ -55,7 +55,7 @@ function inject (bot: BotInternal): void {
           packet.friendlyFire as number,
           packet.nameTagVisibility as string,
           packet.collisionRule as string,
-          packet.formatting,
+          packet.formatting ?? packet.color, // color before 1.13
           packet.prefix!,
           packet.suffix!
         )

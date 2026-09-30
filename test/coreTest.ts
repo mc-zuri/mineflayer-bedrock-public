@@ -55,5 +55,16 @@ describe('core', () => {
       assert.strictEqual(removed, team)
       assert.strictEqual(bot.teams.red, undefined)
     })
+
+    it('reads the team color before 1.13', () => {
+      for (const [version, packetName] of [['1.8.8', 'scoreboard_team'], ['1.12.2', 'teams']]) {
+        const bot = fakeBot(version)
+        teamPlugin(bot)
+        bot._client.emit(packetName, { team: 'red', mode: 0, name: 'red', prefix: '', suffix: '', friendlyFire: 1, nameTagVisibility: 'always', collisionRule: 'always', color: 12, players: ['alice'] })
+        assert.strictEqual(bot.teams.red.color, 'red', version)
+        bot._client.emit(packetName, { team: 'red', mode: 2, name: 'red', prefix: '', suffix: '', friendlyFire: 1, nameTagVisibility: 'always', collisionRule: 'always', color: 9 })
+        assert.strictEqual(bot.teams.red.color, 'blue', version)
+      }
+    })
   })
 })
