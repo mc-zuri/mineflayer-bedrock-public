@@ -185,5 +185,14 @@ describe('core', () => {
       bot20._client.emit('respawn', { worldState, copyMetadata: 0 })
       assert.strictEqual(bot20.game.hardcore, true)
     })
+
+    it('reads the difficulty packet of each version', () => {
+      for (const [version, difficulty] of [['1.20.4', 3], ['1.21.6', 'hard']]) {
+        const bot = fakeBot(version as string)
+        gamePlugin(bot, { brand: 'vanilla' } as any)
+        bot._client.emit('difficulty', { difficulty, difficultyLocked: false })
+        assert.strictEqual(bot.game.difficulty, 'hard', version as string)
+      }
+    })
   })
 })

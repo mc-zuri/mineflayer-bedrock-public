@@ -154,7 +154,8 @@ function inject (bot: BotInternal, options: BotOptions): void {
   })
 
   bot._client.on('difficulty', (packet) => {
-    bot.game.difficulty = difficultyNames[packet.difficulty as number]
+    // a name from 1.21.6
+    bot.game.difficulty = typeof packet.difficulty === 'number' ? difficultyNames[packet.difficulty] : packet.difficulty
   })
 
   bot._client.on(brandChannel, (serverBrand: string) => {
