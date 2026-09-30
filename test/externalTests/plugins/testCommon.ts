@@ -461,8 +461,9 @@ function inject (bot: TestBot, wrap: WrapServer): void {
     })
     const oldWrite = bot._client.write
     bot._client.write = function (name, data) {
-      if (['alive', 'pong', 'ping'].some(e => name.includes(e))) return
-      console.log('<-', name, JSON.stringify(data)?.slice(0, 250))
+      if (!['alive', 'pong', 'ping'].some(e => name.includes(e))) {
+        console.log('<-', name, JSON.stringify(data)?.slice(0, 250))
+      }
       oldWrite.apply(bot._client, arguments as unknown as Parameters<TypedClient['write']>)
     }
       BigInt.prototype.toJSON ??= function () { // eslint-disable-line
