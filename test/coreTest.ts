@@ -192,6 +192,19 @@ describe('core', () => {
       assert.strictEqual(bot20.game.hardcore, true)
     })
 
+    it('reads a peaceful difficulty from login and respawn (1.8 - 1.13)', () => {
+      for (const version of ['1.8.8', '1.12.2']) {
+        const bot = fakeBot(version)
+        gamePlugin(bot, { brand: 'vanilla' } as any)
+        bot._client.emit('login', { entityId: 1, gameMode: 0, dimension: 0, difficulty: 0, maxPlayers: 20, levelType: 'default', reducedDebugInfo: false })
+        assert.strictEqual(bot.game.difficulty, 'peaceful', version)
+        bot._client.emit('respawn', { dimension: -1, difficulty: 3, gamemode: 0, levelType: 'default' })
+        assert.strictEqual(bot.game.difficulty, 'hard', version)
+        bot._client.emit('respawn', { dimension: 0, difficulty: 0, gamemode: 0, levelType: 'default' })
+        assert.strictEqual(bot.game.difficulty, 'peaceful', version)
+      }
+    })
+
     it('reads the difficulty packet of each version', () => {
       for (const [version, difficulty] of [['1.20.4', 3], ['1.21.6', 'hard']]) {
         const bot = fakeBot(version as string)

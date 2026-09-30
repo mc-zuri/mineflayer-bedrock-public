@@ -101,7 +101,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
       bot.game.height = dimensionData.height
     }
 
-    if (packet.difficulty) {
+    if (packet.difficulty != null) { // 1.8 - 1.13; 0 is peaceful
       bot.game.difficulty = difficultyNames[packet.difficulty]
     }
   }
