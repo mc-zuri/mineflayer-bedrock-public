@@ -39,14 +39,8 @@ function inject (bot: BotInternal): void {
   })
 
   bot._client.on('resource_pack_send', (data) => {
-    if (bot.supportFeature('resourcePackUsesUUID')) {
-      // unreachable: resource_pack_send (1.8 – 1.20.2) has no uuid, resourcePackUsesUUID is 1.20.3+
-      bot.emit('resourcePack', (data as { uuid?: string }).uuid!, data.url)
-      latestUUID = (data as { uuid?: string }).uuid
-    } else {
-      bot.emit('resourcePack', data.url, data.hash)
-      latestHash = data.hash
-    }
+    bot.emit('resourcePack', data.url, data.hash)
+    latestHash = data.hash
     // Accept during the configuration phase (e.g. a Velocity server transfer),
     // which the server holds open until the pack is answered
     if (bot._client.state === 'configuration') acceptResourcePack()
