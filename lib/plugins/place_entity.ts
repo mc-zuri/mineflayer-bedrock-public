@@ -104,8 +104,8 @@ function inject (bot: BotInternal): void {
         const dist = entity.position.distanceTo(placePosition)
         if (entity.name === mobName && dist < maxDistance) {
           resolve(entity)
+          bot.off('entitySpawn', listener)
         }
-        bot.off('entitySpawn', listener)
       }
 
       setTimeout(() => {

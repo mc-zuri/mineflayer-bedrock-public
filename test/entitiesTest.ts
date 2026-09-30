@@ -8,6 +8,7 @@ import entitiesPlugin from '../lib/plugins/entities.ts'
 import rayTracePlugin from '../lib/plugins/ray_trace.ts'
 import bedPlugin from '../lib/plugins/bed.ts'
 import creativePlugin from '../lib/plugins/creative.ts'
+import placeEntityPlugin from '../lib/plugins/place_entity.ts'
 import prismarineItem from 'prismarine-item'
 
 function createFakeBot (version: string) {
@@ -195,6 +196,27 @@ describe('creative plugin (1.21.3+, no set_creative_slot ack)', () => {
     const set = bot.creative.setInventorySlot(36, stone, 50)
     bot.inventory.emit('updateSlot:36', null, new Item(registry.itemsByName.stone.id, 1))
     await set
+  })
+})
+
+describe('place_entity plugin', () => {
+  it('placeEntity ignores unrelated entities spawning first', async () => {
+    const registry = prismarineRegistry('1.20.4')
+    const bot: any = new EventEmitter()
+    bot.registry = registry
+    bot.supportFeature = registry.supportFeature.bind(registry)
+    bot._client = new EventEmitter()
+    bot.heldItem = { name: 'armor_stand' }
+    bot._genericPlace = async (referenceBlock: any, faceVector: any) => {
+      setImmediate(() => {
+        bot.emit('entitySpawn', { name: 'zombie', position: new Vec3(0.5, 65, 0.5) })
+        bot.emit('entitySpawn', { name: 'armor_stand', position: new Vec3(0.5, 65, 0.5) })
+      })
+      return referenceBlock.position
+    }
+    placeEntityPlugin(bot)
+    const entity = await bot.placeEntity({ position: new Vec3(0, 64, 0) }, new Vec3(0, 1, 0))
+    assert.strictEqual(entity.name, 'armor_stand')
   })
 })
 
