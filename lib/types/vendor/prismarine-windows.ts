@@ -6,6 +6,7 @@ import type { Item } from 'prismarine-item'
 import type { ChatMessage } from 'prismarine-chat'
 
 declare module 'prismarine-windows' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- merged declarations repeat the class's type parameters
   interface Window<T> {
     /** returns the slots a mode 0 / 3 / 4 click changed; other modes return undefined */
     acceptClick (click: Click, gamemode?: number): number[] | undefined
