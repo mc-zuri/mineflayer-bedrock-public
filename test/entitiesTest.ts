@@ -76,6 +76,34 @@ describe('entities plugin', () => {
     })
   })
 
+  describe('set_passengers (1.9+ riding)', () => {
+    for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
+      it(`a passenger missing from the new list has dismounted (${version})`, () => {
+        const bot = createFakeBot(version)
+        const events: string[] = []
+        bot.on('mount', () => events.push('mount'))
+        bot.on('dismount', (vehicle: any) => events.push(`dismount ${vehicle?.id}`))
+        bot._client.emit('entity_head_rotation', { entityId: 7, headYaw: 0 }) // makes entity 7 known
+        bot._client.emit('set_passengers', { entityId: 7, passengers: [1, 2] })
+        const boat = bot.entities[7]
+        assert.strictEqual(bot.vehicle, boat)
+        assert.deepStrictEqual(boat.passengers.map((e: any) => e.id), [1, 2])
+
+        // vanilla dismount: the server resends the vehicle's passengers without the bot
+        bot._client.emit('set_passengers', { entityId: 7, passengers: [2] })
+        assert.strictEqual(bot.vehicle, null)
+        assert.strictEqual(bot.entity.vehicle, null)
+        assert.deepStrictEqual(boat.passengers.map((e: any) => e.id), [2])
+        assert.strictEqual(bot.entities[2].vehicle, boat)
+
+        bot._client.emit('set_passengers', { entityId: 7, passengers: [] })
+        assert.strictEqual(bot.entities[2].vehicle, null)
+        assert.deepStrictEqual(boat.passengers, [])
+        assert.deepStrictEqual(events, ['mount', 'dismount 7'])
+      })
+    }
+  })
+
   describe('player_info before 1.19.3', () => {
     for (const version of ['1.8.8', '1.12.2', '1.19.2']) {
       it(`update_game_mode updates the player's gamemode (${version})`, () => {

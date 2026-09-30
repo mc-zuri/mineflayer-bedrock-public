@@ -795,6 +795,16 @@ function inject (bot: BotInternal): void {
     const passengerEntities = passengers.map((passengerId) => fetchEntity(passengerId))
     const vehicle = entityId === -1 ? null : bot.entities[entityId]
 
+    // The packet lists all passengers of the vehicle: like the vanilla client, the ones no longer
+    // listed have dismounted (that is how the server tells the client an entity got off).
+    if (vehicle) {
+      for (const oldPassenger of vehicle.passengers.slice()) {
+        if (passengers.includes(oldPassenger.id)) continue
+        vehicle.passengers.splice(vehicle.passengers.indexOf(oldPassenger), 1)
+        oldPassenger.vehicle = null as unknown as EntityT // null when not riding
+      }
+    }
+
     for (const passengerEntity of passengerEntities) {
       const originalVehicle = passengerEntity.vehicle
       if (originalVehicle) {
@@ -816,6 +826,9 @@ function inject (bot: BotInternal): void {
         bot.vehicle = bot.entities[entityId]
         bot.emit('mount')
       }
+    } else if (vehicle && bot.vehicle === vehicle) {
+      bot.vehicle = null
+      bot.emit('dismount', vehicle)
     }
   })
 
