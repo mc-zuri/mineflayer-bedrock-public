@@ -5,6 +5,15 @@ import { toNotchianYaw, toNotchianPitch } from '../conversions.ts'
 import prismarineItem from 'prismarine-item'
 import prismarineWindows from 'prismarine-windows'
 import prismarineChat from 'prismarine-chat'
+import type { Block } from 'prismarine-block'
+import type { Entity } from 'prismarine-entity'
+import type { Item as PrismarineItem } from 'prismarine-item'
+import type { Click, Window } from 'prismarine-windows'
+import type { BotOptions, StorageEvents, TransferOptions, VillagerTrade } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { ClientboundPackets, ServerboundPackets } from '../types/protocol.ts'
+import type { ItemClass } from '../types/vendor/prismarine-item.ts'
+import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
 
 export default inject
 
@@ -25,31 +34,50 @@ const ALWAYS_CONSUMABLES = [
   'golden_apple'
 ]
 
-function inject (bot, { hideErrors }) {
-  const Item = prismarineItem(bot.registry)
+/** a click as mineflayer queues it until the server confirms it */
+interface WindowClick extends Click {
+  id: number
+  windowId: number
+  item: PrismarineItem | null
+}
+
+/** added by extendWindow to every window mineflayer opens */
+interface WindowMethods {
+  close: () => Promise<void>
+  withdraw: (itemType: number, metadata: number | null, count: number | null, nbt?: PrismarineItem['nbt']) => Promise<void>
+  deposit: (itemType: number, metadata: number | null, count: number | null, nbt?: PrismarineItem['nbt']) => Promise<void>
+}
+type OpenedWindow = Window<StorageEvents> & WindowMethods
+
+/** a merchant window; openVillager (villager.ts) sets selectedTrade to null, trade() to the trade */
+type MerchantWindow = Window & { selectedTrade?: VillagerTrade | null }
+
+function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
+  const Item = prismarineItem(bot.registry) as ItemClass
   const windows = prismarineWindows(bot.version)
-  const ChatMessage = prismarineChat(bot.registry)
+  const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
 
   let eatingTask = createDoneTask()
 
   let nextActionNumber = 0 // < 1.17
   let stateId = -1
   if (bot.supportFeature('stateIdUsed')) {
-    const listener = packet => { stateId = packet.stateId }
+    // stateId is present in both packets from 1.17.1 on
+    const listener = (packet: { stateId?: number }) => { stateId = packet.stateId! }
     bot._client.on('window_items', listener)
     bot._client.on('set_slot', listener)
   }
-  const windowClickQueue = []
-  let windowItems
+  const windowClickQueue: WindowClick[] = []
+  let windowItems: ClientboundPackets['window_items'] | null | undefined
   // The last window we closed client-side. The server applies our
   // close_window on a later tick and keeps syncing slots through the old
   // windowId until then — those trailing packets still describe the player
   // inventory (routed through the window's inventory region).
-  let lastClosedWindow = null
+  let lastClosedWindow: Window | null = null
 
   // 0-8, null = uninitialized
   // which quick bar slot is selected
-  bot.quickBarSlot = null
+  bot.quickBarSlot = null as unknown as number // number once the server's held_item_slot arrives (login)
   bot.inventory = windows.createWindow(0, 'minecraft:inventory', 'Inventory')
   bot.currentWindow = null
   bot.usingHeldItem = false
@@ -81,7 +109,7 @@ function inject (bot, { hideErrors }) {
     bot.usingHeldItem = false
   })
 
-  let previousHeldItem = null
+  let previousHeldItem: PrismarineItem | null = null
   bot.on('heldItemChanged', (heldItem) => {
     // we only disable the item if the item type or count changes
     if (
@@ -104,7 +132,7 @@ function inject (bot, { hideErrors }) {
     bot.usingHeldItem = false
   })
 
-  async function consume () {
+  async function consume (): Promise<void> {
     if (!eatingTask.done) {
       eatingTask.cancel(new Error('Consuming cancelled due to calling bot.consume() again'))
     }
@@ -120,7 +148,7 @@ function inject (bot, { hideErrors }) {
     await withTimeout(eatingTask.promise, CONSUME_TIMEOUT)
   }
 
-  function activateItem (offHand = false) {
+  function activateItem (offHand = false): void {
     // use_item must not be sent for an empty hand
     if (!(offHand ? bot.inventory.slots[45] : bot.heldItem)) return
     bot.usingHeldItem = true
@@ -146,8 +174,8 @@ function inject (bot, { hideErrors }) {
     }
   }
 
-  function deactivateItem () {
-    const body = {
+  function deactivateItem (): void {
+    const body: ServerboundPackets['block_dig'] = {
       status: 5,
       location: new Vec3(0, 0, 0),
       face: 5
@@ -163,7 +191,7 @@ function inject (bot, { hideErrors }) {
     bot.usingHeldItem = false
   }
 
-  async function putSelectedItemRange (start, end, window, slot) {
+  async function putSelectedItemRange (start: number, end: number, window: Window, slot: number | null): Promise<void> {
     // put the selected item back indow the slot range in window
 
     // try to put it in an item that already exists and just increase
@@ -189,14 +217,14 @@ function inject (bot, { hideErrors }) {
       }
     }
 
-    async function tossLeftover () {
+    async function tossLeftover (): Promise<void> {
       if (window.selectedItem) {
         await clickWindow(-999, 0, 0)
       }
     }
   }
 
-  async function activateBlock (block, direction, cursorPos) {
+  async function activateBlock (block: Block, direction?: Vec3, cursorPos?: Vec3): Promise<void> {
     direction = direction ?? new Vec3(0, 1, 0)
     const directionNum = vectorToDirection(direction) // The packet needs a number as the direction
     // The cursor must lie on the clicked face
@@ -252,7 +280,7 @@ function inject (bot, { hideErrors }) {
     bot.swingArm()
   }
 
-  async function activateEntity (entity) {
+  async function activateEntity (entity: Entity): Promise<void> {
     // TODO: tell the server that we are not sneaking while doing this
     await bot.lookAt(entity.position.offset(0, 1, 0), false)
     bot._client.write('use_entity', {
@@ -264,7 +292,7 @@ function inject (bot, { hideErrors }) {
     })
   }
 
-  async function activateEntityAt (entity, position) {
+  async function activateEntityAt (entity: Entity, position: Vec3): Promise<void> {
     // TODO: tell the server that we are not sneaking while doing this
     await bot.lookAt(position, false)
     bot._client.write('use_entity', {
@@ -279,13 +307,13 @@ function inject (bot, { hideErrors }) {
     })
   }
 
-  async function transfer (options) {
+  async function transfer (options: TransferOptions): Promise<void> {
     const window = options.window || bot.currentWindow || bot.inventory
     const itemType = options.itemType
     const metadata = options.metadata
     const nbt = options.nbt
     let count = (options.count === undefined || options.count === null) ? 1 : options.count
-    let firstSourceSlot = null
+    let firstSourceSlot: number | null = null
 
     // ranges
     const sourceStart = options.sourceStart
@@ -297,7 +325,7 @@ function inject (bot, { hideErrors }) {
 
     await transferOne()
 
-    async function transferOne () {
+    async function transferOne (): Promise<void> {
       if (count === 0) {
         await putSelectedItemRange(sourceStart, sourceEnd, window, firstSourceSlot)
         return
@@ -316,18 +344,19 @@ function inject (bot, { hideErrors }) {
       }
       await clickDest()
 
-      async function clickDest () {
-        assert.notStrictEqual(window.selectedItem.type, null)
-        assert.notStrictEqual(window.selectedItem.metadata, null)
-        let destItem
-        let destSlot
+      // transferOne leaves the item to move on the cursor
+      async function clickDest (): Promise<void> {
+        assert.notStrictEqual(window.selectedItem!.type, null)
+        assert.notStrictEqual(window.selectedItem!.metadata, null)
+        let destItem: PrismarineItem | null | undefined
+        let destSlot: number | null
         // special case for tossing
         if (destStart === -999) {
           destSlot = -999
         } else {
           // find a non full item that we can drop into
           destItem = window.findItemRange(destStart, destEnd,
-            window.selectedItem.type, window.selectedItem.metadata, true, nbt)
+            window.selectedItem!.type, window.selectedItem!.metadata, true, nbt)
           // if that didn't work find an empty slot to drop into
           destSlot = destItem
             ? destItem.slot
@@ -339,9 +368,9 @@ function inject (bot, { hideErrors }) {
         }
         // move the maximum number of item that can be moved
         const destSlotCount = destItem && destItem.count ? destItem.count : 0
-        const movedItems = Math.min(window.selectedItem.stackSize - destSlotCount, window.selectedItem.count)
+        const movedItems = Math.min(window.selectedItem!.stackSize - destSlotCount, window.selectedItem!.count)
         const target = destSlotCount + count
-        const half = Math.floor(Math.min(destSlotCount + window.selectedItem.count, window.selectedItem.stackSize) / 2)
+        const half = Math.floor(Math.min(destSlotCount + window.selectedItem!.count, window.selectedItem!.stackSize) / 2)
         // if the number of item the left click moves is less than the number of item we want to move
         // several at the same time (left click)
         if (movedItems <= count) {
@@ -369,7 +398,7 @@ function inject (bot, { hideErrors }) {
     }
   }
 
-  function extendWindow (window) {
+  function extendWindow (window: Window<StorageEvents> & Partial<WindowMethods>): asserts window is OpenedWindow {
     window.close = () => {
       const closed = closeWindow(window)
       window.emit('close')
@@ -380,7 +409,7 @@ function inject (bot, { hideErrors }) {
       if (bot.inventory.emptySlotCount() === 0) {
         throw new Error('Unable to withdraw, Bot inventory is full.')
       }
-      const options = {
+      const options: TransferOptions = {
         window,
         itemType,
         metadata,
@@ -394,7 +423,7 @@ function inject (bot, { hideErrors }) {
       await transfer(options)
     }
     window.deposit = async (itemType, metadata, count, nbt) => {
-      const options = {
+      const options: TransferOptions = {
         window,
         itemType,
         metadata,
@@ -409,26 +438,26 @@ function inject (bot, { hideErrors }) {
     }
   }
 
-  async function openBlock (block, direction, cursorPos) {
+  async function openBlock (block: Block, direction?: Vec3, cursorPos?: Vec3): Promise<OpenedWindow> {
     bot.activateBlock(block, direction, cursorPos)
     const [window] = await once(bot, 'windowOpen')
     extendWindow(window)
     return window
   }
 
-  async function openEntity (entity) {
+  async function openEntity (entity: Entity): Promise<OpenedWindow> {
     bot.activateEntity(entity)
     const [window] = await once(bot, 'windowOpen')
     extendWindow(window)
     return window
   }
 
-  function createActionNumber () {
+  function createActionNumber (): number {
     nextActionNumber = nextActionNumber === 32767 ? 1 : nextActionNumber + 1
     return nextActionNumber
   }
 
-  function updateHeldItem () {
+  function updateHeldItem (): void {
     bot.emit('heldItemChanged', bot.heldItem)
   }
 
@@ -437,7 +466,7 @@ function inject (bot, { hideErrors }) {
   // until then a change to a slot the container touched (e.g. by /clear) is
   // never sent. A rejected click already carries the full inventory, so the
   // sync click's outcome is not an error.
-  function closeWindow (window) {
+  function closeWindow (window: Window): Promise<void> {
     bot._client.write('close_window', {
       windowId: window.id
     })
@@ -449,7 +478,7 @@ function inject (bot, { hideErrors }) {
     return clickWindow(-999, 0, 0).catch(() => {})
   }
 
-  function copyInventory (window) {
+  function copyInventory (window: Window): void {
     const slotOffset = window.inventoryStart - bot.inventory.inventoryStart
     for (let i = window.inventoryStart; i < window.inventoryEnd; i++) {
       const item = window.slots[i]
@@ -461,7 +490,7 @@ function inject (bot, { hideErrors }) {
     }
   }
 
-  function tradeMatch (limitItem, targetItem) {
+  function tradeMatch (limitItem: PrismarineItem | null, targetItem: PrismarineItem | null): boolean {
     return (
       targetItem !== null &&
       limitItem !== null &&
@@ -470,7 +499,7 @@ function inject (bot, { hideErrors }) {
     )
   }
 
-  function expectTradeUpdate (window) {
+  function expectTradeUpdate (window: MerchantWindow & { selectedTrade: VillagerTrade }): boolean {
     const trade = window.selectedTrade
     const hasItem = !!window.slots[2]
 
@@ -480,7 +509,7 @@ function inject (bot, { hideErrors }) {
     return hasItem !== satisfied
   }
 
-  async function waitForWindowUpdate (window, slot) {
+  async function waitForWindowUpdate (window: Window, slot: number): Promise<void> {
     // The server recomputes the crafting result slot after any click in the
     // crafting area, including picking up the result (which consumes the
     // ingredients). Waiting for that resync on result clicks too keeps
@@ -491,29 +520,29 @@ function inject (bot, { hideErrors }) {
       }
     } else if (window.type === 'minecraft:crafting') {
       if (slot >= 0 && slot <= 9) {
-        await once(bot.currentWindow, 'updateSlot:0')
+        await once(bot.currentWindow!, 'updateSlot:0')
       }
     } else if (window.type === 'minecraft:merchant') {
-      const toUpdate = []
-      if (slot <= 1 && !window.selectedTrade.tradeDisabled && expectTradeUpdate(window)) {
-        toUpdate.push(once(bot.currentWindow, 'updateSlot:2'))
+      const toUpdate: Array<Promise<unknown>> = []
+      if (slot <= 1 && !(window as MerchantWindow).selectedTrade.tradeDisabled && expectTradeUpdate(window as MerchantWindow)) {
+        toUpdate.push(once(bot.currentWindow!, 'updateSlot:2'))
       }
       if (slot === 2) {
-        for (const item of bot.currentWindow.containerItems()) {
-          toUpdate.push(once(bot.currentWindow, `updateSlot:${item.slot}`))
+        for (const item of bot.currentWindow!.containerItems()) {
+          toUpdate.push(once(bot.currentWindow!, `updateSlot:${item.slot}`))
         }
       }
       await Promise.all(toUpdate)
 
-      if (slot === 2 && !window.selectedTrade.tradeDisabled && expectTradeUpdate(window)) {
+      if (slot === 2 && !(window as MerchantWindow).selectedTrade.tradeDisabled && expectTradeUpdate(window as MerchantWindow)) {
         // After the trade goes through, if the inputs are still satisfied,
         // expect another update in slot 2
-        await once(bot.currentWindow, 'updateSlot:2')
+        await once(bot.currentWindow!, 'updateSlot:2')
       }
     }
   }
 
-  function confirmTransaction (windowId, actionId, accepted) {
+  function confirmTransaction (windowId: number, actionId: number, accepted: boolean): void {
     // drop the queue entries for all the clicks that the server did not send
     // transaction packets for.
     // Also reject transactions that aren't sent from mineflayer
@@ -529,12 +558,13 @@ function inject (bot, { hideErrors }) {
       return
     }
     // shift it later if packets are sent out of order
-    click = windowClickQueue.shift()
+    // (the queue holds a click with id actionId, so neither shift runs past the end)
+    click = windowClickQueue.shift()!
 
     assert.ok(click.id <= actionId)
     while (actionId > click.id) {
       onAccepted()
-      click = windowClickQueue.shift()
+      click = windowClickQueue.shift()!
     }
     assert.ok(click)
 
@@ -545,14 +575,14 @@ function inject (bot, { hideErrors }) {
     }
     updateHeldItem()
 
-    function onAccepted () {
+    function onAccepted (): void {
       const window = windowId === 0 ? bot.inventory : bot.currentWindow
       if (!window || window.id !== click.windowId) return
       window.acceptClick(click)
       bot.emit(`confirmTransaction${click.id}`, true)
     }
 
-    function onRejected () {
+    function onRejected (): void {
       bot._client.write('transaction', {
         windowId: click.windowId,
         action: click.id,
@@ -562,10 +592,10 @@ function inject (bot, { hideErrors }) {
     }
   }
 
-  function getChangedSlots (oldSlots, newSlots) {
+  function getChangedSlots (oldSlots: Array<PrismarineItem | null>, newSlots: Array<PrismarineItem | null>): number[] {
     assert.equal(oldSlots.length, newSlots.length)
 
-    const changedSlots = []
+    const changedSlots: number[] = []
 
     for (let i = 0; i < newSlots.length; i++) {
       if (!Item.equal(oldSlots[i], newSlots[i])) {
@@ -576,7 +606,7 @@ function inject (bot, { hideErrors }) {
     return changedSlots
   }
 
-  async function clickWindow (slot, mouseButton, mode) {
+  async function clickWindow (slot: number, mouseButton: number, mode: number): Promise<void> {
     // if you click on the quick bar and have dug recently,
     // wait a bit
     if (slot >= bot.QUICK_BAR_START && bot.lastDigTime != null) {
@@ -590,7 +620,7 @@ function inject (bot, { hideErrors }) {
     assert.ok(mode >= 0 && mode <= 6)
     const actionId = createActionNumber()
 
-    const click = {
+    const click: WindowClick = {
       slot,
       mouseButton,
       mode,
@@ -614,7 +644,8 @@ function inject (bot, { hideErrors }) {
           // 5,
           // 6
         ].includes(click.mode)) {
-        changedSlots = window.acceptClick(click)
+        // mode 0, 3 and 4 clicks always return the changed slots
+        changedSlots = window.acceptClick(click)!
       } else {
         // this is used as a fallback
         const oldSlots = JSON.parse(JSON.stringify(window.slots))
@@ -681,7 +712,7 @@ function inject (bot, { hideErrors }) {
     }
   }
 
-  async function putAway (slot) {
+  async function putAway (slot: number): Promise<void> {
     const window = bot.currentWindow || bot.inventory
     const promisePutAway = once(window, `updateSlot:${slot}`)
     const start = window.inventoryStart
@@ -700,7 +731,7 @@ function inject (bot, { hideErrors }) {
     await promisePutAway
   }
 
-  async function moveSlotItem (sourceSlot, destSlot) {
+  async function moveSlotItem (sourceSlot: number, destSlot: number): Promise<void> {
     await clickWindow(sourceSlot, 0, 0)
     await clickWindow(destSlot, 0, 0)
     // if we're holding an item, put it back where the source item was.
@@ -735,7 +766,7 @@ function inject (bot, { hideErrors }) {
     if (changed) updateHeldItem()
   })
 
-  function prepareWindow (window) {
+  function prepareWindow (window: Window): void {
     if (!windowItems || window.id !== windowItems.windowId) {
       // don't emit windowOpen until we have the slot data
       bot.once(`setWindowItems:${window.id}`, () => {
@@ -823,7 +854,7 @@ function inject (bot, { hideErrors }) {
   // set_player_inventory uses vanilla Inventory indices (0-8 hotbar, 9-35 main,
   // 36-39 armor from feet to head, 40 offhand), not window 0 slot numbers
   // (36-44 hotbar, 9-35 main, 5-8 armor from head to feet, 45 offhand)
-  function playerInventorySlotToWindow (slotId) {
+  function playerInventorySlotToWindow (slotId: number): number {
     if (slotId <= 8) return slotId + 36 // hotbar
     if (slotId >= 36 && slotId <= 39) return 44 - slotId // armor
     if (slotId === 40) return 45 // offhand
@@ -876,7 +907,7 @@ function inject (bot, { hideErrors }) {
   // 1.17.1+ servers only answer a click when their record of the client is
   // stale, so a click they ignored is never reported. A no-op click carrying
   // an impossible stateId always gets the full window state back.
-  async function syncWindow (window) {
+  async function syncWindow (window: Window): Promise<void> {
     if (!bot.supportFeature('stateIdUsed')) return
     const synced = once(bot, `setWindowItems:${window.id}`)
     bot._client.write('window_click', {
@@ -897,7 +928,7 @@ function inject (bot, { hideErrors }) {
    * @param {Vec3} v
    * @returns {number}
    */
-  function vectorToDirection (v) {
+  function vectorToDirection (v: Vec3): number {
     if (v.y < 0) {
       return 0
     } else if (v.y > 0) {

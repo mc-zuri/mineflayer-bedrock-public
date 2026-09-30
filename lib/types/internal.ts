@@ -29,9 +29,14 @@ export interface BotInternal extends Omit<Bot, '_client'> {
   _placeBlockWithOptions: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<void>
   _placeEntityWithOptions: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<any>
   _genericPlace: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<Vec3>
+  /** window slot of the first hotbar slot in the player inventory (simple_inventory) */
+  QUICK_BAR_START: number
+  /** performance.now() of the last block_dig sent, null before any (digging) */
+  lastDigTime: number | null
   _ensureHasSentCarriedItem: () => void
   _setSlot: (slotId: number, newItem: Item | null, window?: Window) => void
-  _syncWindow: (window: Window) => void
+  /** 1.17.1+: resolves once the server resent the window's items; no-op before */
+  _syncWindow: (window: Window) => Promise<void>
   _playerFromUUID: (uuid: string) => Player | undefined
   _getBlockAtEyeLevel: () => Block | null
   _getDimensionName: () => string

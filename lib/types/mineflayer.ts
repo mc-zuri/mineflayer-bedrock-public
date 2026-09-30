@@ -171,6 +171,13 @@ export interface BotEvents {
   bossBarUpdated: (bossBar: BossBar) => Promise<void> | void
   resourcePack: (url: string, hash?: string, uuid?: string) => Promise<void> | void
   heldItemChanged: (newItem: Item | null) => Promise<void> | void
+  // per-window events of the inventory plugin, keyed by window id / click action number
+  /** window_items for that window was applied */
+  [event: `setWindowItems:${number}`]: () => Promise<void> | void
+  /** set_slot (or set_player_inventory) for that window was applied */
+  [event: `setSlot:${number}`]: (oldItem: Item | null, newItem: Item | null) => Promise<void> | void
+  /** the server accepted (true) or rejected (false) that click; 1.8 – 1.16 */
+  [event: `confirmTransaction${number}`]: (accepted: boolean) => Promise<void> | void
   particle: (particle: Particle) => Promise<void> | void
 }
 
@@ -412,7 +419,8 @@ export interface Bot extends TypedEmitter<BotEvents> {
     start: number,
     end: number,
     window: Window,
-    slot: any
+    /** where leftovers go when the range is full; null tosses them */
+    slot: number | null
   ) => Promise<void>
 
   putAway: (slot: number) => Promise<void>
@@ -622,14 +630,22 @@ export interface FindBlockOptions {
 export type EquipmentDestination = 'hand' | 'head' | 'torso' | 'legs' | 'feet' | 'off-hand'
 
 export interface TransferOptions {
-  window: Window
+  /** defaults to bot.currentWindow, then bot.inventory */
+  window?: Window | null
   itemType: number
-  metadata: number | null
-  count?: number,
+  /** null / omitted matches any metadata */
+  metadata?: number | null
+  /** null / omitted means 1 */
+  count?: number | null
+  /** null / omitted ignores nbt */
+  nbt?: Item['nbt']
   sourceStart: number
-  sourceEnd: number
+  /** defaults to sourceStart + 1 */
+  sourceEnd?: number | null
+  /** -999 tosses the items */
   destStart: number
-  destEnd: number
+  /** defaults to destStart + 1 */
+  destEnd?: number | null
 }
 
 export interface creativeMethods {
@@ -670,7 +686,7 @@ export declare class Painting {
   constructor (id: number, position: Vec3, name: string | number, direction: Vec3)
 }
 
-interface StorageEvents {
+export interface StorageEvents {
   open: () => void
   close: () => void
   updateSlot: (slot: number, oldItem: Item | null, newItem: Item | null) => void
