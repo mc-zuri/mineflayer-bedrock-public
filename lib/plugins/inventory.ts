@@ -126,7 +126,10 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
   })
 
   bot._client.on('set_cooldown', (packet) => {
-    if (bot.heldItem && bot.heldItem.type !== packet.itemID) return
+    // 1.21.2+ names the cooldown group, by default the item's registry name
+    if (bot.heldItem && (packet.itemID !== undefined
+      ? bot.heldItem.type !== packet.itemID
+      : `minecraft:${bot.heldItem.name}` !== packet.cooldownGroup)) return
     if (!eatingTask.done) {
       eatingTask.finish()
     }

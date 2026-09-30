@@ -78,4 +78,21 @@ describe('inventory plugin', () => {
     bot._client.emit('set_slot', { windowId: 0, stateId: 3, slot: 36, item: Item.toNotch(new Item(apple.id, 4)) })
     assert.strictEqual(bot.usingHeldItem, false, 'held item count changed')
   })
+
+  for (const version of ['1.20.4', '1.21.11']) {
+    it(`a cooldown on the held item stops using it (${version})`, () => {
+      const bot = createFakeBot(version)
+      const Item = prismarineItem(bot.registry)
+      const { shield, ender_pearl: enderPearl } = bot.registry.itemsByName
+      const cooldown = (item: { id: number, name: string }) => bot.registry.version['>=']('1.21.2')
+        ? { cooldownGroup: `minecraft:${item.name}`, cooldownTicks: 100 }
+        : { itemID: item.id, cooldownTicks: 100 }
+      bot._client.emit('set_slot', { windowId: 0, stateId: 1, slot: 36, item: Item.toNotch(new Item(shield.id, 1)) })
+      bot.activateItem()
+      bot._client.emit('set_cooldown', cooldown(enderPearl))
+      assert.strictEqual(bot.usingHeldItem, true, 'cooldown on another item')
+      bot._client.emit('set_cooldown', cooldown(shield))
+      assert.strictEqual(bot.usingHeldItem, false, 'cooldown on the held item')
+    })
+  }
 })
