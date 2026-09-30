@@ -341,7 +341,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       }
       if (!window.selectedItem || window.selectedItem.type !== itemType ||
         (metadata != null && window.selectedItem.metadata !== metadata) ||
-        (nbt != null && window.selectedItem.nbt !== nbt)) {
+        (nbt != null && JSON.stringify(window.selectedItem.nbt) !== JSON.stringify(nbt))) {
         // we are not holding the item we need. click it.
         const sourceItem = window.findItemRange(sourceStart, sourceEnd, itemType, metadata, false, nbt)
         const mcDataEntry = bot.registry.itemsArray.find(x => x.id === itemType)

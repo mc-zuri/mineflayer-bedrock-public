@@ -4,6 +4,7 @@ import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import prismarineItem from 'prismarine-item'
 import prismarineWindows from 'prismarine-windows'
+import nbt from 'prismarine-nbt'
 import inventoryPlugin from '../lib/plugins/inventory.ts'
 import simpleInventoryPlugin from '../lib/plugins/simple_inventory.ts'
 import villagerPlugin from '../lib/plugins/villager.ts'
@@ -54,6 +55,21 @@ describe('inventory plugin', () => {
     await bot.transfer({ window: bot.inventory, itemType: dirt, count: 3, sourceStart: 9, destStart: 10 })
     assert.strictEqual(bot.inventory.slots[9], null)
     assert.strictEqual(bot.inventory.slots[10]?.count, 3)
+  })
+
+  it('transfer with an nbt option keeps the cursor stack when the destination is partly full', async () => {
+    const bot = createFakeBot('1.20.4')
+    const Item = prismarineItem(bot.registry)
+    const dirt = bot.registry.itemsByName.dirt.id
+    const named = () => nbt.comp({ display: nbt.comp({ Name: nbt.string('{"text":"Soil"}') }) })
+    bot._client.emit('set_slot', { windowId: 0, stateId: 1, slot: 9, item: Item.toNotch(new Item(dirt, 10, 0, named())) })
+    bot._client.emit('set_slot', { windowId: 0, stateId: 2, slot: 10, item: Item.toNotch(new Item(dirt, 60, 0, named())) })
+    // an equal nbt, but not the slot's own object
+    await bot.transfer({ window: bot.inventory, itemType: dirt, count: 5, nbt: named(), sourceStart: 9, destStart: 10, destEnd: 12 })
+    assert.strictEqual(bot.inventory.slots[9]?.count, 5)
+    assert.strictEqual(bot.inventory.slots[10]?.count, 64)
+    assert.strictEqual(bot.inventory.slots[11]?.count, 1)
+    assert.strictEqual(bot.inventory.selectedItem, null)
   })
 
   it('a server close_window without an open window emits no windowClose', () => {
