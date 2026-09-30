@@ -16,10 +16,9 @@ function loader (registry: Registry) {
     declare _health: number
     declare _dividers: number
     declare _color: BossBarColor
-    // flag bits as stored by the constructor / flags setter; booleans when set through the setters
-    declare _shouldDarkenSky: number | boolean
-    declare _isDragonBar: number | boolean
-    declare _createFog: number | boolean
+    declare _shouldDarkenSky: boolean
+    declare _isDragonBar: boolean
+    declare _createFog: boolean
 
     constructor (uuid: string, title: TextComponent, health: number, dividers: number, color: number, flags: number) {
       this._entityUUID = uuid
@@ -27,9 +26,9 @@ function loader (registry: Registry) {
       this._health = health
       this._dividers = divisions[dividers]
       this._color = colors[color]
-      this._shouldDarkenSky = flags & 0x1
-      this._isDragonBar = flags & 0x2
-      this._createFog = flags & 0x4
+      this._shouldDarkenSky = (flags & 0x1) !== 0
+      this._isDragonBar = (flags & 0x2) !== 0
+      this._createFog = (flags & 0x4) !== 0
     }
 
     set entityUUID (uuid: string) {
@@ -64,13 +63,13 @@ function loader (registry: Registry) {
     }
 
     set flags (flags: number) {
-      this._shouldDarkenSky = flags & 0x1
-      this._isDragonBar = flags & 0x2
-      this._createFog = flags & 0x4
+      this._shouldDarkenSky = (flags & 0x1) !== 0
+      this._isDragonBar = (flags & 0x2) !== 0
+      this._createFog = (flags & 0x4) !== 0
     }
 
     get flags () {
-      return (this._shouldDarkenSky as number) | ((this._isDragonBar as number) << 1) | ((this._createFog as number) << 2)
+      return (this._shouldDarkenSky ? 0x1 : 0) | (this._isDragonBar ? 0x2 : 0) | (this._createFog ? 0x4 : 0)
     }
 
     set shouldDarkenSky (darkenSky: boolean) {
@@ -82,7 +81,7 @@ function loader (registry: Registry) {
     }
 
     get createFog () {
-      return this._createFog as boolean
+      return this._createFog
     }
 
     set createFog (createFog: boolean) {
@@ -110,15 +109,15 @@ function loader (registry: Registry) {
     }
 
     get shouldDarkenSky () {
-      return this._shouldDarkenSky as boolean
+      return this._shouldDarkenSky
     }
 
     get isDragonBar () {
-      return this._isDragonBar as boolean
+      return this._isDragonBar
     }
 
     get shouldCreateFog () {
-      return this._createFog as boolean
+      return this._createFog
     }
   }
 }
