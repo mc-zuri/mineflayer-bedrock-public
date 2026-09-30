@@ -1,3 +1,4 @@
+import nbt from 'prismarine-nbt'
 import type { BotInternal } from '../types/internal.ts'
 import type { Int64 } from '../types/protocol.ts'
 
@@ -16,16 +17,31 @@ function inject (bot: BotInternal): void {
     age: null,
     clocks: {}
   }
+  // 26.1+: update_time identifies clocks by their minecraft:world_clock registry index, and a
+  // dimension follows the clock its dimension type names as default_clock
+  let clockNames: string[] = []
+  const defaultClocks: { [dimension: string]: string | undefined } = {}
+  bot._client.on('registry_data', (packet) => {
+    if (packet.id === 'minecraft:world_clock') {
+      clockNames = packet.entries!.map(entry => entry.key.replace('minecraft:', ''))
+    } else if (packet.id === 'minecraft:dimension_type') {
+      for (const entry of packet.entries!) {
+        const defaultClock = entry.value && nbt.simplify(entry.value).default_clock
+        defaultClocks[entry.key.replace('minecraft:', '')] = defaultClock?.replace('minecraft:', '')
+      }
+    }
+  })
   bot._client.on('update_time', (packet) => {
     const age = longToBigInt(packet.age)
     let time: bigint
     let doDaylightCycle: boolean
     if (packet.clockUpdates) {
       for (const update of packet.clockUpdates) {
-        bot.time.clocks[bot.registry.dimensionsById![update.id].name] = update
+        bot.time.clocks[clockNames[update.id] ?? String(update.id)] = update
       }
-      time = BigInt(bot.time.clocks[bot.game.dimension]?.totalTicks ?? 0)
-      doDaylightCycle = bot.time.clocks[bot.game.dimension]?.rate! > 0
+      const clock = bot.time.clocks[defaultClocks[bot.game.dimension] ?? bot.game.dimension]
+      time = BigInt(clock?.totalTicks ?? 0)
+      doDaylightCycle = clock?.rate! > 0
     } else {
       time = longToBigInt(packet.time!)
       doDaylightCycle = (packet.tickDayTime !== undefined) ? !!packet.tickDayTime : time >= 0n

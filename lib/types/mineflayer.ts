@@ -700,8 +700,8 @@ export interface Time {
   moonPhase: number | null
   bigAge: bigint | null
   age: number | null
-  /** 26.1+: the world clocks, keyed by dimension name, advanced every physics tick */
-  clocks: { [dimension: string]: WorldClock }
+  /** 26.1+: the world clocks, keyed by world clock name (overworld, the_end), advanced every physics tick */
+  clocks: { [clock: string]: WorldClock }
 }
 
 export interface WorldClock {

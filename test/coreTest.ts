@@ -13,6 +13,7 @@ import gamePlugin from '../lib/plugins/game.ts'
 import resourcePackPlugin from '../lib/plugins/resource_pack.ts'
 import settingsPlugin from '../lib/plugins/settings.ts'
 import explosionPlugin from '../lib/plugins/explosion.ts'
+import timePlugin from '../lib/plugins/time.ts'
 
 interface Write { name: string, params: any }
 
@@ -261,6 +262,35 @@ describe('core', () => {
       const bot = explosionBot('1.20.6')
       assert.strictEqual(bot.getExplosionDamages(target(), source, 4), null)
       assert.strictEqual(typeof bot.getExplosionDamages(target(), source, 4, true), 'number')
+    })
+  })
+
+  describe('time', () => {
+    it('follows the world clock of the dimension on 26.1', () => {
+      const bot = fakeBot('26.1')
+      bot.game = { dimension: 'overworld' }
+      timePlugin(bot)
+      const dimensionTypes = {
+        id: 'minecraft:dimension_type',
+        entries: [
+          ['overworld', 'minecraft:overworld'], ['overworld_caves', 'minecraft:overworld'], ['the_end', 'minecraft:the_end'], ['the_nether', undefined]
+        ].map(([name, clock]) => ({
+          key: `minecraft:${name}`,
+          value: nbt.comp({ min_y: nbt.int(0), height: nbt.int(256), ...(clock ? { default_clock: nbt.string(clock) } : {}) })
+        }))
+      }
+      // what the game plugin does with every registry_data
+      bot._client.on('registry_data', (packet: any) => bot.registry.loadDimensionCodec(packet))
+      bot._client.emit('registry_data', { id: 'minecraft:world_clock', entries: [{ key: 'minecraft:overworld', value: nbt.comp({}) }, { key: 'minecraft:the_end', value: nbt.comp({}) }] })
+      bot._client.emit('registry_data', dimensionTypes)
+      const clockUpdates = [{ id: 0, totalTicks: 1000, partialTick: 0, rate: 1 }, { id: 1, totalTicks: 6000, partialTick: 0, rate: 1 }]
+      bot._client.emit('update_time', { age: [0, 0], clockUpdates })
+      assert.strictEqual(bot.time.time, 1000)
+      for (const [dimension, time] of [['the_end', 6000], ['overworld_caves', 1000], ['the_nether', 0]] as const) {
+        bot.game.dimension = dimension
+        bot._client.emit('update_time', { age: [0, 0], clockUpdates: clockUpdates.map(c => ({ ...c })) })
+        assert.strictEqual(bot.time.time, time, dimension)
+      }
     })
   })
 })
