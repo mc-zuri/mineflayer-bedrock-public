@@ -6,6 +6,8 @@ import prismarineItem from 'prismarine-item'
 import prismarineWindows from 'prismarine-windows'
 import inventoryPlugin from '../lib/plugins/inventory.ts'
 import simpleInventoryPlugin from '../lib/plugins/simple_inventory.ts'
+import villagerPlugin from '../lib/plugins/villager.ts'
+import { Vec3 } from 'vec3'
 
 interface Write { name: string, params: any }
 
@@ -106,5 +108,47 @@ describe('inventory plugin', () => {
     assert.strictEqual(bot.currentWindow?.type, 'minecraft:merchant')
     await bot.clickWindow(0, 0, 0)
     await bot.clickWindow(2, 0, 0)
+  })
+})
+
+describe('villager plugin', () => {
+  it('a trade without a second input has inputItem2 null', async () => {
+    const bot = createFakeBot('1.20.4')
+    bot.lookAt = async () => {}
+    villagerPlugin(bot, {} as any)
+    const Item = prismarineItem(bot.registry)
+    const { emerald, bread } = bot.registry.itemsByName
+    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']
+    const opening = bot.openVillager({ id: 5, entityType: bot.registry.entitiesByName.villager.id, position: new Vec3(0, 0, 0) })
+    bot._client.emit('open_window', { windowId: 1, inventoryType: merchant.type, windowTitle: JSON.stringify({ text: 'Villager' }) })
+    bot._client.emit('window_items', { windowId: 1, stateId: 1, items: new Array(merchant.slots).fill(Item.toNotch(null)), carriedItem: Item.toNotch(null) })
+    await new Promise(resolve => setImmediate(resolve))
+    const trade = (input2: any) => ({
+      inputItem1: Item.toNotch(new Item(emerald.id, 1)),
+      outputItem: Item.toNotch(new Item(bread.id, 6)),
+      inputItem2: Item.toNotch(input2),
+      tradeDisabled: false,
+      nbTradeUses: 0,
+      maximumNbTradeUses: 16,
+      xp: 1,
+      specialPrice: 0,
+      priceMultiplier: 0.05,
+      demand: 0
+    })
+    bot._client.emit('trade_list', {
+      windowId: 1,
+      trades: [trade(null), trade(new Item(bread.id, 1))],
+      villagerLevel: 1,
+      experience: 0,
+      isRegularVillager: true,
+      canRestock: true
+    })
+    const villager = await opening
+    assert.strictEqual(villager.trades[0].inputItem2, null)
+    assert.strictEqual(villager.trades[0].hasItem2, false)
+    assert.strictEqual(villager.trades[0].inputs.length, 1)
+    assert.strictEqual(villager.trades[1].inputItem2.name, 'bread')
+    assert.strictEqual(villager.trades[1].hasItem2, true)
+    assert.strictEqual(villager.trades[1].inputs.length, 2)
   })
 })

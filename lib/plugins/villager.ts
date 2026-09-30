@@ -121,6 +121,8 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
         trade.inputs = [trade.inputItem1 = Item.fromNotch(trade.inputItem1 || { blockId: -1 })]
         if (trade.inputItem2?.itemCount != null) {
           trade.inputs.push(trade.inputItem2 = Item.fromNotch(trade.inputItem2 || { blockId: -1 }))
+        } else {
+          trade.inputItem2 = null
         }
 
         trade.hasItem2 = !!(trade.inputItem2 && trade.inputItem2.type && trade.inputItem2.count)
