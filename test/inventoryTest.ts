@@ -151,4 +151,60 @@ describe('villager plugin', () => {
     assert.strictEqual(villager.trades[1].hasItem2, true)
     assert.strictEqual(villager.trades[1].inputs.length, 2)
   })
+
+  it('trade predicts the trading slots as Item instances (1.16.5)', async () => {
+    const bot = createFakeBot('1.16.5')
+    bot.lookAt = async () => {}
+    villagerPlugin(bot, {} as any)
+    const Item = prismarineItem(bot.registry)
+    const { emerald, bread } = bot.registry.itemsByName
+    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']
+    const invStart = merchant.inventory.start
+    // a server that accepts every click and moves the price into slot 0 when a trade is selected
+    const write = bot._client.write
+    bot._client.write = (name: string, params: any) => {
+      write(name, params)
+      if (name === 'window_click') {
+        setImmediate(() => bot._client.emit('transaction', { windowId: params.windowId, action: params.action, accepted: true }))
+      } else if (name === 'select_trade') {
+        setImmediate(() => {
+          bot._client.emit('set_slot', { windowId: 1, slot: invStart, item: Item.toNotch(new Item(emerald.id, 4)) })
+          bot._client.emit('set_slot', { windowId: 1, slot: 0, item: Item.toNotch(new Item(emerald.id, 1)) })
+        })
+      }
+    }
+    const opening = bot.openVillager({ id: 5, entityType: bot.registry.entitiesByName.villager.id, position: new Vec3(0, 0, 0) })
+    const items = new Array(merchant.slots).fill(Item.toNotch(null))
+    items[invStart] = Item.toNotch(new Item(emerald.id, 5))
+    bot._client.emit('open_window', { windowId: 1, inventoryType: merchant.type, windowTitle: JSON.stringify({ text: 'Villager' }) })
+    bot._client.emit('window_items', { windowId: 1, items })
+    await new Promise(resolve => setImmediate(resolve))
+    bot._client.emit('trade_list', {
+      windowId: 1,
+      trades: [{
+        inputItem1: Item.toNotch(new Item(emerald.id, 1)),
+        outputItem: Item.toNotch(new Item(bread.id, 6)),
+        inputItem2: Item.toNotch(null),
+        tradeDisabled: false,
+        nbTradeUses: 0,
+        maximumNbTradeUses: 16,
+        xp: 1,
+        specialPrice: 0,
+        priceMultiplier: 0.05,
+        demand: 0
+      }],
+      villagerLevel: 1,
+      experience: 0,
+      isRegularVillager: true,
+      canRestock: true
+    })
+    const villager = await opening
+    const plain: number[] = []
+    villager.on('updateSlot', (slot: number, oldItem: unknown, newItem: object | null) => {
+      if (newItem && Object.getPrototypeOf(newItem) === Object.prototype) plain.push(slot)
+    })
+    await bot.trade(villager, 0, 1)
+    assert.deepStrictEqual(plain, [])
+    assert.strictEqual(villager.slots[invStart + 1]?.name, 'bread')
+  })
 })

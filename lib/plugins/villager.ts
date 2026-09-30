@@ -187,7 +187,7 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
         Trade.tradeDisabled = true
       }
       if (!bot.supportFeature('setSlotAsTransaction')) {
-        villager.updateSlot(2, Object.assign({}, Trade.outputItem))
+        villager.updateSlot(2, new Item(Trade.outputItem.type, Trade.outputItem.count, Trade.outputItem.metadata, Trade.outputItem.nbt))
 
         const [slot1, slot2] = villager.slots
         if (slot1) {
@@ -195,7 +195,7 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
           const updatedCount1 = slot1.count - Trade.realPrice
           const updatedSlot1 = updatedCount1 <= 0
             ? null
-            : { ...slot1, count: updatedCount1 }
+            : new Item(slot1.type, updatedCount1, slot1.metadata, slot1.nbt)
           villager.updateSlot(0, updatedSlot1)
         }
 
@@ -204,7 +204,7 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
           const updatedCount2 = slot2.count - Trade.inputItem2!.count
           const updatedSlot2 = updatedCount2 <= 0
             ? null
-            : { ...slot2, count: updatedCount2 }
+            : new Item(slot2.type, updatedCount2, slot2.metadata, slot2.nbt)
           villager.updateSlot(1, updatedSlot2)
         }
       }
