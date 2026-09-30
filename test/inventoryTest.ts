@@ -8,6 +8,7 @@ import inventoryPlugin from '../lib/plugins/inventory.ts'
 import simpleInventoryPlugin from '../lib/plugins/simple_inventory.ts'
 import villagerPlugin from '../lib/plugins/villager.ts'
 import craftPlugin from '../lib/plugins/craft.ts'
+import furnacePlugin from '../lib/plugins/furnace.ts'
 import { Vec3 } from 'vec3'
 
 interface Write { name: string, params: any }
@@ -62,6 +63,28 @@ describe('inventory plugin', () => {
     bot._client.emit('close_window', { windowId: 0 })
     assert.deepStrictEqual(closed, [])
   })
+
+  for (const serverSide of [false, true]) {
+    it(`a ${serverSide ? 'server' : 'client'} close of a furnace emits close and removes its craft_progress_bar listener`, async () => {
+      const bot = createFakeBot('1.20.4')
+      bot.activateBlock = () => {}
+      furnacePlugin(bot)
+      const Item = prismarineItem(bot.registry)
+      const furnaceWindow = prismarineWindows(bot.version).windows['minecraft:furnace']
+      const before = bot._client.listenerCount('craft_progress_bar')
+      const opening = bot.openFurnace({ position: new Vec3(0, 0, 0) })
+      bot._client.emit('open_window', { windowId: 1, inventoryType: furnaceWindow.type, windowTitle: JSON.stringify({ text: 'Furnace' }) })
+      bot._client.emit('window_items', { windowId: 1, stateId: 1, items: new Array(furnaceWindow.slots).fill(Item.toNotch(null)), carriedItem: Item.toNotch(null) })
+      const furnace = await opening
+      assert.strictEqual(bot._client.listenerCount('craft_progress_bar'), before + 1)
+      let closes = 0
+      furnace.on('close', () => { closes++ })
+      if (serverSide) bot._client.emit('close_window', { windowId: 1 })
+      else await furnace.close()
+      assert.strictEqual(closes, 1)
+      assert.strictEqual(bot._client.listenerCount('craft_progress_bar'), before)
+    })
+  }
 
   it('consume with an empty hand rejects with a clear error', async () => {
     const bot = createFakeBot('1.20.4')

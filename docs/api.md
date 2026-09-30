@@ -1537,7 +1537,7 @@ Fires when you begin using a workbench, chest, brewing stand, etc.
 
 #### "windowClose" (window)
 
-Fires when you may no longer work with a workbench, chest, etc.
+Fires when you may no longer work with a workbench, chest, etc., whether the bot or the server closed it. The window itself then emits `"close"`.
 
 #### "sleep"
 

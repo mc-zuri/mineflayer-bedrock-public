@@ -409,11 +409,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
 
   // any window: the event map its type declares does not matter here
   function extendWindow (window: Window<any> & Partial<WindowMethods>): asserts window is OpenedWindow {
-    window.close = () => {
-      const closed = closeWindow(window)
-      window.emit('close')
-      return closed
-    }
+    window.close = () => closeWindow(window)
 
     window.withdraw = async (itemType, metadata, count, nbt) => {
       if (bot.inventory.emptySlotCount() === 0) {
@@ -484,6 +480,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     lastClosedWindow = window
     bot.currentWindow = null
     bot.emit('windowClose', window)
+    ;(window as Window<StorageEvents>).emit('close')
     if (bot.supportFeature('stateIdUsed')) return Promise.resolve()
     return clickWindow(-999, 0, 0).catch(() => {})
   }
@@ -820,6 +817,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     if (!oldWindow) return
     bot.currentWindow = null
     bot.emit('windowClose', oldWindow)
+    ;(oldWindow as Window<StorageEvents>).emit('close')
   })
   // Window ids restart with the player entity, so a later window can reuse
   // the closed one's id and its early sync must not be taken for a trailing one.
@@ -833,6 +831,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     if (!oldWindow) return
     bot.currentWindow = null
     bot.emit('windowClose', oldWindow)
+    ;(oldWindow as Window<StorageEvents>).emit('close')
   })
   // A respawn (death or dimension change) replaces the server-side player
   // entity and resets its window id counter, so pending window state can
