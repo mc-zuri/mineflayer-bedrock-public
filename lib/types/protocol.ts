@@ -390,6 +390,8 @@ export interface ClientboundPackets {
   remove_entity_effect: { entityId: number, effectId: number }
   /** 1.20.3+ */
   remove_resource_pack: { uuid?: string }
+  /** 1.20.3+ (before: scoreboard_score action 1); no objective_name resets every objective */
+  reset_score: { entity_name: string, objective_name?: string }
   /** 1.8 – 1.20.2 */
   resource_pack_send: {
     url: string

@@ -5,6 +5,7 @@ import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import bossbarLoader from '../lib/bossbar.ts'
 import teamPlugin from '../lib/plugins/team.ts'
+import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
 
 interface Write { name: string, params: any }
 
@@ -84,6 +85,31 @@ describe('core', () => {
       bot6._client.emit('teams', { team: 'red', mode: 'change', name: text, prefix: text, suffix: text, flags: { friendly_fire: false, see_friendly_invisible: true, _value: 2 }, nameTagVisibility: 'always', collisionRule: 'never', formatting: 12 })
       assert.strictEqual(bot6.teams.red.friendlyFire, 2)
       assert.strictEqual(bot6.teams.red.collisionRule, 'never')
+    })
+  })
+
+  describe('scoreboard', () => {
+    it('tracks scores on 1.20.3+ (no action field, reset_score)', () => {
+      const bot = fakeBot('1.20.4')
+      scoreboardPlugin(bot)
+      const text = { type: 'string', value: 'Kills' }
+      bot._client.emit('scoreboard_objective', { name: 'kills', action: 0, displayText: text, type: 0 })
+      bot._client.emit('scoreboard_objective', { name: 'deaths', action: 0, displayText: text, type: 0 })
+      const updated: unknown[] = []
+      const removed: unknown[] = []
+      bot.on('scoreUpdated', (sb: any, item: any) => updated.push([sb.name, item.name, item.value]))
+      bot.on('scoreRemoved', (sb: any, item: any) => removed.push([sb.name, item?.name]))
+      bot._client.emit('scoreboard_score', { itemName: 'alice', scoreName: 'kills', value: 3 })
+      bot._client.emit('scoreboard_score', { itemName: 'bob', scoreName: 'deaths', value: 1 })
+      assert.deepStrictEqual(updated, [['kills', 'alice', 3], ['deaths', 'bob', 1]])
+      assert.strictEqual(bot.scoreboards.kills.itemsMap.alice.value, 3)
+      bot._client.emit('reset_score', { entity_name: 'alice', objective_name: 'deaths' })
+      assert.deepStrictEqual(removed, [['deaths', undefined]])
+      bot._client.emit('reset_score', { entity_name: 'alice', objective_name: 'kills' })
+      assert.deepStrictEqual(removed, [['deaths', undefined], ['kills', 'alice']])
+      bot._client.emit('reset_score', { entity_name: 'bob' })
+      assert.deepStrictEqual(removed, [['deaths', undefined], ['kills', 'alice'], ['deaths', 'bob']])
+      assert.deepStrictEqual(Object.keys(bot.scoreboards.deaths.itemsMap), [])
     })
   })
 })

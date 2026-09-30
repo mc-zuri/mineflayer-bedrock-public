@@ -42,26 +42,37 @@ function inject (bot: BotInternal): void {
     }
   })
 
+  function removeScore (itemName: string, scoreboard: ScoreBoardInstance | undefined) {
+    if (scoreboard !== undefined) {
+      const removed = scoreboard.remove(itemName)
+      return bot.emit('scoreRemoved', scoreboard, removed)
+    }
+
+    for (const sb of Object.values(scoreboards)) {
+      if (itemName in sb.itemsMap) {
+        const removed = sb.remove(itemName)
+        return bot.emit('scoreRemoved', sb, removed)
+      }
+    }
+  }
+
   bot._client.on('scoreboard_score', (packet) => {
     const scoreboard = scoreboards[packet.scoreName]
-    if (scoreboard !== undefined && packet.action === 0) {
+    // 1.20.3+ has no action: every scoreboard_score is an update, removals are reset_score
+    if (scoreboard !== undefined && (packet.action === 0 || packet.action === undefined)) {
       const updated = scoreboard.add(packet.itemName, packet.value!)
       bot.emit('scoreUpdated', scoreboard, updated)
     }
 
     if (packet.action === 1) {
-      if (scoreboard !== undefined) {
-        const removed = scoreboard.remove(packet.itemName)
-        return bot.emit('scoreRemoved', scoreboard, removed)
-      }
-
-      for (const sb of Object.values(scoreboards)) {
-        if (packet.itemName in sb.itemsMap) {
-          const removed = sb.remove(packet.itemName)
-          return bot.emit('scoreRemoved', sb, removed)
-        }
-      }
+      removeScore(packet.itemName, scoreboard)
     }
+  })
+
+  bot._client.on('reset_score', (packet) => {
+    if (packet.objective_name === undefined) return removeScore(packet.entity_name, undefined)
+    const scoreboard = scoreboards[packet.objective_name]
+    if (scoreboard !== undefined) removeScore(packet.entity_name, scoreboard)
   })
 
   bot._client.on('scoreboard_display_objective', (packet) => {
