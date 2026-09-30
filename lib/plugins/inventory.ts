@@ -137,6 +137,10 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       eatingTask.cancel(new Error('Consuming cancelled due to calling bot.consume() again'))
     }
 
+    if (!bot.heldItem) {
+      throw new Error('Consuming failed: not holding an item')
+    }
+
     if (bot.game.gameMode !== 'creative' && !ALWAYS_CONSUMABLES.includes(bot.heldItem.name) && bot.food === 20) {
       throw new Error('Food is full')
     }

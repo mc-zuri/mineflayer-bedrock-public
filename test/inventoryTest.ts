@@ -58,4 +58,11 @@ describe('inventory plugin', () => {
     bot._client.emit('close_window', { windowId: 0 })
     assert.deepStrictEqual(closed, [])
   })
+
+  it('consume with an empty hand rejects with a clear error', async () => {
+    const bot = createFakeBot('1.20.4')
+    await assert.rejects(bot.consume(), /not holding an item/)
+    bot.game.gameMode = 'creative'
+    await assert.rejects(bot.consume(), /not holding an item/)
+  })
 })
