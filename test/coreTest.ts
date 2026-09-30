@@ -151,5 +151,14 @@ describe('core', () => {
       bot12._client.emit('title', { action: 5 })
       assert.deepStrictEqual(events12, [['title_times', 1, 2, 3], ['title_clear'], ['title_clear']])
     })
+
+    it('reads NBT titles on 1.20.3+', () => {
+      const bot = fakeBot('1.20.4')
+      titlePlugin(bot)
+      const events = record(bot)
+      bot._client.emit('set_title_text', { text: { type: 'string', value: 'plain' } })
+      bot._client.emit('set_title_subtitle', { text: { type: 'compound', name: '', value: { text: { type: 'string', value: 'styled' }, color: { type: 'string', value: 'red' } } } })
+      assert.deepStrictEqual(events, [['title', 'plain', 'title'], ['title', 'styled', 'subtitle']])
+    })
   })
 })

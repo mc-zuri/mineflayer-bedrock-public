@@ -1,3 +1,4 @@
+import { processNbtMessage } from 'prismarine-chat'
 import type { BotInternal } from '../types/internal.ts'
 import type { TextComponent } from '../types/protocol.ts'
 
@@ -27,7 +28,8 @@ function inject (bot: BotInternal): void {
   } else if (bot.supportFeature('titleUsesNewPackets')) {
     function getText (packet: { text: TextComponent }) {
       let text = packet.text
-      if (typeof text === 'object' && text.value !== undefined) text = text.value as TextComponent
+      // 1.20.3+: NBT, as the JSON string older versions send (a plain text is a bare string tag)
+      if (typeof text === 'object') text = processNbtMessage(text)
       return parseTitle(text)
     }
     bot._client.on('set_title_text', (packet) => bot.emit('title', getText(packet), 'title'))
