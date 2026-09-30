@@ -45,7 +45,7 @@ function inject (bot: BotInternal): void {
           delete bot.teamMap[member]
         })
         delete teams[teamName]
-        bot.emit('teamRemoved', teams[teamName])
+        bot.emit('teamRemoved', team)
         break
 
       case 'change':
