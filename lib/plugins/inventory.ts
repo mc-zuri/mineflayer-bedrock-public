@@ -805,6 +805,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
   bot._client.on('close_window', (packet) => {
     // close window
     const oldWindow = bot.currentWindow
+    if (!oldWindow) return
     bot.currentWindow = null
     bot.emit('windowClose', oldWindow)
   })

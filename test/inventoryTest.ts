@@ -50,4 +50,12 @@ describe('inventory plugin', () => {
     assert.strictEqual(bot.inventory.slots[9], null)
     assert.strictEqual(bot.inventory.slots[10]?.count, 3)
   })
+
+  it('a server close_window without an open window emits no windowClose', () => {
+    const bot = createFakeBot('1.20.4')
+    const closed: unknown[] = []
+    bot.on('windowClose', (window: unknown) => closed.push(window))
+    bot._client.emit('close_window', { windowId: 0 })
+    assert.deepStrictEqual(closed, [])
+  })
 })
