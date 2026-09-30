@@ -7,6 +7,19 @@ export default inject
 
 // TODO: apply this to all versions and rename scoreboard_team -> teams in minecraft-data
 const TEAM_MODES = ['add', 'remove', 'change', 'join', 'leave']
+// 1.21.5 sends the rules as ids, 1.21.6+ as these names
+const NAME_TAG_VISIBILITIES = ['always', 'never', 'hide_for_other_teams', 'hide_for_own_team']
+const COLLISION_RULES = ['always', 'never', 'push_other_teams', 'push_own_team']
+
+// 1.21.6+ replaces the friendlyFire byte with bit flags
+function friendlyFireOf (packet: ClientboundPackets['teams']): number {
+  if (packet.friendlyFire !== undefined) return packet.friendlyFire
+  return (packet.flags?.friendly_fire ? 0x1 : 0) | (packet.flags?.see_friendly_invisible ? 0x2 : 0)
+}
+
+function ruleName (rule: string | number | undefined, names: string[]): string {
+  return typeof rule === 'number' ? names[rule] : rule!
+}
 
 function inject (bot: BotInternal): void {
   const Team = teamModule(bot.registry)
@@ -24,9 +37,9 @@ function inject (bot: BotInternal): void {
         team = new Team(
           teamName,
           packet.name!,
-          packet.friendlyFire as number,
-          packet.nameTagVisibility as string,
-          packet.collisionRule as string,
+          friendlyFireOf(packet),
+          ruleName(packet.nameTagVisibility, NAME_TAG_VISIBILITIES),
+          ruleName(packet.collisionRule, COLLISION_RULES),
           packet.formatting ?? packet.color, // color before 1.13
           packet.prefix!,
           packet.suffix!
@@ -52,9 +65,9 @@ function inject (bot: BotInternal): void {
         if (!team) break
         team.update(
           packet.name!,
-          packet.friendlyFire as number,
-          packet.nameTagVisibility as string,
-          packet.collisionRule as string,
+          friendlyFireOf(packet),
+          ruleName(packet.nameTagVisibility, NAME_TAG_VISIBILITIES),
+          ruleName(packet.collisionRule, COLLISION_RULES),
           packet.formatting ?? packet.color, // color before 1.13
           packet.prefix!,
           packet.suffix!

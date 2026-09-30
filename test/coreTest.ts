@@ -66,5 +66,24 @@ describe('core', () => {
         assert.strictEqual(bot.teams.red.color, 'blue', version)
       }
     })
+
+    it('reads friendlyFire and the rules on 1.21.5+', () => {
+      const text = { type: 'string', value: 'red' }
+      const bot5 = fakeBot('1.21.5')
+      teamPlugin(bot5)
+      bot5._client.emit('teams', { team: 'red', mode: 0, name: text, prefix: text, suffix: text, friendlyFire: 3, nameTagVisibility: 2, collisionRule: 3, formatting: 12, players: [] })
+      assert.strictEqual(bot5.teams.red.friendlyFire, 3)
+      assert.strictEqual(bot5.teams.red.nameTagVisibility, 'hide_for_other_teams')
+      assert.strictEqual(bot5.teams.red.collisionRule, 'push_own_team')
+
+      const bot6 = fakeBot('1.21.6')
+      teamPlugin(bot6)
+      bot6._client.emit('teams', { team: 'red', mode: 'add', name: text, prefix: text, suffix: text, flags: { friendly_fire: true, see_friendly_invisible: false, _value: 1 }, nameTagVisibility: 'never', collisionRule: 'always', formatting: 12, players: [] })
+      assert.strictEqual(bot6.teams.red.friendlyFire, 1)
+      assert.strictEqual(bot6.teams.red.nameTagVisibility, 'never')
+      bot6._client.emit('teams', { team: 'red', mode: 'change', name: text, prefix: text, suffix: text, flags: { friendly_fire: false, see_friendly_invisible: true, _value: 2 }, nameTagVisibility: 'always', collisionRule: 'never', formatting: 12 })
+      assert.strictEqual(bot6.teams.red.friendlyFire, 2)
+      assert.strictEqual(bot6.teams.red.collisionRule, 'never')
+    })
   })
 })
