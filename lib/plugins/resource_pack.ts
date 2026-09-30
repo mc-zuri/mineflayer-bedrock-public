@@ -87,10 +87,11 @@ function inject (bot: BotInternal): void {
         uuid: latestUUID,
         result: TEXTURE_PACK_RESULTS.DECLINED
       })
+    } else {
+      bot._client.write('resource_pack_receive', {
+        result: TEXTURE_PACK_RESULTS.DECLINED
+      })
     }
-    bot._client.write('resource_pack_receive', {
-      result: TEXTURE_PACK_RESULTS.DECLINED
-    })
   }
 
   bot.acceptResourcePack = acceptResourcePack

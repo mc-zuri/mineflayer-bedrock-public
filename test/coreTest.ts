@@ -9,6 +9,7 @@ import teamPlugin from '../lib/plugins/team.ts'
 import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
 import titlePlugin from '../lib/plugins/title.ts'
 import gamePlugin from '../lib/plugins/game.ts'
+import resourcePackPlugin from '../lib/plugins/resource_pack.ts'
 
 interface Write { name: string, params: any }
 
@@ -202,6 +203,17 @@ describe('core', () => {
         bot._client.emit('game_state_change', { reason: 4, gameMode: 1 })
         assert.deepStrictEqual(bot._client.writes.filter((w: Write) => w.name === 'client_command'), [{ name: 'client_command', params }], version)
       }
+    })
+  })
+
+  describe('resource_pack', () => {
+    it('declines a 1.20.3+ pack with one uuid-carrying answer', () => {
+      const bot = fakeBot('1.20.4')
+      resourcePackPlugin(bot)
+      const uuid = '5f2d4c0e-1b0a-4c43-9a5e-6f0b8e3e0a11'
+      bot._client.emit('add_resource_pack', { uuid, url: 'http://example.invalid/pack.zip', hash: '', forced: false })
+      bot.denyResourcePack()
+      assert.deepStrictEqual(bot._client.writes, [{ name: 'resource_pack_receive', params: { uuid, result: 1 } }])
     })
   })
 })
