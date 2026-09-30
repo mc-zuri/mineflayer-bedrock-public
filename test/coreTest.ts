@@ -3,10 +3,12 @@
 import EventEmitter from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
+import nbt from 'prismarine-nbt'
 import bossbarLoader from '../lib/bossbar.ts'
 import teamPlugin from '../lib/plugins/team.ts'
 import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
 import titlePlugin from '../lib/plugins/title.ts'
+import gamePlugin from '../lib/plugins/game.ts'
 
 interface Write { name: string, params: any }
 
@@ -159,6 +161,29 @@ describe('core', () => {
       bot._client.emit('set_title_text', { text: { type: 'string', value: 'plain' } })
       bot._client.emit('set_title_subtitle', { text: { type: 'compound', name: '', value: { text: { type: 'string', value: 'styled' }, color: { type: 'string', value: 'red' } } } })
       assert.deepStrictEqual(events, [['title', 'plain', 'title'], ['title', 'styled', 'subtitle']])
+    })
+  })
+
+  describe('game', () => {
+    it('keeps the hardcore flag of the login packet', () => {
+      const bot12 = fakeBot('1.12.2')
+      gamePlugin(bot12, { brand: 'vanilla' } as any)
+      bot12._client.emit('login', { entityId: 1, gameMode: 0b1000 | 1, dimension: 0, difficulty: 3, maxPlayers: 20, levelType: 'default', reducedDebugInfo: false })
+      assert.strictEqual(bot12.game.hardcore, true)
+      assert.strictEqual(bot12.game.gameMode, 'creative')
+      bot12._client.emit('respawn', { dimension: -1, difficulty: 3, gamemode: 3, levelType: 'default' })
+      assert.strictEqual(bot12.game.hardcore, true)
+      assert.strictEqual(bot12.game.gameMode, 'spectator')
+
+      const bot20 = fakeBot('1.20.6')
+      gamePlugin(bot20, { brand: 'vanilla' } as any)
+      bot20._client.emit('registry_data', { id: 'minecraft:dimension_type', entries: [{ key: 'minecraft:overworld', value: nbt.comp({ min_y: nbt.int(-64), height: nbt.int(384) }) }] })
+      const worldState = { dimension: 0, name: 'minecraft:overworld', hashedSeed: [0, 0], gamemode: 'survival', previousGamemode: 255, isDebug: false, isFlat: false, portalCooldown: 0 }
+      bot20._client.emit('login', { entityId: 1, isHardcore: true, worldNames: ['minecraft:overworld'], maxPlayers: 20, viewDistance: 10, simulationDistance: 10, reducedDebugInfo: false, enableRespawnScreen: true, doLimitedCrafting: false, worldState, enforcesSecureChat: false })
+      assert.strictEqual(bot20.game.hardcore, true)
+      assert.strictEqual(bot20.game.dimension, 'overworld')
+      bot20._client.emit('respawn', { worldState, copyMetadata: 0 })
+      assert.strictEqual(bot20.game.hardcore, true)
     })
   })
 })

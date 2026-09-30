@@ -9,7 +9,6 @@ export default inject
 interface SpawnData {
   levelType?: string
   isFlat?: boolean
-  isHardcore?: boolean
   /** login */
   gameMode?: number
   /** respawn; worldState (name) */
@@ -32,6 +31,7 @@ const dimensionNames: Record<string, string> = {
 }
 
 const parseGameMode = (gameModeBits: number): GameMode => {
+  gameModeBits &= ~0b1000 // the hardcore flag of the 1.8 – 1.15 login packet
   if (gameModeBits < 0 || gameModeBits > 0b11) {
     return 'survival'
   }
@@ -50,7 +50,6 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
   function handleRespawnPacketData (packet: SpawnData) {
     bot.game.levelType = (packet.levelType as LevelType | undefined) ?? (packet.isFlat ? 'flat' : 'default')
-    bot.game.hardcore = packet.isHardcore ?? Boolean(packet.gameMode! & 0b100)
     // Either a respawn packet or a login packet. Depending on the packet it can be "gamemode" or "gameMode"
     if (bot.supportFeature('spawnRespawnWorldDataField')) { // 1.20.5
       bot.game.gameMode = packet.gamemode as GameMode
@@ -120,6 +119,8 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
   bot._client.on('login', (packet) => {
     handleRespawnPacketData(packet.worldState || packet)
+    // only the login packet says whether the world is hardcore: isHardcore (1.16+) or bit 0x8 of gameMode
+    bot.game.hardcore = packet.isHardcore ?? Boolean(packet.gameMode! & 0b1000)
 
     bot.game.maxPlayers = packet.maxPlayers
     if (packet.enableRespawnScreen) {
