@@ -7,6 +7,8 @@ import { Vec3 } from 'vec3'
 import entitiesPlugin from '../lib/plugins/entities.ts'
 import rayTracePlugin from '../lib/plugins/ray_trace.ts'
 import bedPlugin from '../lib/plugins/bed.ts'
+import creativePlugin from '../lib/plugins/creative.ts'
+import prismarineItem from 'prismarine-item'
 
 function createFakeBot (version: string) {
   const registry = prismarineRegistry(version)
@@ -139,6 +141,49 @@ describe('ray_trace plugin', () => {
     assert.strictEqual(casts.length, 1)
     assert.deepStrictEqual(casts[0][0], new Vec3(0, 65.8, 0))
     assert.deepStrictEqual(casts[0][1].toArray().map((v: number) => Math.round(v * 1e6) / 1e6 + 0), [0, 0, -1])
+  })
+})
+
+describe('creative plugin (1.21.3+, no set_creative_slot ack)', () => {
+  function createCreativeBot () {
+    const registry = prismarineRegistry('1.21.4')
+    const bot: any = new EventEmitter()
+    bot.registry = registry
+    bot.supportFeature = registry.supportFeature.bind(registry)
+    bot._client = new EventEmitter()
+    bot._client.write = () => {}
+    bot.inventory = new EventEmitter()
+    bot.inventory.slots = []
+    bot._setSlot = (slot: number, item: unknown) => { bot.inventory.slots[slot] = item }
+    creativePlugin(bot)
+    const Item = prismarineItem(registry)
+    return { bot, Item, registry }
+  }
+
+  it('rejects when the server corrects the slot to another item', async () => {
+    const { bot, Item, registry } = createCreativeBot()
+    const stone = new Item(registry.itemsByName.stone.id, 1)
+    const dirt = new Item(registry.itemsByName.dirt.id, 1)
+    const set = bot.creative.setInventorySlot(36, stone, 300)
+    bot.inventory.emit('updateSlot:36', stone, dirt)
+    await assert.rejects(set, { message: 'Server rejected' })
+  })
+
+  it('clearSlot rejects when the server puts an item back', async () => {
+    const { bot, Item, registry } = createCreativeBot()
+    const stone = new Item(registry.itemsByName.stone.id, 1)
+    bot.inventory.slots[36] = stone
+    const clear = bot.creative.clearSlot(36)
+    assert.doesNotThrow(() => bot.inventory.emit('updateSlot:36', null, stone))
+    await assert.rejects(clear, { message: 'Server rejected' })
+  })
+
+  it('resolves when the server keeps the item', async () => {
+    const { bot, Item, registry } = createCreativeBot()
+    const stone = new Item(registry.itemsByName.stone.id, 1)
+    const set = bot.creative.setInventorySlot(36, stone, 50)
+    bot.inventory.emit('updateSlot:36', null, new Item(registry.itemsByName.stone.id, 1))
+    await set
   })
 })
 

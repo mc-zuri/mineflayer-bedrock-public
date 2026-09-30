@@ -77,8 +77,8 @@ function inject (bot: BotInternal): void {
       // the same ordered connection is proof the rejection window has passed.
       return new Promise<void>((resolve, reject) => {
         function updateSlot (oldItem: ItemT | null, newItem: ItemT | null) {
-          // @ts-expect-error prismarine-item has no itemId: both sides are undefined (and newItem / item can be null)
-          if (newItem.itemId !== item.itemId) {
+          // null is an empty slot (clearSlot, or the server emptied it)
+          if (newItem?.type !== item?.type) {
             creativeSlotsUpdates[slot] = false
             reject(Error('Server rejected'))
           }
