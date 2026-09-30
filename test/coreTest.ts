@@ -111,5 +111,14 @@ describe('core', () => {
       assert.deepStrictEqual(removed, [['deaths', undefined], ['kills', 'alice'], ['deaths', 'bob']])
       assert.deepStrictEqual(Object.keys(bot.scoreboards.deaths.itemsMap), [])
     })
+
+    it('reads the objective title from NBT on 1.20.3+', () => {
+      const bot = fakeBot('1.20.4')
+      scoreboardPlugin(bot)
+      bot._client.emit('scoreboard_objective', { name: 'kills', action: 0, displayText: { type: 'string', value: 'Kills' }, type: 0 })
+      assert.strictEqual(bot.scoreboards.kills.title, 'Kills')
+      bot._client.emit('scoreboard_objective', { name: 'kills', action: 2, displayText: { type: 'compound', name: '', value: { text: { type: 'string', value: 'Top kills' }, color: { type: 'string', value: 'red' } } }, type: 0 })
+      assert.strictEqual(bot.scoreboards.kills.title, 'Top kills')
+    })
   })
 })

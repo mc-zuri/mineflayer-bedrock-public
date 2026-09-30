@@ -1,4 +1,5 @@
 import prismarineChat from 'prismarine-chat'
+import nbt from 'prismarine-nbt'
 import type { BotInternal } from './types/internal.ts'
 import type { ScoreBoard as ScoreBoardInstance, ScoreBoardItem, ScoreBoardPositions } from './types/mineflayer.ts'
 import type { TextComponent } from './types/protocol.ts'
@@ -26,6 +27,12 @@ export default (bot: BotInternal) => {
     }
 
     setTitle (title: TextComponent | undefined) {
+      // 1.20.3+: an NBT component, a plain text title being a bare string tag
+      if (title !== null && typeof title === 'object') {
+        const simplified = nbt.simplify(title)
+        this.title = typeof simplified === 'string' ? simplified : simplified.text
+        return
+      }
       try {
         this.title = JSON.parse(title as string).text // version>1.13
       } catch {
