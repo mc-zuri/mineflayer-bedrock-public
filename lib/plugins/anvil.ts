@@ -2,26 +2,31 @@ import assert from 'assert'
 import { sleep } from '../promise_utils.ts'
 import { once } from '../promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { Item as ItemInstance } from 'prismarine-item'
+import type { Block } from 'prismarine-block'
+import type { Window } from 'prismarine-windows'
+import type { Anvil } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
 
 export default inject
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   const Item = prismarineItem(bot.registry)
 
-  const matchWindowType = window => /minecraft:(?:chipped_|damaged_)?anvil/.test(window.type)
+  const matchWindowType = (window: Window): boolean => /minecraft:(?:chipped_|damaged_)?anvil/.test(window.type as string)
 
-  async function openAnvil (anvilBlock) {
-    const anvil = await bot.openBlock(anvilBlock)
+  async function openAnvil (anvilBlock: Block): Promise<Anvil> {
+    const anvil = await bot.openBlock(anvilBlock) as Anvil
     if (!matchWindowType(anvil)) {
       throw new Error('Not a anvil-like window: ' + JSON.stringify(anvil))
     }
 
-    function err (name) {
+    function err (name: string): never {
       anvil.close()
       throw new Error(name)
     }
 
-    function sendItemName (name) {
+    function sendItemName (name: string): void {
       if (bot.supportFeature('useMCItemName')) {
         bot._client.writeChannel('MC|ItemName', name)
       } else {
@@ -29,22 +34,22 @@ function inject (bot) {
       }
     }
 
-    async function addCustomName (name) {
+    async function addCustomName (name: string | undefined): Promise<void> {
       if (!name) return
       for (let i = 1; i < name.length + 1; i++) {
         sendItemName(name.substring(0, i))
         await sleep(50)
       }
     }
-    async function putInAnvil (itemOne, itemTwo) {
+    async function putInAnvil (itemOne: ItemInstance, itemTwo: ItemInstance): Promise<void> {
       await putSomething(0, itemOne.type, itemOne.metadata, itemOne.count, itemOne.nbt)
       sendItemName('') // sent like this by vnailla
       if (!bot.supportFeature('useMCItemName')) sendItemName('')
       await putSomething(1, itemTwo.type, itemTwo.metadata, itemTwo.count, itemTwo.nbt)
     }
 
-    async function combine (itemOne, itemTwo, name) {
-      if (name?.length > 35) err('Name is too long.')
+    async function combine (itemOne: ItemInstance, itemTwo: ItemInstance, name?: string): Promise<void> {
+      if (name?.length! > 35) err('Name is too long.')
       if (bot.supportFeature('useMCItemName')) {
         bot._client.registerChannel('MC|ItemName', 'string')
       }
@@ -70,8 +75,8 @@ function inject (bot) {
       await xpPromise
     }
 
-    async function rename (item, name) {
-      if (name?.length > 35) err('Name is too long.')
+    async function rename (item: ItemInstance, name?: string): Promise<void> {
+      if (name?.length! > 35) err('Name is too long.')
       if (bot.supportFeature('useMCItemName')) {
         bot._client.registerChannel('MC|ItemName', 'string')
       }
@@ -91,7 +96,7 @@ function inject (bot) {
       await xpPromise
     }
 
-    async function putSomething (destSlot, itemId, metadata, count, nbt) {
+    async function putSomething (destSlot: number, itemId: number, metadata: number | null, count: number, nbt: ItemInstance['nbt']): Promise<void> {
       const options = {
         window: anvil,
         itemType: itemId,

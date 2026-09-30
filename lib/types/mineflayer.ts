@@ -1,4 +1,3 @@
-import type { EventEmitter } from 'events'
 import type TypedEmitter from 'typed-emitter'
 import type { Client, ClientOptions } from 'minecraft-protocol'
 import type { Vec3 } from 'vec3'
@@ -118,7 +117,8 @@ export interface BotEvents {
   playerUpdated: (player: Player) => Promise<void> | void
   playerLeft: (entity: Player) => Promise<void> | void
   blockUpdate: (oldBlock: Block | null, newBlock: Block) => Promise<void> | void
-  'blockUpdate:(x, y, z)': (oldBlock: Block | null, newBlock: Block | null) => Promise<void> | void
+  /** `blockUpdate:(x, y, z)` with the block's integer position; (null, null) when the world is switched */
+  [event: `blockUpdate:${string}`]: (oldBlock: Block | null, newBlock: Block | null) => Promise<void> | void
   blockEntityData: (block: Block | null) => Promise<void> | void
   signOpen: (block: Block | null) => Promise<void> | void
   chunkColumnLoad: (entity: Vec3) => Promise<void> | void
@@ -208,7 +208,11 @@ export interface Bot extends TypedEmitter<BotEvents> {
   time: Time
   quickBarSlot: number
   inventory: Window<StorageEvents>
-  targetDigBlock: Block
+  targetDigBlock: Block | null
+  /** face sent in the current block_dig; null when not digging */
+  targetDigFace: number | null
+  /** performance.now() of the last finished or aborted dig */
+  lastDigTime: number | null
   isSleeping: boolean
   scoreboards: { [name: string]: ScoreBoard }
   scoreboard: ScoreBoardPositions
@@ -353,7 +357,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   attack: (entity: Entity) => void
 
-  swingArm: (hand: 'left' | 'right' | undefined, showHand?: boolean) => void
+  swingArm: (hand?: 'left' | 'right', showHand?: boolean) => void
 
   mount: (entity: Entity) => void
 
@@ -376,7 +380,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   openContainer: (chest: Block | Entity, direction?: Vec3, cursorPos?: Vec3) => Promise<Chest | Dispenser>
 
-  openChest: (chest: Block | Entity, direction?: number, cursorPos?: Vec3) => Promise<Chest>
+  openChest: (chest: Block | Entity, direction?: Vec3, cursorPos?: Vec3) => Promise<Chest>
 
   openFurnace: (furnace: Block) => Promise<Furnace>
 
@@ -419,7 +423,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   openBlock: (block: Block, direction?: Vec3, cursorPos?: Vec3) => Promise<Window>
 
-  openEntity: (block: Entity, Class: new () => EventEmitter) => Promise<Window>
+  openEntity: (entity: Entity) => Promise<Window>
 
   moveSlotItem: (
     sourceSlot: number,
@@ -688,23 +692,51 @@ export declare class Chest extends Window<StorageEvents> {
   deposit (
     itemType: number,
     metadata: number | null,
-    count: number | null
+    count: number | null,
+    nbt?: Item['nbt']
   ): Promise<void>
 
   withdraw (
     itemType: number,
     metadata: number | null,
-    count: number | null
+    count: number | null,
+    nbt?: Item['nbt']
   ): Promise<void>
 }
 
 export declare class Furnace extends Window<FurnaceEvents> {
-  fuel: number
-  progress: number
+  /** craft_progress_bar values; null until the server sends them */
+  totalFuel: number | null
+  /** set with totalFuel */
+  totalFuelSeconds?: number
+  /** fraction of totalFuel left */
+  fuel: number | null
+  fuelSeconds: number | null
+  totalProgress: number | null
+  /** set with totalProgress */
+  totalProgressSeconds?: number
+  /** fraction of totalProgress done */
+  progress: number | null
+  /** seconds left */
+  progressSeconds: number | null
 
   constructor ()
 
   close (): Promise<void>
+
+  deposit (
+    itemType: number,
+    metadata: number | null,
+    count: number | null,
+    nbt?: Item['nbt']
+  ): Promise<void>
+
+  withdraw (
+    itemType: number,
+    metadata: number | null,
+    count: number | null,
+    nbt?: Item['nbt']
+  ): Promise<void>
 
   takeInput (): Promise<Item>
 
@@ -724,11 +756,11 @@ export declare class Furnace extends Window<FurnaceEvents> {
     count: number
   ): Promise<void>
 
-  inputItem (): Item
+  inputItem (): Item | null
 
-  fuelItem (): Item
+  fuelItem (): Item | null
 
-  outputItem (): Item
+  outputItem (): Item | null
 }
 
 export declare class Dispenser extends Window<StorageEvents> {
@@ -739,37 +771,74 @@ export declare class Dispenser extends Window<StorageEvents> {
   deposit (
     itemType: number,
     metadata: number | null,
-    count: number | null
+    count: number | null,
+    nbt?: Item['nbt']
   ): Promise<void>
 
   withdraw (
     itemType: number,
     metadata: number | null,
-    count: number | null
+    count: number | null,
+    nbt?: Item['nbt']
   ): Promise<void>
 }
 
 export declare class EnchantmentTable extends Window<ConditionalStorageEvents> {
   enchantments: Enchantment[]
+  /** craft_progress_bar property 3; -1 until the server sends it */
+  xpseed: number
 
   constructor ()
 
   close (): Promise<void>
 
-  targetItem (): Item
+  deposit (
+    itemType: number,
+    metadata: number | null,
+    count: number | null,
+    nbt?: Item['nbt']
+  ): Promise<void>
 
+  withdraw (
+    itemType: number,
+    metadata: number | null,
+    count: number | null,
+    nbt?: Item['nbt']
+  ): Promise<void>
+
+  targetItem (): Item | null
+
+  /** resolves with the enchanted item (the new content of slot 0) */
   enchant (
     choice: string | number
-  ): Promise<Item>
+  ): Promise<Item | null>
 
   takeTargetItem (): Promise<Item>
 
-  putTargetItem (item: Item): Promise<Item>
+  putTargetItem (item: Item): Promise<void>
 
-  putLapis (item: Item): Promise<Item>
+  putLapis (item: Item): Promise<void>
 }
 
-export declare class Anvil {
+export declare class Anvil extends Window<StorageEvents> {
+  constructor ()
+
+  close (): Promise<void>
+
+  deposit (
+    itemType: number,
+    metadata: number | null,
+    count: number | null,
+    nbt?: Item['nbt']
+  ): Promise<void>
+
+  withdraw (
+    itemType: number,
+    metadata: number | null,
+    count: number | null,
+    nbt?: Item['nbt']
+  ): Promise<void>
+
   combine (itemOne: Item, itemTwo: Item, name?: string): Promise<void>
   rename (item: Item, name?: string): Promise<void>
 }

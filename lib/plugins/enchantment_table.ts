@@ -1,14 +1,19 @@
 import assert from 'assert'
 import { once } from '../promise_utils.ts'
+import type { Block } from 'prismarine-block'
+import type { Item } from 'prismarine-item'
+import type { EnchantmentTable } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { ClientboundPackets } from '../types/protocol.ts'
 
 export default inject
 
-function inject (bot) {
-  async function openEnchantmentTable (enchantmentTableBlock) {
+function inject (bot: BotInternal): void {
+  async function openEnchantmentTable (enchantmentTableBlock: Block): Promise<EnchantmentTable> {
     assert.strictEqual(enchantmentTableBlock.name, 'enchanting_table')
     let ready = false
-    const enchantmentTable = await bot.openBlock(enchantmentTableBlock)
-    if (!enchantmentTable.type.startsWith('minecraft:enchant')) {
+    const enchantmentTable = await bot.openBlock(enchantmentTableBlock) as EnchantmentTable
+    if (!(enchantmentTable.type as string).startsWith('minecraft:enchant')) {
       throw new Error('Expected minecraft:enchant when opening table but got ' + enchantmentTable.type)
     }
 
@@ -18,7 +23,7 @@ function inject (bot) {
     enchantmentTable.takeTargetItem = takeTargetItem
     enchantmentTable.putTargetItem = putTargetItem
     enchantmentTable.putLapis = putLapis
-    enchantmentTable.targetItem = function () { return this.slots[0] }
+    enchantmentTable.targetItem = function (this: EnchantmentTable) { return this.slots[0] }
 
     bot._client.on('craft_progress_bar', onUpdateWindowProperty)
     enchantmentTable.once('close', () => {
@@ -27,7 +32,7 @@ function inject (bot) {
 
     return enchantmentTable
 
-    function onUpdateWindowProperty (packet) {
+    function onUpdateWindowProperty (packet: ClientboundPackets['craft_progress_bar']): void {
       if (packet.windowId !== enchantmentTable.id) return
       assert.ok(packet.property >= 0)
 
@@ -56,7 +61,7 @@ function inject (bot) {
       }
     }
 
-    function resetEnchantmentOptions () {
+    function resetEnchantmentOptions (): void {
       enchantmentTable.xpseed = -1
       enchantmentTable.enchantments = []
       for (let slot = 0; slot < 3; slot++) {
@@ -71,30 +76,30 @@ function inject (bot) {
       ready = false
     }
 
-    async function enchant (choice) {
+    async function enchant (choice: string | number): Promise<Item | null> {
       if (!ready) await once(enchantmentTable, 'ready')
-      choice = parseInt(choice, 10) // allow string argument
+      choice = parseInt(choice as string, 10) // allow string argument
       assert.notStrictEqual(enchantmentTable.enchantments[choice].level, -1)
       bot._client.write('enchant_item', {
         windowId: enchantmentTable.id,
         enchantment: choice
       })
-      const [, newItem] = await once(enchantmentTable, 'updateSlot:0')
+      const [, newItem] = await once<[Item | null, Item | null]>(enchantmentTable, 'updateSlot:0')
       return newItem
     }
 
-    async function takeTargetItem () {
+    async function takeTargetItem (): Promise<Item> {
       const item = enchantmentTable.targetItem()
       assert.ok(item)
       await bot.putAway(item.slot)
       return item
     }
 
-    async function putTargetItem (item) {
+    async function putTargetItem (item: Item): Promise<void> {
       await bot.moveSlotItem(item.slot, 0)
     }
 
-    async function putLapis (item) {
+    async function putLapis (item: Item): Promise<void> {
       await bot.moveSlotItem(item.slot, 1)
     }
   }

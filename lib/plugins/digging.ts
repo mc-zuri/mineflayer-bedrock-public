@@ -2,14 +2,19 @@ import { performance } from 'perf_hooks'
 import { createDoneTask, createTask } from '../promise_utils.ts'
 import { Vec3 } from 'vec3'
 import prismarineWorld from 'prismarine-world'
+import type { Block } from 'prismarine-block'
+import type { Item } from 'prismarine-item'
+import type { BlockFace } from 'prismarine-world/types/iterators'
+import type { BotInternal } from '../types/internal.ts'
+import type { PrismarineWorldDefault, RaycastHitBlock } from '../types/vendor/prismarine-world.ts'
 
-const BlockFaces = prismarineWorld.iterators.BlockFace
+const BlockFaces = (prismarineWorld as PrismarineWorldDefault).iterators.BlockFace
 
 export default inject
 
-function inject (bot) {
-  let swingInterval = null
-  let waitTimeout = null
+function inject (bot: BotInternal): void {
+  let swingInterval: ReturnType<typeof setInterval> | null = null
+  let waitTimeout: ReturnType<typeof setTimeout> | null = null
 
   let diggingTask = createDoneTask()
 
@@ -17,7 +22,7 @@ function inject (bot) {
   bot.targetDigFace = null
   bot.lastDigTime = null
 
-  async function dig (block, forceLook, digFace) {
+  async function dig (block: Block, forceLook?: boolean | 'ignore', digFace?: 'auto' | Vec3 | 'raycast'): Promise<void> {
     if (block === null || block === undefined) {
       throw new Error('dig was called with an undefined or null block')
     }
@@ -34,17 +39,17 @@ function inject (bot) {
     bot.targetDigFace = 1 // Default (top)
 
     if (forceLook !== 'ignore') {
-      if (digFace?.x || digFace?.y || digFace?.z) {
+      if ((digFace as Vec3)?.x || (digFace as Vec3)?.y || (digFace as Vec3)?.z) {
         // Determine the block face the bot should mine
-        if (digFace.x) {
-          bot.targetDigFace = digFace.x > 0 ? BlockFaces.EAST : BlockFaces.WEST
-        } else if (digFace.y) {
-          bot.targetDigFace = digFace.y > 0 ? BlockFaces.TOP : BlockFaces.BOTTOM
-        } else if (digFace.z) {
-          bot.targetDigFace = digFace.z > 0 ? BlockFaces.SOUTH : BlockFaces.NORTH
+        if ((digFace as Vec3).x) {
+          bot.targetDigFace = (digFace as Vec3).x > 0 ? BlockFaces.EAST : BlockFaces.WEST
+        } else if ((digFace as Vec3).y) {
+          bot.targetDigFace = (digFace as Vec3).y > 0 ? BlockFaces.TOP : BlockFaces.BOTTOM
+        } else if ((digFace as Vec3).z) {
+          bot.targetDigFace = (digFace as Vec3).z > 0 ? BlockFaces.SOUTH : BlockFaces.NORTH
         }
         await bot.lookAt(
-          block.position.offset(0.5, 0.5, 0.5).offset(digFace.x * 0.5, digFace.y * 0.5, digFace.z * 0.5),
+          block.position.offset(0.5, 0.5, 0.5).offset((digFace as Vec3).x * 0.5, (digFace as Vec3).y * 0.5, (digFace as Vec3).z * 0.5),
           forceLook
         )
       } else if (digFace === 'raycast') {
@@ -55,13 +60,13 @@ function inject (bot) {
         const dy = bot.entity.position.y + bot.entity.eyeHeight - (block.position.y + 0.5)
         const dz = bot.entity.position.z - (block.position.z + 0.5)
         // Check y first then x and z
-        const visibleFaces = {
+        const visibleFaces: { [axis: string]: number } = {
           y: Math.sign(Math.abs(dy) > 0.5 ? dy : 0),
           x: Math.sign(Math.abs(dx) > 0.5 ? dx : 0),
           z: Math.sign(Math.abs(dz) > 0.5 ? dz : 0)
         }
-        const validFaces = []
-        const closerBlocks = []
+        const validFaces: Array<{ face: BlockFace, targetPos: Vec3 }> = []
+        const closerBlocks: RaycastHitBlock[] = []
         for (const i in visibleFaces) {
           if (!visibleFaces[i]) continue // skip as this face is not visible
           // target position on the target block face. -> 0.5 + (current face) * 0.5
@@ -73,7 +78,7 @@ function inject (bot) {
           const startPos = bot.entity.position.offset(0, bot.entity.eyeHeight, 0)
           const rayBlock = bot.world.raycast(startPos, targetPos.clone().subtract(startPos).normalize(), 5)
           if (rayBlock) {
-            if (startPos.distanceTo(rayBlock.intersect) < startPos.distanceTo(targetPos)) {
+            if (startPos.distanceTo(rayBlock.intersect!) < startPos.distanceTo(targetPos)) {
               // Block is closer then the raycasted block
               closerBlocks.push(rayBlock)
               // continue since if distance is ever less, then we did not intersect the block we wanted,
@@ -87,8 +92,8 @@ function inject (bot) {
               rayPos.z === block.position.z
             ) {
               validFaces.push({
-                face: rayBlock.face,
-                targetPos: rayBlock.intersect
+                face: rayBlock.face!,
+                targetPos: rayBlock.intersect!
               })
             }
           }
@@ -96,7 +101,7 @@ function inject (bot) {
 
         if (validFaces.length > 0) {
           // Chose closest valid face
-          let closest
+          let closest: { face: BlockFace, targetPos: Vec3 } | undefined
           let distSqrt = 999
           for (const i in validFaces) {
             const tPos = validFaces[i].targetPos
@@ -108,8 +113,8 @@ function inject (bot) {
               distSqrt = cDist
             }
           }
-          await bot.lookAt(closest.targetPos, forceLook)
-          bot.targetDigFace = closest.face
+          await bot.lookAt(closest!.targetPos, forceLook)
+          bot.targetDigFace = closest!.face
         } else if (closerBlocks.length === 0 && block.shapes.length === 0) {
           // no other blocks were detected and the block has no shapes.
           // The block in question is replaceable (like tall grass) so we can just dig it
@@ -132,7 +137,7 @@ function inject (bot) {
     bot._client.write('block_dig', {
       status: 0, // start digging
       location: block.position,
-      face: bot.targetDigFace, // default face is 1 (top)
+      face: bot.targetDigFace!, // default face is 1 (top)
       sequence: bot._nextSequence()
     })
     waitTimeout = setTimeout(finishDigging, waitTime)
@@ -143,16 +148,16 @@ function inject (bot) {
       bot.swingArm()
     }, 350)
 
-    function finishDigging () {
-      clearInterval(swingInterval)
-      clearTimeout(waitTimeout)
+    function finishDigging (): void {
+      clearInterval(swingInterval!)
+      clearTimeout(waitTimeout!)
       swingInterval = null
       waitTimeout = null
       if (bot.targetDigBlock) {
         bot._client.write('block_dig', {
           status: 2, // finish digging
           location: bot.targetDigBlock.position,
-          face: bot.targetDigFace, // always the same as the start face
+          face: bot.targetDigFace!, // always the same as the start face
           sequence: bot._nextSequence()
         })
       }
@@ -162,7 +167,7 @@ function inject (bot) {
       bot._updateBlockState(block.position, 0)
     }
 
-    const eventName = `blockUpdate:${block.position}`
+    const eventName: `blockUpdate:${string}` = `blockUpdate:${block.position}`
     bot.on(eventName, onBlockUpdate)
 
     const currentBlock = block
@@ -172,11 +177,11 @@ function inject (bot) {
       // Replicate the odd vanilla cancellation face value.
       // When the cancellation is because of a new dig request on another block it's the same as the new dig start face. In all other cases it's 0.
       const stoppedBecauseOfNewDigRequest = !currentBlock.position.equals(bot.targetDigBlock.position)
-      const cancellationDiggingFace = !stoppedBecauseOfNewDigRequest ? bot.targetDigFace : 0
+      const cancellationDiggingFace = !stoppedBecauseOfNewDigRequest ? bot.targetDigFace! : 0
 
       bot.removeListener(eventName, onBlockUpdate)
-      clearInterval(swingInterval)
-      clearTimeout(waitTimeout)
+      clearInterval(swingInterval!)
+      clearTimeout(waitTimeout!)
       swingInterval = null
       waitTimeout = null
       bot._client.write('block_dig', {
@@ -194,14 +199,14 @@ function inject (bot) {
       diggingTask.cancel(new Error('Digging aborted'))
     }
 
-    function onBlockUpdate (oldBlock, newBlock) {
+    function onBlockUpdate (oldBlock: Block | null, newBlock: Block | null): void {
       // vanilla server never actually interrupt digging, but some server send block update when you start digging
       // so ignore block update if not air
       // All block update listeners receive (null, null) when the world is unloaded. So newBlock can be null.
       if (newBlock?.type !== 0) return
       bot.removeListener(eventName, onBlockUpdate)
-      clearInterval(swingInterval)
-      clearTimeout(waitTimeout)
+      clearInterval(swingInterval!)
+      clearTimeout(waitTimeout!)
       swingInterval = null
       waitTimeout = null
       bot.targetDigBlock = null
@@ -222,7 +227,7 @@ function inject (bot) {
     } catch (_) {}
   })
 
-  function canDigBlock (block) {
+  function canDigBlock (block: Block): boolean {
     return (
       block &&
       block.diggable &&
@@ -230,9 +235,9 @@ function inject (bot) {
     )
   }
 
-  function digTime (block) {
-    let type = null
-    let enchantments = []
+  function digTime (block: Block): number {
+    let type: number | null = null
+    let enchantments: Item['enchants'] = []
 
     // Retrieve currently held item ID and active enchantments from heldItem
     const currentlyHeldItem = bot.heldItem
@@ -253,7 +258,7 @@ function inject (bot) {
     return block.digTime(
       type,
       creative,
-      ['water', 'flowing_water'].includes(bot._getBlockAtEyeLevel()?.name),
+      ['water', 'flowing_water'].includes(bot._getBlockAtEyeLevel()?.name as string),
       !bot.entity.onGround,
       enchantments,
       bot.entity.effects
@@ -267,6 +272,6 @@ function inject (bot) {
   bot.digTime = digTime
 }
 
-function noop (err) {
+function noop (err?: Error): void {
   if (err) throw err
 }
