@@ -368,7 +368,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
   ) => Promise<void>
 
   unequip: (
-    destination: EquipmentDestination | null
+    destination: EquipmentDestination
   ) => Promise<void>
 
   tossStack: (item: Item) => Promise<void>
@@ -419,8 +419,10 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   craft: (
     recipe: Recipe,
-    count?: number,
-    craftingTable?: Block
+    /** null: 1 */
+    count?: number | null,
+    /** null when the recipe needs no table */
+    craftingTable?: Block | null
   ) => Promise<void>
 
   writeBook: (
@@ -485,7 +487,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   updateHeldItem: () => void
 
-  getEquipmentDestSlot: (destination: string) => number
+  getEquipmentDestSlot: (destination: EquipmentDestination) => number
 
   waitForChunksToLoad: () => Promise<void>
 
