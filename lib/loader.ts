@@ -1,7 +1,9 @@
 import mc from 'minecraft-protocol'
+import type { ClientOptions } from 'minecraft-protocol'
 import { EventEmitter } from 'events'
 import pluginLoader from './plugin_loader.ts'
 import minecraftData from 'minecraft-data'
+import type { SupportsFeature } from 'minecraft-data'
 import { testedVersions, latestSupportedVersion, oldestSupportedVersion } from './version.ts'
 import abilitiesModule from './plugins/abilities.ts'
 import bedModule from './plugins/bed.ts'
@@ -52,6 +54,9 @@ import ScoreBoard from './scoreboard.ts'
 import BossBar from './bossbar.ts'
 import Particle from './particle.ts'
 import prismarineRegistry from 'prismarine-registry'
+import type { Bot, BotOptions, Plugin } from './types/mineflayer.ts'
+import type { BotInternal } from './types/internal.ts'
+import type { TypedClient } from './types/protocol.ts'
 
 const plugins = {
   abilities: abilitiesModule,
@@ -97,12 +102,12 @@ const plugins = {
   generic_place: genericPlaceModule,
   particle: particleModule,
   sequence: sequenceModule
-}
+} as unknown as Record<string, Plugin>  // internal plugins take the BotInternal view
 
 const latestSupportedProtocolVersion = minecraftData.versionsByMinecraftVersion.pc[latestSupportedVersion].version
 if (!latestSupportedProtocolVersion) throw new Error(`Version '${latestSupportedVersion}' not supported by minecraft-data - is it up to date?`)
 
-const supportFeature = (feature, version) => minecraftData(version).supportFeature(feature)
+const supportFeature = <T extends keyof SupportsFeature>(feature: T, version: string): SupportsFeature[T] => minecraftData(version).supportFeature(feature)
 
 export {
   createBot,
@@ -117,7 +122,7 @@ export {
   supportFeature
 }
 
-function createBot (options = {}) {
+function createBot (options: Partial<BotOptions> = {}): Bot {
   options.username = options.username ?? 'Player'
   options.version = options.version ?? false
   options.plugins = options.plugins ?? {}
@@ -127,10 +132,10 @@ function createBot (options = {}) {
   options.client = options.client ?? null
   options.brand = options.brand ?? 'vanilla'
   options.respawn = options.respawn ?? true
-  const bot = new EventEmitter()
-  bot._client = options.client
+  const bot = new EventEmitter() as unknown as BotInternal
+  bot._client = options.client as TypedClient
   bot.end = (reason) => bot._client.end(reason)
-  bot._warn = function (...message) {
+  bot._warn = function (...message: unknown[]) {
     if (options.hideErrors) return
     console.warn('[mineflayer]', ...message)
   }
@@ -142,21 +147,21 @@ function createBot (options = {}) {
     })
   }
 
-  pluginLoader(bot, options)
+  pluginLoader(bot, options as BotOptions)
   const internalPlugins = Object.keys(plugins)
     .filter(key => {
-      if (typeof options.plugins[key] === 'function') return false
-      if (options.plugins[key] === false) return false
-      return options.plugins[key] || options.loadInternalPlugins
+      if (typeof options.plugins![key] === 'function') return false
+      if (options.plugins![key] === false) return false
+      return options.plugins![key] || options.loadInternalPlugins
     }).map(key => plugins[key])
   const externalPlugins = Object.keys(options.plugins)
     .filter(key => {
-      return typeof options.plugins[key] === 'function'
-    }).map(key => options.plugins[key])
+      return typeof options.plugins![key] === 'function'
+    }).map(key => options.plugins![key] as Plugin)
   bot.loadPlugins([...internalPlugins, ...externalPlugins])
 
   options.validateChannelProtocol = false
-  bot._client = bot._client ?? mc.createClient(options)
+  bot._client = bot._client ?? mc.createClient(options as ClientOptions) as unknown as TypedClient
   bot._client.on('connect', () => {
     bot.emit('connect')
   })
@@ -180,12 +185,12 @@ function createBot (options = {}) {
       throw new Error(`Server version '${serverPingVersion}' is not supported. Oldest supported version is '${oldestSupportedVersion}'.`)
     }
 
-    bot.protocolVersion = versionData.version
-    bot.majorVersion = versionData.majorVersion
-    bot.version = versionData.minecraftVersion
-    options.version = versionData.minecraftVersion
+    bot.protocolVersion = versionData.version!
+    bot.majorVersion = versionData.majorVersion!
+    bot.version = versionData.minecraftVersion!
+    options.version = versionData.minecraftVersion!
     bot.supportFeature = bot.registry.supportFeature
     setTimeout(() => bot.emit('inject_allowed'), 0)
   }
-  return bot
+  return bot as unknown as Bot
 }

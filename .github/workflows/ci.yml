@@ -36,7 +36,7 @@ jobs:
     - id: set-matrix
       run: |
         node -e "
-          const v = require('./lib/version').testedVersions;
+          const v = require('./lib/version.ts').testedVersions;
           const groups = [];
           const SIZE = 4;
           for (let i = 0; i < v.length; i += SIZE) {
