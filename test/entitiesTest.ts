@@ -110,6 +110,25 @@ describe('entities plugin', () => {
     }
   })
 
+  describe('entity velocity units', () => {
+    // vec3i16 in 1/8000 block per tick before 1.21.9, lpVec3 in blocks per tick after
+    for (const [version, wire] of [['1.20.4', { x: 4000, y: 3360, z: -800 }], ['1.21.11', { x: 0.5, y: 0.42, z: -0.1 }]] as const) {
+      it(`entity_velocity and spawn_entity set blocks per tick (${version})`, () => {
+        const bot = createFakeBot(version)
+        const expected = [0.5, 0.42, -0.1]
+        const round = (v: any) => v.toArray().map((n: number) => Math.round(n * 1e6) / 1e6)
+        bot._client.emit('entity_velocity', { entityId: 1, velocity: wire })
+        assert.deepStrictEqual(round(bot.entity.velocity), expected)
+        const zombie = bot.registry.entitiesByName.zombie.id
+        bot._client.emit('spawn_entity', {
+          entityId: 5, objectUUID: '00000000-0000-0000-0000-000000000005', type: zombie,
+          x: 0, y: 64, z: 0, pitch: 0, yaw: 0, headPitch: 0, objectData: 0, velocity: wire
+        })
+        assert.deepStrictEqual(round(bot.entities[5].velocity), expected)
+      })
+    }
+  })
+
   describe('player_info before 1.19.3', () => {
     for (const version of ['1.8.8', '1.12.2', '1.19.2']) {
       it(`update_game_mode updates the player's gamemode (${version})`, () => {

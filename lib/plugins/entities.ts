@@ -11,7 +11,7 @@ import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
 import type { ItemClass } from '../types/vendor/prismarine-item.ts'
 import type { EntityLoader } from '../types/vendor/prismarine-entity.ts'
 import type { Effect, FindPlayers, Player, SkinData } from '../types/mineflayer.ts'
-import type { ClientboundPackets, EntityMetadataEntry, GameProfileProperty, ServerboundPackets } from '../types/protocol.ts'
+import type { ClientboundPackets, EntityMetadataEntry, GameProfileProperty, ServerboundPackets, Vec3Like } from '../types/protocol.ts'
 
 type PlayerInfoAction = ClientboundPackets['player_info']['action']
 /** player_info before 1.19.3: one action name per packet */
@@ -199,6 +199,13 @@ function inject (bot: BotInternal): void {
     }
   }
 
+  // spawn_entity / entity_velocity: vec3i16 in 1/8000 block per tick, lpVec3 in blocks per tick (1.21.9+)
+  const velocityIsLpVec3 = bot.supportFeature('entityVelocityIsLpVec3')
+  function velocityFromPacket (velocity: Vec3Like): Vec3 {
+    const vel = new Vec3(velocity.x, velocity.y, velocity.z)
+    return velocityIsLpVec3 ? vel : conv.fromNotchVelocity(vel)
+  }
+
   function updateEntityPos (entity: EntityT, pos: { x: number, y: number, z: number, yaw: number, pitch: number }) {
     if (bot.supportFeature('fixedPointPosition')) {
       entity.position.set(pos.x / 32, pos.y / 32, pos.z / 32)
@@ -255,7 +262,7 @@ function inject (bot: BotInternal): void {
       : addNewNonPlayer(packet.entityId, packet.objectUUID, packet.type, packet)
     // 1.8 omits velocity when objectData is 0
     if (packet.velocity) {
-      entity.velocity.update(conv.fromNotchVelocity(new Vec3(packet.velocity.x, packet.velocity.y, packet.velocity.z)))
+      entity.velocity.update(velocityFromPacket(packet.velocity))
     }
     bot.emit('entitySpawn', entity)
   })
@@ -308,8 +315,7 @@ function inject (bot: BotInternal): void {
   bot._client.on('entity_velocity', (packet) => {
     // entity velocity
     const entity = fetchEntity(packet.entityId)
-    const notchVel = new Vec3(packet.velocity.x, packet.velocity.y, packet.velocity.z)
-    entity.velocity.update(conv.fromNotchVelocity(notchVel))
+    entity.velocity.update(velocityFromPacket(packet.velocity))
   })
 
   bot._client.on('entity_destroy', (packet) => {
