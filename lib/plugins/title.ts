@@ -16,11 +16,13 @@ function inject (bot: BotInternal): void {
     bot._client.on('title', (packet) => {
       if (packet.action === 0) bot.emit('title', parseTitle(packet.text), 'title')
       else if (packet.action === 1) bot.emit('title', parseTitle(packet.text), 'subtitle')
-      else if (packet.action === 2) bot.emit('title_times', packet.fadeIn!, packet.stay!, packet.fadeOut!)
-      else if (packet.action === 3) {
+      // 1.8 – 1.10: 2 times, 3 clear, 4 reset; 1.11+: 2 action bar text, 3 times, 4 clear, 5 reset
+      else if (packet.action === 2) {
+        if (packet.text === undefined) bot.emit('title_times', packet.fadeIn!, packet.stay!, packet.fadeOut!)
+      } else if (packet.action === 3) {
         if (packet.fadeIn !== undefined) bot.emit('title_times', packet.fadeIn, packet.stay!, packet.fadeOut!)
         else bot.emit('title_clear')
-      } else if (packet.action === 4) bot.emit('title_clear')
+      } else if (packet.action === 4 || packet.action === 5) bot.emit('title_clear')
     })
   } else if (bot.supportFeature('titleUsesNewPackets')) {
     function getText (packet: { text: TextComponent }) {

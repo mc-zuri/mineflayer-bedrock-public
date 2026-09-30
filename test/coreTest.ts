@@ -6,6 +6,7 @@ import prismarineRegistry from 'prismarine-registry'
 import bossbarLoader from '../lib/bossbar.ts'
 import teamPlugin from '../lib/plugins/team.ts'
 import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
+import titlePlugin from '../lib/plugins/title.ts'
 
 interface Write { name: string, params: any }
 
@@ -119,6 +120,36 @@ describe('core', () => {
       assert.strictEqual(bot.scoreboards.kills.title, 'Kills')
       bot._client.emit('scoreboard_objective', { name: 'kills', action: 2, displayText: { type: 'compound', name: '', value: { text: { type: 'string', value: 'Top kills' }, color: { type: 'string', value: 'red' } } }, type: 0 })
       assert.strictEqual(bot.scoreboards.kills.title, 'Top kills')
+    })
+  })
+
+  describe('title', () => {
+    function record (bot: any) {
+      const events: unknown[] = []
+      bot.on('title', (text: string, type: string) => events.push(['title', text, type]))
+      bot.on('title_times', (...times: number[]) => events.push(['title_times', ...times]))
+      bot.on('title_clear', () => events.push(['title_clear']))
+      return events
+    }
+
+    it('follows the legacy title actions of each version', () => {
+      const bot8 = fakeBot('1.8.8')
+      titlePlugin(bot8)
+      const events8 = record(bot8)
+      bot8._client.emit('title', { action: 0, text: '{"text":"hi"}' })
+      bot8._client.emit('title', { action: 2, fadeIn: 1, stay: 2, fadeOut: 3 })
+      bot8._client.emit('title', { action: 3 })
+      bot8._client.emit('title', { action: 4 })
+      assert.deepStrictEqual(events8, [['title', 'hi', 'title'], ['title_times', 1, 2, 3], ['title_clear'], ['title_clear']])
+
+      const bot12 = fakeBot('1.12.2')
+      titlePlugin(bot12)
+      const events12 = record(bot12)
+      bot12._client.emit('title', { action: 2, text: '{"text":"action bar"}' })
+      bot12._client.emit('title', { action: 3, fadeIn: 1, stay: 2, fadeOut: 3 })
+      bot12._client.emit('title', { action: 4 })
+      bot12._client.emit('title', { action: 5 })
+      assert.deepStrictEqual(events12, [['title_times', 1, 2, 3], ['title_clear'], ['title_clear']])
     })
   })
 })
