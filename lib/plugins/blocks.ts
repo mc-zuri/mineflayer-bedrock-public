@@ -5,8 +5,19 @@ import { onceWithCleanup } from '../promise_utils.ts'
 import prismarineWorld from 'prismarine-world'
 import prismarineBlock from 'prismarine-block'
 import prismarineChunk from 'prismarine-chunk'
+import type { Block as BlockInstance } from 'prismarine-block'
+import type { PCChunk } from 'prismarine-chunk'
+import type Section from 'prismarine-chunk/types/section'
+import type { NBT } from 'prismarine-nbt'
+import type { world } from 'prismarine-world'
+import type { RaycastIterator } from 'prismarine-world/types/iterators'
+import type { BotEvents, BotOptions, FindBlockOptions, Painting as PaintingInstance } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
+import type { Int64 } from '../types/protocol.ts'
+import type { PrismarineWorldDefault } from '../types/vendor/prismarine-world.ts'
+import type {} from '../types/vendor/prismarine-chunk.ts' // PCChunk members mineflayer uses
 
-const { OctahedronIterator } = prismarineWorld.iterators
+const { OctahedronIterator } = (prismarineWorld as PrismarineWorldDefault).iterators
 
 export default inject
 
@@ -17,34 +28,66 @@ const paintingFaceToVec = [
   new Vec3(1, 0, 0)
 ]
 
-const dimensionNames = {
+const dimensionNames: { [dimension: string]: string } = {
   '-1': 'minecraft:nether',
   0: 'minecraft:overworld',
   1: 'minecraft:end'
 }
 
-function inject (bot, { version, storageBuilder, hideErrors }) {
+/** what addColumn takes from map_chunk / map_chunk_bulk */
+interface ColumnArgs {
+  x: number
+  z: number
+  /** section mask before 1.17, i64 mask array in 1.17 */
+  bitMap?: number | Int64[]
+  heightmaps?: unknown
+  biomes?: number[]
+  skyLightSent: boolean
+  groundUp?: boolean
+  data: Buffer
+  trustEdges?: boolean
+  // 1.18+ light data
+  skyLightMask?: Int64[]
+  blockLightMask?: Int64[]
+  emptySkyLightMask?: Int64[]
+  emptyBlockLightMask?: Int64[]
+  skyLight?: number[][]
+  blockLight?: number[][]
+}
+
+/** 1.8 – 1.15 multi_block_change record */
+interface MultiBlockRecord { horizontalPos: number, y: number, blockId: number }
+
+/** World members its d.ts marks private or readonly */
+interface WorldAsyncInternals {
+  columns: { [key: string]: PCChunk }
+  storageProvider: world.StorageProvider | null | undefined
+}
+
+function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotOptions): void {
   const Block = prismarineBlock(bot.registry)
-  const Chunk = prismarineChunk(bot.registry)
-  const World = prismarineWorld(bot.registry)
-  const paintingsByPos = {}
-  const paintingsById = {}
+  // mineflayer only speaks the Java protocol
+  const Chunk = prismarineChunk(bot.registry) as typeof PCChunk
+  const World = (prismarineWorld as PrismarineWorldDefault)(bot.registry)
+  // keyed by the position's string form `(x, y, z)`
+  const paintingsByPos: { [pos: string]: PaintingInstance } = {}
+  const paintingsById: { [id: number]: PaintingInstance } = {}
 
-  function addPainting (painting) {
+  function addPainting (painting: PaintingInstance): void {
     paintingsById[painting.id] = painting
-    paintingsByPos[painting.position] = painting
+    paintingsByPos[painting.position as unknown as string] = painting
   }
 
-  function deletePainting (painting) {
+  function deletePainting (painting: PaintingInstance): void {
     delete paintingsById[painting.id]
-    delete paintingsByPos[painting.position]
+    delete paintingsByPos[painting.position as unknown as string]
   }
 
-  function delColumn (chunkX, chunkZ) {
+  function delColumn (chunkX: number, chunkZ: number): void {
     bot.world.unloadColumn(chunkX, chunkZ)
   }
 
-  function addColumn (args) {
+  function addColumn (args: ColumnArgs): void {
     if (!args.bitMap && args.groundUp) {
       // stop storing the chunk column
       delColumn(args.x, args.z)
@@ -62,22 +105,22 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
         column.loadBiomes(args.biomes)
       }
       if (args.skyLight !== undefined) {
-        column.loadParsedLight(args.skyLight, args.blockLight, args.skyLightMask, args.blockLightMask, args.emptySkyLightMask, args.emptyBlockLightMask)
+        column.loadParsedLight!(args.skyLight, args.blockLight!, args.skyLightMask!, args.blockLightMask!, args.emptySkyLightMask!, args.emptyBlockLightMask!)
       }
       bot.world.setColumn(args.x, args.z, column)
     } catch (e) {
-      bot.emit('error', e)
+      bot.emit('error', e as Error)
     }
   }
 
-  async function waitForChunksToLoad () {
+  async function waitForChunksToLoad (): Promise<void> {
     const dist = 2
     // This makes sure that the bot's real position has been already sent
     if (!bot.entity.height) await onceWithCleanup(bot, 'chunkColumnLoad', { timeout: 10000 })
     const pos = bot.entity.position
     const center = new Vec3(pos.x >> 4 << 4, 0, pos.z >> 4 << 4)
     // get corner coords of 5x5 chunks around us
-    const chunkPosToCheck = new Set()
+    const chunkPosToCheck = new Set<string>()
     for (let x = -dist; x <= dist; x++) {
       for (let y = -dist; y <= dist; y++) {
         // ignore any chunks which are already loaded
@@ -87,13 +130,13 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     }
 
     if (chunkPosToCheck.size) {
-      return new Promise((resolve, reject) => {
+      return new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           bot.world.off('chunkColumnLoad', waitForLoadEvents)
           reject(new Error(`Timeout waiting for ${chunkPosToCheck.size} chunks to load after 10000ms`))
         }, 10000)
 
-        function waitForLoadEvents (columnCorner) {
+        function waitForLoadEvents (columnCorner: Vec3): void {
           chunkPosToCheck.delete(columnCorner.toString())
           if (chunkPosToCheck.size === 0) { // no chunks left to find
             clearTimeout(timeout)
@@ -108,7 +151,7 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     }
   }
 
-  function getMatchingFunction (matching) {
+  function getMatchingFunction (matching: FindBlockOptions['matching']): (block: BlockInstance) => boolean {
     if (typeof (matching) !== 'function') {
       if (!Array.isArray(matching)) {
         matching = [matching]
@@ -117,12 +160,12 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     }
     return matching
 
-    function isMatchingType (block) {
-      return block === null ? false : matching.indexOf(block.type) >= 0
+    function isMatchingType (block: BlockInstance | null): boolean {
+      return block === null ? false : (matching as number[]).indexOf(block.type) >= 0
     }
   }
 
-  function isBlockInSection (section, matcher) {
+  function isBlockInSection (section: Section | undefined, matcher: (block: BlockInstance) => boolean): boolean {
     if (!section) return false // section is empty, skip it (yay!)
     // If the chunk use a palette we can speed up the search by first
     // checking the palette which usually contains less than 20 ids
@@ -139,20 +182,21 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     return true // global palette, the block might be in there
   }
 
-  function getFullMatchingFunction (matcher, useExtraInfo) {
+  function getFullMatchingFunction (matcher: (block: BlockInstance) => boolean, useExtraInfo: boolean | ((block: BlockInstance) => boolean)): (point: Vec3) => boolean {
     if (typeof (useExtraInfo) === 'boolean') {
       return fullSearchMatcher
     }
 
     return nonFullSearchMatcher
 
-    function nonFullSearchMatcher (point) {
+    function nonFullSearchMatcher (point: Vec3): boolean {
       const block = blockAt(point, true)
-      return matcher(block) && useExtraInfo(block)
+      // findBlocks only visits loaded columns
+      return matcher(block!) && (useExtraInfo as (block: BlockInstance) => boolean)(block!)
     }
 
-    function fullSearchMatcher (point) {
-      return matcher(bot.blockAt(point, useExtraInfo))
+    function fullSearchMatcher (point: Vec3): boolean {
+      return matcher(bot.blockAt(point, useExtraInfo as boolean)!)
     }
   }
 
@@ -167,11 +211,11 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     const it = new OctahedronIterator(start, Math.ceil((maxDistance + 8) / 16))
     // the octahedron iterator can sometime go through the same section again
     // we use a set to keep track of visited sections
-    const visitedSections = new Set()
+    const visitedSections = new Set<string>()
 
-    let blocks = []
+    let blocks: Vec3[] = []
     let startedLayer = 0
-    let next = start
+    let next: Vec3 | null = start
     while (next) {
       const column = bot.world.getColumn(next.x, next.z)
       const sectionY = next.y + Math.abs(bot.game.minY >> 4)
@@ -193,10 +237,10 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
         visitedSections.add(next.toString())
       }
       // If we started a layer, we have to finish it otherwise we might miss closer blocks
-      if (startedLayer !== it.apothem && blocks.length >= count) {
+      if (startedLayer !== (it as unknown as { apothem: number }).apothem && blocks.length >= count) {
         break
       }
-      startedLayer = it.apothem
+      startedLayer = (it as unknown as { apothem: number }).apothem
       next = it.next()
     }
     blocks.sort((a, b) => {
@@ -209,19 +253,20 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     return blocks
   }
 
-  function findBlock (options) {
+  function findBlock (options: FindBlockOptions): BlockInstance | null {
     const blocks = bot.findBlocks(options)
     if (blocks.length === 0) return null
     return bot.blockAt(blocks[0])
   }
 
-  function blockAt (absolutePoint, extraInfos = true) {
+  function blockAt (absolutePoint: Vec3, extraInfos = true): BlockInstance | null {
     const block = bot.world.getBlock(absolutePoint)
     // null block means chunk not loaded
     if (!block) return null
 
     if (extraInfos) {
-      block.painting = paintingsByPos[block.position]
+      // prismarine-block types the painting's name as a string only
+      block.painting = paintingsByPos[block.position as unknown as string] as BlockInstance['painting']
     }
 
     return block
@@ -229,11 +274,11 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
 
   // if passed in block is within line of sight to the bot, returns true
   // also works on anything with a position value
-  function canSeeBlock (block) {
+  function canSeeBlock (block: { position: Vec3 }): boolean | null {
     const headPos = bot.entity.position.offset(0, bot.entity.eyeHeight, 0)
     const range = headPos.distanceTo(block.position)
     const dir = block.position.offset(0.5, 0.5, 0.5).minus(headPos)
-    const match = (inputBlock, iter) => {
+    const match = (inputBlock: BlockInstance, iter: RaycastIterator): boolean => {
       const intersect = iter.intersect(inputBlock.shapes, inputBlock.position)
       if (intersect) { return true }
       return block.position.equals(inputBlock.position)
@@ -246,7 +291,7 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     delColumn(packet.chunkX, packet.chunkZ)
   })
 
-  function updateBlockState (point, stateId) {
+  function updateBlockState (point: Vec3, stateId: number): void {
     const oldBlock = blockAt(point)
     bot.world.setBlockStateId(point, stateId)
 
@@ -256,9 +301,10 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     if (newBlock === null) {
       return
     }
-    if (oldBlock.type !== newBlock.type) {
+    // the column was loaded before the change too
+    if (oldBlock!.type !== newBlock.type) {
       const pos = point.floored()
-      const painting = paintingsByPos[pos]
+      const painting = paintingsByPos[pos as unknown as string]
       if (painting) deletePainting(painting)
     }
   }
@@ -271,9 +317,9 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     }
 
     if (bot.supportFeature('newLightingDataFormat')) {
-      column.loadParsedLight(packet.skyLight, packet.blockLight, packet.skyLightMask, packet.blockLightMask, packet.emptySkyLightMask, packet.emptyBlockLightMask)
+      column.loadParsedLight!(packet.skyLight!, packet.blockLight!, packet.skyLightMask as Int64[], packet.blockLightMask as Int64[], packet.emptySkyLightMask as Int64[], packet.emptyBlockLightMask as Int64[])
     } else {
-      column.loadLight(packet.data, packet.skyLightMask, packet.blockLightMask, packet.emptySkyLightMask, packet.emptyBlockLightMask)
+      column.loadLight(packet.data!, packet.skyLightMask as number, packet.blockLightMask as number, packet.emptySkyLightMask as number, packet.emptyBlockLightMask as number)
     }
   })
 
@@ -341,7 +387,7 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     let offset = 0
     let meta
     let i
-    let size
+    let size: number
     for (i = 0; i < packet.meta.length; ++i) {
       meta = packet.meta[i]
       size = (8192 + (packet.skyLightSent ? 2048 : 0)) *
@@ -370,28 +416,28 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
 
       let blockX, blockY, blockZ
       if (bot.supportFeature('usesMultiblockSingleLong')) {
-        blockZ = (record >> 4) & 0x0f
-        blockX = (record >> 8) & 0x0f
-        blockY = record & 0x0f
+        blockZ = ((record as number) >> 4) & 0x0f
+        blockX = ((record as number) >> 8) & 0x0f
+        blockY = (record as number) & 0x0f
       } else {
-        blockZ = record.horizontalPos & 0x0f
-        blockX = (record.horizontalPos >> 4) & 0x0f
-        blockY = record.y
+        blockZ = (record as MultiBlockRecord).horizontalPos & 0x0f
+        blockX = ((record as MultiBlockRecord).horizontalPos >> 4) & 0x0f
+        blockY = (record as MultiBlockRecord).y
       }
 
       let pt
       if (bot.supportFeature('usesMultiblock3DChunkCoords')) {
-        pt = new Vec3(packet.chunkCoordinates.x, packet.chunkCoordinates.y, packet.chunkCoordinates.z)
+        pt = new Vec3(packet.chunkCoordinates!.x, packet.chunkCoordinates!.y, packet.chunkCoordinates!.z)
       } else {
-        pt = new Vec3(packet.chunkX, 0, packet.chunkZ)
+        pt = new Vec3(packet.chunkX!, 0, packet.chunkZ!)
       }
 
       pt = pt.scale(16).offset(blockX, blockY, blockZ)
 
       if (bot.supportFeature('usesMultiblockSingleLong')) {
-        updateBlockState(pt, record >> 12)
+        updateBlockState(pt, (record as number) >> 12)
       } else {
-        updateBlockState(pt, record.blockId)
+        updateBlockState(pt, (record as MultiBlockRecord).blockId)
       }
     }
   })
@@ -403,7 +449,8 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
 
   bot._client.on('explosion', (packet) => {
     // explosion
-    const p = new Vec3(packet.x, packet.y, packet.z)
+    // x, y, z are only missing (1.21.9+) where affectedBlockOffsets is too
+    const p = new Vec3(packet.x!, packet.y!, packet.z!)
     if (packet.affectedBlockOffsets) {
       // TODO: server no longer sends in 1.21.3. Is client supposed to compute this or is it sent via normal block updates?
       packet.affectedBlockOffsets.forEach((offset) => {
@@ -439,10 +486,11 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
 
     const blockAt = column.getBlock(pos)
 
+    // the d.ts types signText by its getter; the setter (setSignText) also takes the parsed lines
     blockAt.signText = [packet.text1, packet.text2, packet.text3, packet.text4].map(text => {
       if (text === 'null' || text === '') return ''
       return JSON.parse(text)
-    })
+    }) as unknown as string
     column.setBlock(pos, blockAt)
     bot.emit('blockEntityData', bot.blockAt(new Vec3(packet.location.x, packet.location.y, packet.location.z)))
   })
@@ -453,7 +501,7 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
   })
 
   bot._client.on('tile_entity_data', (packet) => {
-    let absolutePos
+    let absolutePos: Vec3
     if (packet.location !== undefined) {
       const column = bot.world.getColumn(packet.location.x >> 4, packet.location.z >> 4)
       if (!column) return
@@ -461,7 +509,7 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
       column.setBlockEntity(pos, packet.nbtData)
       absolutePos = new Vec3(packet.location.x, packet.location.y, packet.location.z)
     } else {
-      const tag = packet.nbtData
+      const tag = packet.nbtData as NBT & { value: { x: { value: number }, y: { value: number }, z: { value: number } } }
       const column = bot.world.getColumn(tag.value.x.value >> 4, tag.value.z.value >> 4)
       if (!column) return
       const pos = new Vec3(tag.value.x.value & 0xf, tag.value.y.value, tag.value.z.value & 0xf)
@@ -485,7 +533,7 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
       }
     }
 
-    let signData
+    let signData: { text1: string, text2: string, text3: string, text4: string }
     if (bot.supportFeature('sendStringifiedSignText')) {
       signData = {
         text1: lines[0] ? JSON.stringify(lines[0]) : '""',
@@ -511,11 +559,12 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
 
   // if we get a respawn packet and the dimension is changed,
   // unload all chunks from memory.
-  let dimension
-  let worldName
-  function dimensionToFolderName (dimension) {
+  /** number before 1.16, NBT 1.16 – 1.18, dimension type name 1.19 – 1.20.4, registry id 1.20.5+ */
+  let dimension: unknown
+  let worldName: string | undefined
+  function dimensionToFolderName (dimension: unknown): string | undefined {
     if (bot.supportFeature('dimensionIsAnInt')) {
-      return dimensionNames[dimension]
+      return dimensionNames[dimension as number]
     } else if (bot.supportFeature('dimensionIsAString') || bot.supportFeature('dimensionIsAWorld')) {
       return worldName
     }
@@ -523,25 +572,26 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
   // only exposed for testing
   bot._getDimensionName = () => worldName
 
-  async function switchWorld () {
+  async function switchWorld (): Promise<void> {
     if (bot.world) {
       if (storageBuilder) {
         await bot.world.async.waitSaving()
       }
 
-      for (const [name, listener] of Object.entries(bot._events)) {
+      // EventEmitter internals: a single listener is stored as the function, several as an array
+      for (const [name, listener] of Object.entries((bot as unknown as { _events: { [event: string]: Function | Function[] } })._events)) {
         if (name.startsWith('blockUpdate:') && typeof listener === 'function') {
-          bot.emit(name, null, null)
-          bot.off(name, listener)
+          bot.emit(name as `blockUpdate:${string}`, null, null)
+          bot.off(name as `blockUpdate:${string}`, listener as BotEvents[`blockUpdate:${string}`])
         }
       }
 
-      for (const [x, z] of Object.keys(bot.world.async.columns).map(key => key.split(',').map(x => parseInt(x, 10)))) {
+      for (const [x, z] of Object.keys((bot.world.async as unknown as WorldAsyncInternals).columns).map(key => key.split(',').map(x => parseInt(x, 10)))) {
         bot.world.unloadColumn(x, z)
       }
 
       if (storageBuilder) {
-        bot.world.async.storageProvider = storageBuilder({ version: bot.version, worldName: dimensionToFolderName(dimension) })
+        (bot.world.async as unknown as WorldAsyncInternals).storageProvider = storageBuilder({ version: bot.version, worldName: dimensionToFolderName(dimension) })
       }
     } else {
       bot.world = new World(null, storageBuilder ? storageBuilder({ version: bot.version, worldName: dimensionToFolderName(dimension) }) : null).sync
@@ -554,11 +604,11 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
       dimension = packet.dimension
       worldName = dimensionToFolderName(dimension)
     } else if (bot.supportFeature('spawnRespawnWorldDataField')) { // 1.20.5+
-      dimension = packet.worldState.dimension
-      worldName = packet.worldState.name
+      dimension = packet.worldState!.dimension
+      worldName = packet.worldState!.name
     } else {
       dimension = packet.dimension
-      worldName = /^minecraft:.+/.test(packet.worldName) ? packet.worldName : `minecraft:${packet.worldName}`
+      worldName = /^minecraft:.+/.test(packet.worldName!) ? packet.worldName! : `minecraft:${packet.worldName}`
     }
     switchWorld()
   })
@@ -568,10 +618,10 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
       if (dimension === packet.dimension) return
       dimension = packet.dimension
     } else if (bot.supportFeature('spawnRespawnWorldDataField')) { // 1.20.5+
-      if (dimension === packet.worldState.dimension) return
-      if (worldName === packet.worldState.name && packet.copyMetadata === true) return // don't unload chunks if in same world and metaData is true
-      dimension = packet.worldState.dimension
-      worldName = packet.worldState.name
+      if (dimension === packet.worldState!.dimension) return
+      if (worldName === packet.worldState!.name && packet.copyMetadata === true) return // don't unload chunks if in same world and metaData is true
+      dimension = packet.worldState!.dimension
+      worldName = packet.worldState!.name
     } else { // >= 1.15.2
       if (dimension === packet.dimension) return
       if (worldName === packet.worldName && packet.copyMetadata === true) return // don't unload chunks if in same world and metaData is true
@@ -582,27 +632,28 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
     switchWorld()
   })
 
-  let listener
-  let listenerRemove
-  function startListenerProxy () {
+  type ListenerForwarder = (event: string | symbol, listener: (...args: any[]) => void) => void
+  let listener: ListenerForwarder | undefined
+  let listenerRemove: ListenerForwarder | undefined
+  function startListenerProxy (): void {
     if (listener) {
       // custom forwarder for custom events
       bot.off('newListener', listener)
-      bot.off('removeListener', listenerRemove)
+      bot.off('removeListener', listenerRemove!)
     }
     // standardized forwarding
-    const forwardedEvents = ['blockUpdate', 'chunkColumnLoad', 'chunkColumnUnload']
+    const forwardedEvents = ['blockUpdate', 'chunkColumnLoad', 'chunkColumnUnload'] as const
     for (const event of forwardedEvents) {
-      bot.world.on(event, (...args) => bot.emit(event, ...args))
+      bot.world.on(event, (...args) => (bot.emit as (event: string, ...args: unknown[]) => boolean)(event, ...args))
     }
     const blockUpdateRegex = /blockUpdate:\(-?\d+, -?\d+, -?\d+\)/
     listener = (event, listener) => {
-      if (blockUpdateRegex.test(event)) {
+      if (blockUpdateRegex.test(event as string)) {
         bot.world.on(event, listener)
       }
     }
     listenerRemove = (event, listener) => {
-      if (blockUpdateRegex.test(event)) {
+      if (blockUpdateRegex.test(event as string)) {
         bot.world.off(event, listener)
       }
     }
@@ -617,7 +668,7 @@ function inject (bot, { version, storageBuilder, hideErrors }) {
   bot.waitForChunksToLoad = waitForChunksToLoad
 }
 
-function onesInShort (n) {
+function onesInShort (n: number): number {
   n = n & 0xffff
   let count = 0
   for (let i = 0; i < 16; ++i) {

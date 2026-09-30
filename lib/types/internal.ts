@@ -39,6 +39,7 @@ export interface BotInternal extends Omit<Bot, '_client'> {
   _syncWindow: (window: Window) => Promise<void>
   _playerFromUUID: (uuid: string) => Player | undefined
   _getBlockAtEyeLevel: () => Block | null
-  _getDimensionName: () => string
+  /** world name the chunks belong to; undefined before login (only used by tests) */
+  _getDimensionName: () => string | undefined
   _updateBlockState: (point: Vec3, stateId: number) => void
 }

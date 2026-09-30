@@ -5,6 +5,9 @@
 import type { Vec3 } from 'vec3'
 import type { Block } from 'prismarine-block'
 import type { RaycastIterator, BlockFace } from 'prismarine-world/types/iterators'
+import type { World } from 'prismarine-world/types/world'
+import type { PCChunk } from 'prismarine-chunk'
+import type { Registry } from 'prismarine-registry'
 
 export type RaycastMatcher = (block: Block, iterator: RaycastIterator) => boolean
 
@@ -14,10 +17,16 @@ export type RaycastHitBlock = Block & { face?: BlockFace, intersect?: Vec3 }
 declare module 'prismarine-world/types/world' {
   interface WorldSync {
     raycast (from: Vec3, direction: Vec3, range: number, matcher?: RaycastMatcher | null): RaycastHitBlock | null
+    // mineflayer only stores Java chunk columns; undefined when the column is not loaded
+    getColumn (chunkX: number, chunkZ: number): PCChunk | undefined
+    getColumnAt (pos: Vec3): PCChunk | undefined
   }
 }
 
 // index.js is `module.exports = loader; module.exports.iterators = ...`, so the default import carries
 // `iterators`, but the d.ts only declares it as a named export (an augmentation cannot add it to the
-// default export). Cast the default import to this type to reach it.
-export type PrismarineWorldDefault = typeof import('prismarine-world').default & { iterators: typeof import('prismarine-world/types/iterators') }
+// default export). Cast the default import to this type to reach it. The loader ignores its argument,
+// so a registry is as good as a version string.
+export type PrismarineWorldDefault = typeof import('prismarine-world').default &
+  ((registry: Registry) => typeof World) &
+  { iterators: typeof import('prismarine-world/types/iterators') }

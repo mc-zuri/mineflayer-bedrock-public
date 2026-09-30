@@ -253,7 +253,7 @@ export interface ClientboundPackets {
     // 1.8 – 1.20.4 (1.20.5+: inside worldState)
     gameMode?: number
     previousGameMode?: number // 1.16 – 1.20.4
-    /** number before 1.16; NBT (1.16 – 1.18) or name */
+    /** number before 1.16, NBT 1.16 – 1.18; absent 1.19+ (the dimension type is worldType) */
     dimension?: number | any
     difficulty?: number // 1.8 – 1.13
     levelType?: string // 1.8 – 1.15
@@ -301,8 +301,8 @@ export interface ClientboundPackets {
     // 1.8 – 1.15
     chunkX?: number
     chunkZ?: number
-    /** objects before 1.16, packed i64 (1.16 – 1.18) or varlong (1.19+) */
-    records: Array<{ horizontalPos: number, y: number, blockId: number }> | Array<Int64 | number>
+    /** objects before 1.16; varlong (1.16+), which minecraft-protocol reads as a number */
+    records: Array<{ horizontalPos: number, y: number, blockId: number }> | number[]
     // 1.16+
     chunkCoordinates?: Vec3Like
     notTrustEdges?: boolean // 1.16 – 1.19

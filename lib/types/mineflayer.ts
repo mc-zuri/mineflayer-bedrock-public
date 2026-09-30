@@ -20,6 +20,8 @@ export declare function createBot (options: BotOptions): Bot
 export interface BotOptions extends Omit<ClientOptions, 'version'> {
   logErrors?: boolean
   hideErrors?: boolean
+  /** stores each world's chunk columns (e.g. a prismarine-provider-anvil); worldName is undefined when unknown */
+  storageBuilder?: (options: { version: string, worldName: string | undefined }) => world.StorageProvider
   loadInternalPlugins?: boolean
   plugins?: PluginOptions
   chat?: ChatLevel
@@ -267,7 +269,8 @@ export interface Bot extends TypedEmitter<BotEvents> {
   blockAtCursor: (maxDistance?: number, matcher?: RaycastMatcher | null) => RaycastHitBlock | null
   blockAtEntityCursor: (entity?: Entity, maxDistance?: number, matcher?: RaycastMatcher | null) => RaycastHitBlock | null
 
-  canSeeBlock: (block: Block) => boolean
+  /** null when the ray hits no block at all */
+  canSeeBlock: (block: Block) => boolean | null
 
   findBlock: (options: FindBlockOptions) => Block | null
 
@@ -345,7 +348,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
   ) => Promise<void>
 
   unequip: (
-    destination: EquipmentDestination
+    destination: EquipmentDestination | null
   ) => Promise<void>
 
   tossStack: (item: Item) => Promise<void>
@@ -460,7 +463,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   updateHeldItem: () => void
 
-  getEquipmentDestSlot: (destination: EquipmentDestination) => number
+  getEquipmentDestSlot: (destination: string) => number
 
   waitForChunksToLoad: () => Promise<void>
 
@@ -525,6 +528,10 @@ export interface GameState {
   difficulty: Difficulty
   maxPlayers: number
   serverBrand: string
+  /** lowest block y of the dimension (0 before 1.18) */
+  minY: number
+  /** block height of the dimension (256 before 1.18) */
+  height: number
 }
 
 export type LevelType =

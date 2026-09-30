@@ -149,8 +149,8 @@ function inject (bot: BotInternal): void {
     }, 350)
 
     function finishDigging (): void {
-      clearInterval(swingInterval!)
-      clearTimeout(waitTimeout!)
+      clearInterval(swingInterval)
+      clearTimeout(waitTimeout)
       swingInterval = null
       waitTimeout = null
       if (bot.targetDigBlock) {
@@ -180,8 +180,8 @@ function inject (bot: BotInternal): void {
       const cancellationDiggingFace = !stoppedBecauseOfNewDigRequest ? bot.targetDigFace! : 0
 
       bot.removeListener(eventName, onBlockUpdate)
-      clearInterval(swingInterval!)
-      clearTimeout(waitTimeout!)
+      clearInterval(swingInterval)
+      clearTimeout(waitTimeout)
       swingInterval = null
       waitTimeout = null
       bot._client.write('block_dig', {
@@ -205,8 +205,8 @@ function inject (bot: BotInternal): void {
       // All block update listeners receive (null, null) when the world is unloaded. So newBlock can be null.
       if (newBlock?.type !== 0) return
       bot.removeListener(eventName, onBlockUpdate)
-      clearInterval(swingInterval!)
-      clearTimeout(waitTimeout!)
+      clearInterval(swingInterval)
+      clearTimeout(waitTimeout)
       swingInterval = null
       waitTimeout = null
       bot.targetDigBlock = null
