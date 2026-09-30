@@ -11,7 +11,7 @@ export default () => async (bot) => {
   const p = once(bot.world, `blockUpdate:(${commandBlockPos.x}, ${commandBlockPos.y}, ${commandBlockPos.z})`)
   bot.test.sayEverywhere(`/setblock ${commandBlockPosText} minecraft:command_block`)
   await p
-  bot.setCommandBlock(commandBlockPos, command, false)
+  bot.setCommandBlock(commandBlockPos, command)
 
   const [message] = await onceWithCleanup(bot, 'message', {
     timeout: 5000,
