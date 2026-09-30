@@ -26,7 +26,7 @@ function createFakeBot (version: string): any {
   bot.lastDigTime = null
   bot._nextSequence = () => 0
   simpleInventoryPlugin(bot)
-  inventoryPlugin(bot, {})
+  inventoryPlugin(bot, {} as any)
   client.emit('held_item_slot', { slot: 0 })
   return bot
 }

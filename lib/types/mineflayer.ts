@@ -345,7 +345,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
   ) => Promise<void>
 
   unequip: (
-    destination: EquipmentDestination | null
+    destination: EquipmentDestination
   ) => Promise<void>
 
   tossStack: (item: Item) => Promise<void>
@@ -460,7 +460,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   updateHeldItem: () => void
 
-  getEquipmentDestSlot: (destination: string) => number
+  getEquipmentDestSlot: (destination: EquipmentDestination) => number
 
   waitForChunksToLoad: () => Promise<void>
 

@@ -12,6 +12,8 @@ declare module 'prismarine-windows' {
     /** null empties the slot */
     updateSlot (slot: number, newItem: Item | null): void
     findInventoryItem (itemType: number | string, metadata?: number | null, notFull?: boolean): Item | null
+    /** metadata and nbt: null / undefined match anything */
+    findItemRange (start: number, end: number, itemType: number, metadata: number | null | undefined, notFull: boolean, nbt: unknown): Item | null
   }
 
   interface Click {

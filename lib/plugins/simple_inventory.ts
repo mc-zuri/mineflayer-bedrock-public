@@ -1,14 +1,18 @@
 import assert from 'assert'
+import type { Item } from 'prismarine-item'
+import type { EquipmentDestination, TransferOptions } from '../types/mineflayer.ts'
+import type { BotInternal } from '../types/internal.ts'
 
 export default inject
 
 const QUICK_BAR_COUNT = 9
 const QUICK_BAR_START = 36
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   let nextQuickBarSlot = 0
 
-  const armorSlots = {
+  // 'off-hand' from 1.9
+  const armorSlots: { [destination in Exclude<EquipmentDestination, 'hand'>]?: number } = {
     head: 5,
     torso: 6,
     legs: 7,
@@ -19,16 +23,16 @@ function inject (bot) {
     armorSlots['off-hand'] = 45
   }
 
-  async function tossStack (item) {
+  async function tossStack (item: Item): Promise<void> {
     assert.ok(item)
     await bot.clickWindow(item.slot, 0, 0)
     await bot.clickWindow(-999, 0, 0)
     await bot.closeWindow(bot.currentWindow || bot.inventory)
   }
 
-  async function toss (itemType, metadata, count) {
+  async function toss (itemType: number, metadata: number | null, count: number | null): Promise<void> {
     const window = bot.currentWindow || bot.inventory
-    const options = {
+    const options: TransferOptions = {
       window,
       itemType,
       metadata,
@@ -40,7 +44,7 @@ function inject (bot) {
     await bot.transfer(options)
   }
 
-  async function unequip (destination) {
+  async function unequip (destination: EquipmentDestination): Promise<void> {
     if (destination === 'hand') {
       await equipEmpty()
     } else {
@@ -48,7 +52,7 @@ function inject (bot) {
     }
   }
 
-  function setQuickBarSlot (slot) {
+  function setQuickBarSlot (slot: number): void {
     assert.ok(slot >= 0)
     assert.ok(slot < 9)
     if (bot.quickBarSlot === slot) return
@@ -57,7 +61,7 @@ function inject (bot) {
     bot.updateHeldItem()
   }
 
-  async function equipEmpty () {
+  async function equipEmpty (): Promise<void> {
     for (let i = 0; i < QUICK_BAR_COUNT; ++i) {
       if (!bot.inventory.slots[QUICK_BAR_START + i]) {
         setQuickBarSlot(i)
@@ -66,7 +70,7 @@ function inject (bot) {
     }
     const slot = bot.inventory.firstEmptyInventorySlot()
     if (!slot) {
-      await bot.tossStack(bot.heldItem)
+      await bot.tossStack(bot.heldItem!) // every hotbar slot is full
       return
     }
     const equipSlot = QUICK_BAR_START + bot.quickBarSlot
@@ -77,13 +81,13 @@ function inject (bot) {
     }
   }
 
-  async function disrobe (destination) {
+  async function disrobe (destination: Exclude<EquipmentDestination, 'hand'>): Promise<void> {
     assert.strictEqual(bot.currentWindow, null)
     const destSlot = getDestSlot(destination)
     await bot.putAway(destSlot)
   }
 
-  async function equip (item, destination) {
+  async function equip (item: Item | number | null, destination: EquipmentDestination | null): Promise<void> {
     if (typeof item === 'number') {
       item = bot.inventory.findInventoryItem(item)
     }
@@ -94,7 +98,7 @@ function inject (bot) {
       destination = 'hand'
     }
     const sourceSlot = item.slot
-    let destSlot = getDestSlot(destination)
+    let destSlot: number | null = getDestSlot(destination)
 
     if (sourceSlot === destSlot) {
       // don't need to do anything
@@ -123,7 +127,7 @@ function inject (bot) {
     await bot.moveSlotItem(sourceSlot, destSlot)
   }
 
-  function getDestSlot (destination) {
+  function getDestSlot (destination: EquipmentDestination): number {
     if (destination === 'hand') {
       return QUICK_BAR_START + bot.quickBarSlot
     } else {
@@ -133,11 +137,11 @@ function inject (bot) {
     }
   }
 
-  function leftMouse (slot) {
+  function leftMouse (slot: number): Promise<void> {
     return bot.clickWindow(slot, 0, 0)
   }
 
-  function rightMouse (slot) {
+  function rightMouse (slot: number): Promise<void> {
     return bot.clickWindow(slot, 1, 0)
   }
 
