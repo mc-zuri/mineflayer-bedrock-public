@@ -398,7 +398,6 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
         x: meta.x,
         z: meta.z,
         bitMap: meta.bitMap,
-        heightmaps: packet.heightmaps,
         skyLightSent: packet.skyLightSent,
         groundUp: true,
         data: packet.data.slice(offset, offset + size)
