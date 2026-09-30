@@ -775,7 +775,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
             if (bot.supportFeature('spawnRespawnWorldDataField')) {
               respawnPacket.worldState.dimension = 1
             } else if (bot.supportFeature('usesLoginPacket')) {
-              respawnPacket.dimension.name = 'e'
+              // 1.19+ sends the dimension as a string, which has no name to change
+              if (typeof respawnPacket.dimension === 'object') respawnPacket.dimension.name = 'e'
             } else {
               respawnPacket.dimension = 1
             }
