@@ -65,4 +65,17 @@ describe('inventory plugin', () => {
     bot.game.gameMode = 'creative'
     await assert.rejects(bot.consume(), /not holding an item/)
   })
+
+  it('an update of another slot does not stop using the held item', () => {
+    const bot = createFakeBot('1.20.4')
+    const Item = prismarineItem(bot.registry)
+    const { apple, dirt } = bot.registry.itemsByName
+    bot._client.emit('set_slot', { windowId: 0, stateId: 1, slot: 36, item: Item.toNotch(new Item(apple.id, 5)) })
+    bot.activateItem()
+    assert.strictEqual(bot.usingHeldItem, true)
+    bot._client.emit('set_slot', { windowId: 0, stateId: 2, slot: 9, item: Item.toNotch(new Item(dirt.id, 1)) })
+    assert.strictEqual(bot.usingHeldItem, true, 'held item unchanged')
+    bot._client.emit('set_slot', { windowId: 0, stateId: 3, slot: 36, item: Item.toNotch(new Item(apple.id, 4)) })
+    assert.strictEqual(bot.usingHeldItem, false, 'held item count changed')
+  })
 })

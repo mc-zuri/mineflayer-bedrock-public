@@ -118,6 +118,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       previousHeldItem = heldItem
       return
     }
+    previousHeldItem = heldItem
     if (!eatingTask.done) {
       eatingTask.finish()
     }
