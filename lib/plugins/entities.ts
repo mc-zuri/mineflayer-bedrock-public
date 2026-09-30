@@ -807,7 +807,7 @@ function inject (bot) {
   })
 
   // dismounting when the vehicle is gone
-  bot._client.on('entityGone', (entity) => {
+  bot.on('entityGone', (entity) => {
     if (bot.vehicle === entity) {
       bot.vehicle = null
       bot.emit('dismount', (entity))

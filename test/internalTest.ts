@@ -1103,6 +1103,29 @@ for (const supportedVersion of mineflayer.testedVersions) {
         })
       })
 
+      it('dismounts when the vehicle entity is destroyed', (done) => {
+        server.on('playerJoin', (client) => {
+          bot.once('login', () => {
+            const vehicleId = 7
+            client.write('entity_head_rotation', { entityId: vehicleId, headYaw: 0 })
+            bot.once('mount', () => {
+              bot.once('dismount', (vehicle) => {
+                assert.strictEqual(vehicle.id, vehicleId)
+                assert.strictEqual(bot.vehicle, null)
+                done()
+              })
+              client.write('entity_destroy', { entityIds: [vehicleId] })
+            })
+            if (registry.version['<']('1.9')) {
+              client.write('attach_entity', { entityId: bot.entity.id, vehicleId, leash: false })
+            } else {
+              client.write('set_passengers', { entityId: vehicleId, passengers: [bot.entity.id] })
+            }
+          })
+          client.write('login', bot.test.generateLoginPacket())
+        })
+      })
+
       it('player displayName', (done) => {
         server.on('playerJoin', (client) => {
           bot.on('entitySpawn', (entity) => {
