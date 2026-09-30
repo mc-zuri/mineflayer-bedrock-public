@@ -213,7 +213,19 @@ function inject (bot: BotInternal, options: BotOptions): void {
     })
   }
 
+  // 1.13+: like vanilla's pending suggestions id, the server echoes it in its answer
+  let tabCompleteId = -1
   async function tabComplete (text: string, assumeCommand = false, sendBlockInSight = true, timeout = 5000) {
+    if (bot.supportFeature('tabCompleteHasAToolTip')) { // 1.13+: only the text and an id
+      const transactionId = ++tabCompleteId
+      bot._client.write('tab_complete', { transactionId, text })
+      const [packet] = await onceWithCleanup(bot._client, 'tab_complete', {
+        timeout,
+        checkCondition: (packet) => packet.transactionId === transactionId
+      })
+      return packet.matches
+    }
+
     let position: Vec3 | undefined
 
     if (sendBlockInSight) {
@@ -226,8 +238,9 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
     bot._client.write('tab_complete', {
       text,
-      assumeCommand,
-      lookedAtBlock: position
+      assumeCommand, // 1.9 - 1.12
+      lookedAtBlock: position, // 1.9 - 1.12
+      block: position // 1.8
     })
 
     const [packet] = await onceWithCleanup(bot._client, 'tab_complete', { timeout })

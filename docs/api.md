@@ -1726,11 +1726,11 @@ Gracefully disconnect from the server with the given reason (defaults to 'discon
 
 This function returns a `Promise`, with `matches` as its argument upon completion.
 
-Requests chat completion from the server.
+Requests chat completion from the server. From 1.13 on, `matches` is an array of `{ match, tooltip }` objects and each request is matched to its own answer; before 1.13 it is an array of strings.
  * `str` - String to complete.
- * `assumeCommand` - Field sent to server, defaults to false.
- * `sendBlockInSight` - Field sent to server, defaults to true. Set this option to false if you want more performance.
- * `timeout` - Timeout in milliseconds, after which the function will return an empty array, defaults to 5000.
+ * `assumeCommand` - Field sent to server (1.9 - 1.12 only), defaults to false.
+ * `sendBlockInSight` - Send the position of the block the bot looks at (before 1.13 only), defaults to true. Set this option to false if you want more performance.
+ * `timeout` - Timeout in milliseconds, defaults to 5000. When the server does not answer in time, the promise rejects with a timeout error.
 
 #### bot.chat(message)
 

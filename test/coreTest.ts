@@ -14,6 +14,7 @@ import resourcePackPlugin from '../lib/plugins/resource_pack.ts'
 import settingsPlugin from '../lib/plugins/settings.ts'
 import explosionPlugin from '../lib/plugins/explosion.ts'
 import timePlugin from '../lib/plugins/time.ts'
+import chatPlugin from '../lib/plugins/chat.ts'
 
 interface Write { name: string, params: any }
 
@@ -291,6 +292,45 @@ describe('core', () => {
         bot._client.emit('update_time', { age: [0, 0], clockUpdates: clockUpdates.map(c => ({ ...c })) })
         assert.strictEqual(bot.time.time, time, dimension)
       }
+    })
+  })
+
+  describe('chat tabComplete', () => {
+    function chatBot (version: string): any {
+      const bot = fakeBot(version)
+      bot.blockAtCursor = () => ({ position: new Vec3(1, 2, 3) })
+      chatPlugin(bot, {} as any)
+      return bot
+    }
+
+    it('1.13+ numbers its requests and takes the matching answer', async () => {
+      const bot = chatBot('1.20.4')
+      const first = bot.tabComplete('/he')
+      const second = bot.tabComplete('/ti')
+      const ids = bot._client.writes.filter((w: Write) => w.name === 'tab_complete').map((w: Write) => w.params.transactionId)
+      assert.strictEqual(ids.length, 2)
+      assert.notStrictEqual(ids[0], ids[1])
+      bot._client.emit('tab_complete', { transactionId: ids[1], start: 1, length: 2, matches: [{ match: 'time' }] })
+      bot._client.emit('tab_complete', { transactionId: ids[0], start: 1, length: 2, matches: [{ match: 'help' }] })
+      assert.deepStrictEqual(await first, [{ match: 'help' }])
+      assert.deepStrictEqual(await second, [{ match: 'time' }])
+    })
+
+    it('sends the looked-at block before 1.13', async () => {
+      for (const version of ['1.8.8', '1.12.2']) {
+        const bot = chatBot(version)
+        const matches = bot.tabComplete('/he', true)
+        const [write] = bot._client.writes.filter((w: Write) => w.name === 'tab_complete')
+        const field = version === '1.8.8' ? 'block' : 'lookedAtBlock'
+        assert.deepStrictEqual(write.params[field], new Vec3(1, 2, 3), version)
+        bot._client.emit('tab_complete', { matches: ['/help'] })
+        assert.deepStrictEqual(await matches, ['/help'])
+      }
+    })
+
+    it('rejects on timeout', async () => {
+      const bot = chatBot('1.20.4')
+      await assert.rejects(bot.tabComplete('/he', false, false, 10))
     })
   })
 })
