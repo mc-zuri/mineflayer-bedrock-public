@@ -194,5 +194,14 @@ describe('core', () => {
         assert.strictEqual(bot.game.difficulty, 'hard', version as string)
       }
     })
+
+    it('answers the end credits with a perform respawn client_command', () => {
+      for (const [version, params] of [['1.8.8', { payload: 0 }], ['1.16.5', { actionId: 0 }]] as const) {
+        const bot = fakeBot(version)
+        gamePlugin(bot, { brand: 'vanilla' } as any)
+        bot._client.emit('game_state_change', { reason: 4, gameMode: 1 })
+        assert.deepStrictEqual(bot._client.writes.filter((w: Write) => w.name === 'client_command'), [{ name: 'client_command', params }], version)
+      }
+    })
   })
 })

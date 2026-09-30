@@ -1,7 +1,6 @@
 import nbt from 'prismarine-nbt'
 import type { BotOptions, Difficulty, GameMode, GameState, LevelType } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
-import type { ServerboundPackets } from '../types/protocol.ts'
 
 export default inject
 
@@ -145,7 +144,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
   bot._client.on('game_state_change', (packet) => {
     if ((packet.reason === 4 || packet.reason === 'win_game') && packet.gameMode === 1) {
-      bot._client.write('client_command', { action: 0 } as unknown as ServerboundPackets['client_command'])
+      bot._client.write('client_command', bot.supportFeature('respawnIsPayload') ? { payload: 0 } : { actionId: 0 })
     }
     if ((packet.reason === 3) || (packet.reason === 'change_game_mode')) {
       bot.game.gameMode = parseGameMode(packet.gameMode)
