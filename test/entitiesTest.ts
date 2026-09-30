@@ -43,6 +43,39 @@ describe('entities plugin', () => {
     }
   })
 
+  describe('attach_entity (1.8 riding)', () => {
+    it('keeps vehicle.passengers in step with entity.vehicle', () => {
+      const bot = createFakeBot('1.8.8')
+      const events: string[] = []
+      bot.on('entityAttach', (entity: any, vehicle: any) => {
+        events.push(`attach ${entity.id} ${vehicle.id} ${entity.vehicle?.id}`)
+      })
+      bot.on('entityDetach', (entity: any, vehicle: any) => {
+        events.push(`detach ${entity.id} ${vehicle?.id} ${entity.vehicle?.id}`)
+      })
+      bot.on('mount', () => events.push('mount'))
+      bot.on('dismount', (vehicle: any) => events.push(`dismount ${vehicle?.id}`))
+      bot._client.emit('attach_entity', { entityId: 2, vehicleId: 7, leash: false })
+      bot._client.emit('attach_entity', { entityId: 1, vehicleId: 8, leash: false })
+      const cart7 = bot.entities[7]
+      const cart8 = bot.entities[8]
+      assert.deepStrictEqual(cart7.passengers.map((e: any) => e.id), [2])
+      assert.deepStrictEqual(cart8.passengers.map((e: any) => e.id), [1])
+      assert.strictEqual(bot.vehicle, cart8)
+
+      // the bot switches carts: it leaves 8, and 7 keeps its passenger 2
+      bot._client.emit('attach_entity', { entityId: 1, vehicleId: 7, leash: false })
+      assert.deepStrictEqual(cart8.passengers.map((e: any) => e.id), [])
+      assert.deepStrictEqual(cart7.passengers.map((e: any) => e.id), [2, 1])
+
+      bot._client.emit('attach_entity', { entityId: 1, vehicleId: -1, leash: false })
+      assert.deepStrictEqual(cart7.passengers.map((e: any) => e.id), [2])
+      assert.strictEqual(bot.entity.vehicle, null)
+      assert.strictEqual(bot.vehicle, null)
+      assert.deepStrictEqual(events, ['attach 2 7 7', 'attach 1 8 8', 'mount', 'attach 1 7 7', 'mount', 'detach 1 7 undefined', 'dismount 7'])
+    })
+  })
+
   describe('player_info before 1.19.3', () => {
     for (const version of ['1.8.8', '1.12.2', '1.19.2']) {
       it(`update_game_mode updates the player's gamemode (${version})`, () => {

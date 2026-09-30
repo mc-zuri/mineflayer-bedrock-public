@@ -407,19 +407,6 @@ function inject (bot: BotInternal): void {
     bot.emit('entityHurt', entity, source)
   })
 
-  bot._client.on('attach_entity', (packet) => {
-    // attach entity
-    const entity = fetchEntity(packet.entityId)
-    if (packet.vehicleId === -1) {
-      const vehicle = entity.vehicle
-      delete (entity as { vehicle?: EntityT }).vehicle
-      bot.emit('entityDetach', entity, vehicle)
-    } else {
-      entity.vehicle = fetchEntity(packet.vehicleId)
-      bot.emit('entityAttach', entity, entity.vehicle)
-    }
-  })
-
   bot.fireworkRocketDuration = 0
   function setElytraFlyingState (entity: EntityT, elytraFlying: boolean) {
     let startedFlying = false
@@ -787,6 +774,9 @@ function inject (bot: BotInternal): void {
     passenger.vehicle = vehicle as EntityT // prismarine-entity types vehicle non-null; null when not riding
     if (vehicle) {
       vehicle.passengers.push(passenger)
+      bot.emit('entityAttach', passenger, vehicle)
+    } else {
+      bot.emit('entityDetach', passenger, originalVehicle)
     }
 
     if (packet.entityId === bot.entity.id) {
