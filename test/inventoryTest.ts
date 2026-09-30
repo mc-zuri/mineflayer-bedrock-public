@@ -86,6 +86,29 @@ describe('inventory plugin', () => {
     })
   }
 
+  it('the click action number wraps like a short and the transaction queue follows it (1.12.2)', async function () {
+    this.timeout(60000)
+    const bot = createFakeBot('1.12.2')
+    const write = bot._client.write
+    let confirm = true
+    bot._client.write = (name: string, params: any) => {
+      write(name, params)
+      if (name === 'window_click' && confirm) {
+        setImmediate(() => bot._client.emit('transaction', { windowId: params.windowId, action: params.action, accepted: true }))
+      }
+    }
+    for (let i = 1; i < 32767; i++) await bot.clickWindow(-999, 0, 0)
+    bot._client.writes.length = 0
+    // the server answers only the second click, which accepts the first as well
+    confirm = false
+    const first = bot.clickWindow(-999, 0, 0)
+    const second = bot.clickWindow(-999, 0, 0)
+    const actions = bot._client.writes.filter((w: Write) => w.name === 'window_click').map((w: Write) => w.params.action)
+    assert.deepStrictEqual(actions, [32767, -32768])
+    bot._client.emit('transaction', { windowId: 0, action: -32768, accepted: true })
+    await Promise.all([first, second])
+  })
+
   it('consume with an empty hand rejects with a clear error', async () => {
     const bot = createFakeBot('1.20.4')
     await assert.rejects(bot.consume(), /not holding an item/)

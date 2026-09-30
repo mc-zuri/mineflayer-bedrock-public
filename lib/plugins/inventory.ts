@@ -459,7 +459,8 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
   }
 
   function createActionNumber (): number {
-    nextActionNumber = nextActionNumber === 32767 ? 1 : nextActionNumber + 1
+    // a short that overflows, like vanilla's container transaction id
+    nextActionNumber = nextActionNumber === 32767 ? -32768 : nextActionNumber + 1
     return nextActionNumber
   }
 
@@ -567,11 +568,11 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       return
     }
     // shift it later if packets are sent out of order
-    // (the queue holds a click with id actionId, so neither shift runs past the end)
+    // (the queue holds a click with id actionId, so neither shift runs past the end;
+    // found by queue position, not id order: the ids wrap around)
     click = windowClickQueue.shift()!
 
-    assert.ok(click.id <= actionId)
-    while (actionId > click.id) {
+    while (click.id !== actionId) {
       onAccepted()
       click = windowClickQueue.shift()!
     }
