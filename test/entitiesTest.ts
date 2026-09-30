@@ -6,6 +6,7 @@ import prismarineRegistry from 'prismarine-registry'
 import { Vec3 } from 'vec3'
 import entitiesPlugin from '../lib/plugins/entities.ts'
 import rayTracePlugin from '../lib/plugins/ray_trace.ts'
+import bedPlugin from '../lib/plugins/bed.ts'
 
 function createFakeBot (version: string) {
   const registry = prismarineRegistry(version)
@@ -138,5 +139,25 @@ describe('ray_trace plugin', () => {
     assert.strictEqual(casts.length, 1)
     assert.deepStrictEqual(casts[0][0], new Vec3(0, 65.8, 0))
     assert.deepStrictEqual(casts[0][1].toArray().map((v: number) => Math.round(v * 1e6) / 1e6 + 0), [0, 0, -1])
+  })
+})
+
+describe('bed plugin', () => {
+  it('sleep on a foot half whose neighbours are not loaded reports a half bed', async () => {
+    const registry = prismarineRegistry('1.20.4')
+    const bot: any = new EventEmitter()
+    bot.registry = registry
+    bot.supportFeature = registry.supportFeature.bind(registry)
+    bot._client = new EventEmitter()
+    bot.isRaining = false
+    bot.thunderState = 0
+    bot.time = { timeOfDay: 13000 }
+    bot.entity = { position: new Vec3(0, 64, 0) }
+    bot.blockAt = () => null // neighbouring chunk not loaded
+    bedPlugin(bot)
+    const redBed = registry.blocksByName.red_bed
+    // state offset 3: facing north, not occupied, foot
+    const bedBlock = { name: 'red_bed', stateId: redBed.minStateId! + 3, position: new Vec3(0, 64, 1) }
+    await assert.rejects(bot.sleep(bedBlock), { message: "there's only half bed" })
   })
 })

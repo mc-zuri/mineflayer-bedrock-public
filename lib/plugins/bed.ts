@@ -14,7 +14,7 @@ function inject (bot: BotInternal): void {
     'light_gray_bed', 'cyan_bed', 'purple_bed', 'blue_bed', 'brown_bed', 'green_bed', 'red_bed', 'black_bed', 'bed'])
 
   function isABed (block: Block | null): boolean {
-    return beds.has(block!.name)
+    return block != null && beds.has(block.name) // null: block in an unloaded chunk
   }
 
   function parseBedMetadata (bedBlock: Block): BedMetadata {
