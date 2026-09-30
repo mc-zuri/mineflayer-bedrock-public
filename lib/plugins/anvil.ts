@@ -59,7 +59,8 @@ function inject (bot: BotInternal): void {
       const { xpCost: inverseCost } = Item.anvil(itemTwo, itemOne, bot.game.gameMode === 'creative', name)
       if (normalCost === 0 && inverseCost === 0) err('Not anvil-able (in either direction), cancelling.')
 
-      const smallest = (normalCost < inverseCost ? normalCost : inverseCost) === 0 ? inverseCost : 0
+      // the cost of the order put in the anvil below (0 means that order is not possible)
+      const smallest = normalCost === 0 ? inverseCost : inverseCost === 0 ? normalCost : Math.min(normalCost, inverseCost)
       // level is null until the first experience packet, which compares as 0
       if (bot.game.gameMode !== 'creative' && bot.experience.level! < smallest) {
         err('Player does not have enough xp to do action, cancelling.')
