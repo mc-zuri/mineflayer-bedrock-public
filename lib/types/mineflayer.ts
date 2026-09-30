@@ -11,6 +11,7 @@ import type { ChatMessage } from 'prismarine-chat'
 import type { world } from 'prismarine-world'
 import type { Registry } from 'prismarine-registry'
 import type { IndexedData, SupportsFeature } from 'minecraft-data'
+import type { ClientboundPackets, TextComponent } from './protocol.ts'
 
 export declare function createBot (options: { client: Client } & Partial<BotOptions>): Bot
 export declare function createBot (options: BotOptions): Bot
@@ -156,9 +157,10 @@ export interface BotEvents {
   scoreboardCreated: (scoreboard: ScoreBoard) => Promise<void> | void
   scoreboardDeleted: (scoreboard: ScoreBoard) => Promise<void> | void
   scoreboardTitleChanged: (scoreboard: ScoreBoard) => Promise<void> | void
-  scoreUpdated: (scoreboard: ScoreBoard, item: number) => Promise<void> | void
-  scoreRemoved: (scoreboard: ScoreBoard, item: number) => Promise<void> | void
-  scoreboardPosition: (position: DisplaySlot, scoreboard: ScoreBoard) => Promise<void> | void
+  scoreUpdated: (scoreboard: ScoreBoard, item: ScoreBoardItem) => Promise<void> | void
+  scoreRemoved: (scoreboard: ScoreBoard, item: ScoreBoardItem | undefined) => Promise<void> | void
+  /** position is the numeric display slot; previous is the objective it replaced */
+  scoreboardPosition: (position: number, scoreboard: ScoreBoard, previous: ScoreBoard | undefined) => Promise<void> | void
   teamCreated: (team: Team) => Promise<void> | void
   teamRemoved: (team: Team) => Promise<void> | void
   teamUpdated: (team: Team) => Promise<void> | void
@@ -209,7 +211,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
   targetDigBlock: Block
   isSleeping: boolean
   scoreboards: { [name: string]: ScoreBoard }
-  scoreboard: { [slot in DisplaySlot]: ScoreBoard }
+  scoreboard: ScoreBoardPositions
   teams: { [name: string]: Team }
   teamMap: { [name: string]: Team }
   controlState: ControlStateStatus
@@ -657,10 +659,11 @@ export declare class Location {
 export declare class Painting {
   id: number
   position: Vec3
-  name: string
+  /** motive name before 1.13, motive registry id 1.13 – 1.18 (spawn_entity_painting title) */
+  name: string | number
   direction: Vec3
 
-  constructor (id: number, position: Vec3, name: string, direction: Vec3)
+  constructor (id: number, position: Vec3, name: string | number, direction: Vec3)
 }
 
 interface StorageEvents {
@@ -799,20 +802,35 @@ export interface VillagerTrade {
   realPrice?: number
 }
 
-export declare class ScoreBoard {
+export interface ScoreBoard {
   name: string
   title: string
   itemsMap: { [name: string]: ScoreBoardItem }
-  items: ScoreBoardItem[]
+  /** sorted by value, highest first */
+  readonly items: ScoreBoardItem[]
 
-  constructor (packet: object)
-
-  setTitle (title: string): void
+  setTitle (title: TextComponent | undefined): void
 
   add (name: string, value: number): ScoreBoardItem
 
-  remove (name: string): ScoreBoardItem
+  remove (name: string): ScoreBoardItem | undefined
 }
+
+/** the display slots (bot.scoreboard): numeric slots from scoreboard_display_objective, named aliases for 0 – 2 */
+export interface ScoreBoardPositions {
+  [slot: number]: ScoreBoard
+  readonly list: ScoreBoard | undefined
+  readonly sidebar: ScoreBoard | undefined
+  readonly belowName: ScoreBoard | undefined
+}
+
+export interface ScoreBoardConstructor {
+  new (packet: { name: string, displayText?: TextComponent }): ScoreBoard
+  positions: ScoreBoardPositions
+}
+
+/** mineflayer.ScoreBoard is a loader: ScoreBoard(bot) returns the class */
+export declare const ScoreBoard: (bot: Bot) => ScoreBoardConstructor
 
 export interface ScoreBoardItem {
   name: string
@@ -820,27 +838,26 @@ export interface ScoreBoardItem {
   value: number
 }
 
-export declare class Team {
+export interface Team {
   team: string
   name: ChatMessage
+  /** bit 0x01 friendly fire, 0x02 see friendly invisibles */
   friendlyFire: number
   nameTagVisibility: string
   collisionRule: string
   color: string
   prefix: ChatMessage
   suffix: ChatMessage
-  memberMap: { [name: string]: '' }
-  members: string[]
+  membersMap: { [name: string]: '' }
+  readonly members: string[]
 
-  constructor (team: string, name: string, friendlyFire: boolean, nameTagVisibility: string, collisionRule: string, formatting: number, prefix: string, suffix: string)
+  parseMessage (value: TextComponent): ChatMessage
 
-  parseMessage (value: string): ChatMessage
+  add (name: string): ''
 
-  add (name: string, value: number): void
+  remove (name: string): '' | undefined
 
-  remove (name: string): void
-
-  update (name: string, friendlyFire: boolean, nameTagVisibility: string, collisionRule: string, formatting: number, prefix: string, suffix: string): void
+  update (name: TextComponent, friendlyFire: number, nameTagVisibility: string, collisionRule: string, formatting: number | undefined, prefix: TextComponent, suffix: TextComponent): void
 
   displayName (member: string): ChatMessage
 }
@@ -866,45 +883,56 @@ export type DisplaySlot =
   | 17
   | 18
 
-export declare class BossBar {
+export type BossBarColor = 'pink' | 'blue' | 'red' | 'green' | 'yellow' | 'purple' | 'white'
+
+export interface BossBar {
   entityUUID: string
-  title: ChatMessage
+  /** a plain string when the server sends an NBT string tag (1.20.3+) */
+  get title (): ChatMessage | string
+  set title (title: TextComponent)
   health: number
-  dividers: number
-  color: 'pink' | 'blue' | 'red' | 'green' | 'yellow' | 'purple' | 'white'
+  /** one of 0, 6, 10, 12, 20 */
+  get dividers (): number
+  /** the boss_bar packet's division index (0 – 4) */
+  set dividers (dividers: number)
+  get color (): BossBarColor
+  /** the boss_bar packet's color index */
+  set color (color: number)
+  /** the boss_bar packet's flag bits: 0x1 darken sky, 0x2 dragon bar, 0x4 create fog */
+  flags: number
   shouldDarkenSky: boolean
   isDragonBar: boolean
   createFog: boolean
-  shouldCreateFog: boolean
-
-  constructor (
-    uuid: string,
-    title: string,
-    health: number,
-    dividers: number,
-    color: number,
-    flags: number
-  )
+  readonly shouldCreateFog: boolean
 }
 
-export declare class Particle {
+export interface BossBarConstructor {
+  new (uuid: string, title: TextComponent, health: number, dividers: number, color: number, flags: number): BossBar
+}
+
+/** mineflayer.BossBar is a loader: BossBar(registry) returns the class */
+export declare const BossBar: (registry: Registry) => BossBarConstructor
+
+export interface Particle {
+  /** registry id */
   id: number
+  /** registry name; set from the registry entry */
+  name?: string
   position: Vec3
   offset: Vec3
   count: number
   movementSpeed: number
   longDistanceRender: boolean
-  static fromNetwork (packet: Object): Particle
-
-  constructor (
-    id: number,
-    position: Vec3,
-    offset: Vec3,
-    count?: number,
-    movementSpeed?: number,
-    longDistanceRender?: boolean
-  )
 }
+
+export interface ParticleConstructor {
+  /** id is the registry id or name */
+  new (id: number | string, position: Vec3, offset: Vec3, count?: number, movementSpeed?: number, longDistanceRender?: boolean): Particle
+  fromNetwork (packet: ClientboundPackets['world_particles']): Particle
+}
+
+/** mineflayer.Particle is a loader: Particle(registry) returns the class */
+export declare const Particle: (registry: Registry) => ParticleConstructor
 
 export declare let testedVersions: string[]
 export declare let latestSupportedVersion: string

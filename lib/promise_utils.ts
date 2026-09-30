@@ -1,12 +1,38 @@
-function sleep (ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+import type TypedEmitter from 'typed-emitter'
+import type { PacketMeta } from 'minecraft-protocol'
+import type { BotEvents } from './types/mineflayer.ts'
+import type { ClientboundPackets, ClientEvents, TypedClient } from './types/protocol.ts'
+
+export interface Task<T = void> {
+  done: boolean
+  promise: Promise<T>
+  cancel: (err?: unknown) => void
+  finish: (result: T) => void
 }
 
-function createTask () {
+/** anything with node EventEmitter-style addListener/removeListener */
+export interface Emitter {
+  addListener (event: any, listener: (...args: any[]) => void): unknown
+  removeListener (event: any, listener: (...args: any[]) => void): unknown
+}
+
+type BotEmitter = Pick<TypedEmitter<BotEvents>, 'addListener' | 'removeListener'> & { _client: unknown }
+
+export interface OnceOptions<T extends unknown[]> {
+  timeout?: number
+  checkCondition?: (...data: T) => unknown
+  signal?: AbortSignal
+}
+
+function sleep (ms: number): Promise<void> {
+  return new Promise<void>(resolve => setTimeout(resolve, ms))
+}
+
+function createTask<T = void> (): Task<T> {
   const task = {
     done: false
-  }
-  task.promise = new Promise((resolve, reject) => {
+  } as Task<T>
+  task.promise = new Promise<T>((resolve, reject) => {
     task.cancel = (err) => {
       if (!task.done) {
         task.done = true
@@ -23,8 +49,8 @@ function createTask () {
   return task
 }
 
-function createDoneTask () {
-  const task = {
+function createDoneTask (): Task<void> {
+  const task: Task<void> = {
     done: true,
     promise: Promise.resolve(),
     cancel: () => {},
@@ -45,10 +71,14 @@ function createDoneTask () {
  * @param [signal] - An AbortSignal which, when aborted, removes the listener and rejects the promise with the signal's reason.
  * @returns {Promise} A promise which will either resolve to an *array* of values in the handled event, or will reject on timeout if applicable. This may never resolve if no timeout is set and the event does not fire.
  */
-function onceWithCleanup (emitter, event, { timeout = 0, checkCondition = undefined, signal = undefined } = {}) {
-  const task = createTask()
+function onceWithCleanup<K extends keyof ClientboundPackets> (emitter: TypedClient, event: K, options?: OnceOptions<[ClientboundPackets[K], PacketMeta]>): Promise<[ClientboundPackets[K], PacketMeta]>
+function onceWithCleanup<K extends keyof ClientEvents> (emitter: TypedClient, event: K, options?: OnceOptions<Parameters<ClientEvents[K]>>): Promise<Parameters<ClientEvents[K]>>
+function onceWithCleanup<K extends keyof BotEvents> (emitter: BotEmitter, event: K, options?: OnceOptions<Parameters<BotEvents[K]>>): Promise<Parameters<BotEvents[K]>>
+function onceWithCleanup<T extends unknown[] = any[]> (emitter: Emitter, event: string | symbol, options?: OnceOptions<T>): Promise<T>
+function onceWithCleanup (emitter: Emitter, event: string | symbol, { timeout = 0, checkCondition = undefined, signal = undefined }: OnceOptions<any[]> = {}): Promise<any[]> {
+  const task = createTask<any[]>()
 
-  const onEvent = (...data) => {
+  const onEvent = (...data: any[]) => {
     if (typeof checkCondition === 'function') {
       let matches
       try {
@@ -68,11 +98,11 @@ function onceWithCleanup (emitter, event, { timeout = 0, checkCondition = undefi
 
   emitter.addListener(event, onEvent)
 
-  let onAbort
+  let onAbort: (() => void) | undefined
   if (signal) {
     const abortError = () => signal.reason instanceof Error
       ? signal.reason
-      : new Error(`Waiting for event ${event} was aborted`)
+      : new Error(`Waiting for event ${String(event)} was aborted`)
     if (signal.aborted) {
       task.cancel(abortError())
     } else {
@@ -83,7 +113,7 @@ function onceWithCleanup (emitter, event, { timeout = 0, checkCondition = undefi
 
   if (typeof timeout === 'number' && timeout > 0) {
     // For some reason, the call stack gets lost if we don't create the error outside of the .then call
-    const timeoutError = new Error(`Event ${event} did not fire within timeout of ${timeout}ms`)
+    const timeoutError = new Error(`Event ${String(event)} did not fire within timeout of ${timeout}ms`)
     sleep(timeout).then(() => {
       if (!task.done) {
         task.cancel(timeoutError)
@@ -93,17 +123,21 @@ function onceWithCleanup (emitter, event, { timeout = 0, checkCondition = undefi
 
   task.promise.catch(() => {}).finally(() => {
     emitter.removeListener(event, onEvent)
-    if (onAbort) signal.removeEventListener('abort', onAbort)
+    if (onAbort) signal!.removeEventListener('abort', onAbort)
   })
 
   return task.promise
 }
 
-function once (emitter, event, timeout = 20000) {
+function once<K extends keyof ClientboundPackets> (emitter: TypedClient, event: K, timeout?: number): Promise<[ClientboundPackets[K], PacketMeta]>
+function once<K extends keyof ClientEvents> (emitter: TypedClient, event: K, timeout?: number): Promise<Parameters<ClientEvents[K]>>
+function once<K extends keyof BotEvents> (emitter: BotEmitter, event: K, timeout?: number): Promise<Parameters<BotEvents[K]>>
+function once<T extends unknown[] = any[]> (emitter: Emitter, event: string | symbol, timeout?: number): Promise<T>
+function once (emitter: Emitter, event: string | symbol, timeout = 20000): Promise<any[]> {
   return onceWithCleanup(emitter, event, { timeout })
 }
 
-function withTimeout (promise, timeout) {
+function withTimeout<T> (promise: Promise<T>, timeout: number): Promise<T> {
   return Promise.race([
     promise,
     sleep(timeout).then(() => {

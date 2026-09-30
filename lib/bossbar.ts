@@ -1,12 +1,27 @@
 import prismarineChat from 'prismarine-chat'
+import type { ChatMessage as ChatMessageInstance } from 'prismarine-chat'
+import type { Registry } from 'prismarine-registry'
+import type { BossBar as BossBarInstance, BossBarColor } from './types/mineflayer.ts'
+import type { TextComponent } from './types/protocol.ts'
+import type { ChatLoader } from './types/vendor/prismarine-chat.ts'
 
-const colors = ['pink', 'blue', 'red', 'green', 'yellow', 'purple', 'white']
+const colors: BossBarColor[] = ['pink', 'blue', 'red', 'green', 'yellow', 'purple', 'white']
 const divisions = [0, 6, 10, 12, 20]
 
-function loader (registry) {
-  const ChatMessage = prismarineChat(registry)
-  return class BossBar {
-    constructor (uuid, title, health, dividers, color, flags) {
+function loader (registry: Registry) {
+  const ChatMessage = (prismarineChat as unknown as ChatLoader)(registry)
+  return class BossBar implements BossBarInstance {
+    declare _entityUUID: string
+    declare _title: ChatMessageInstance | string
+    declare _health: number
+    declare _dividers: number
+    declare _color: BossBarColor
+    // flag bits as stored by the constructor / flags setter; booleans when set through the setters
+    declare _shouldDarkenSky: number | boolean
+    declare _isDragonBar: number | boolean
+    declare _createFog: number | boolean
+
+    constructor (uuid: string, title: TextComponent, health: number, dividers: number, color: number, flags: number) {
       this._entityUUID = uuid
       this.title = title
       this._health = health
@@ -17,11 +32,11 @@ function loader (registry) {
       this._createFog = flags & 0x4
     }
 
-    set entityUUID (uuid) {
+    set entityUUID (uuid: string) {
       this._entityUUID = uuid
     }
 
-    set title (title) {
+    set title (title: TextComponent) {
       if (title && typeof title === 'object' && title.type === 'string' && 'value' in title) {
         this._title = title.value
       } else {
@@ -36,41 +51,41 @@ function loader (registry) {
       }
     }
 
-    set health (health) {
+    set health (health: number) {
       this._health = health
     }
 
-    set dividers (dividers) {
+    set dividers (dividers: number) {
       this._dividers = divisions[dividers]
     }
 
-    set color (color) {
+    set color (color: number) {
       this._color = colors[color]
     }
 
-    set flags (flags) {
+    set flags (flags: number) {
       this._shouldDarkenSky = flags & 0x1
       this._isDragonBar = flags & 0x2
       this._createFog = flags & 0x4
     }
 
     get flags () {
-      return (this._shouldDarkenSky) | (this._isDragonBar << 1) | (this._createFog << 2)
+      return (this._shouldDarkenSky as number) | ((this._isDragonBar as number) << 1) | ((this._createFog as number) << 2)
     }
 
-    set shouldDarkenSky (darkenSky) {
+    set shouldDarkenSky (darkenSky: boolean) {
       this._shouldDarkenSky = darkenSky
     }
 
-    set isDragonBar (dragonBar) {
+    set isDragonBar (dragonBar: boolean) {
       this._isDragonBar = dragonBar
     }
 
     get createFog () {
-      return this._createFog
+      return this._createFog as boolean
     }
 
-    set createFog (createFog) {
+    set createFog (createFog: boolean) {
       this._createFog = createFog
     }
 
@@ -78,7 +93,7 @@ function loader (registry) {
       return this._entityUUID
     }
 
-    get title () {
+    get title (): ChatMessageInstance | string {
       return this._title
     }
 
@@ -90,20 +105,20 @@ function loader (registry) {
       return this._dividers
     }
 
-    get color () {
+    get color (): BossBarColor {
       return this._color
     }
 
     get shouldDarkenSky () {
-      return this._shouldDarkenSky
+      return this._shouldDarkenSky as boolean
     }
 
     get isDragonBar () {
-      return this._isDragonBar
+      return this._isDragonBar as boolean
     }
 
     get shouldCreateFog () {
-      return this._createFog
+      return this._createFog as boolean
     }
   }
 }

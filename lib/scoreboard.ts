@@ -1,31 +1,40 @@
 import prismarineChat from 'prismarine-chat'
+import type { BotInternal } from './types/internal.ts'
+import type { ScoreBoard as ScoreBoardInstance, ScoreBoardItem, ScoreBoardPositions } from './types/mineflayer.ts'
+import type { TextComponent } from './types/protocol.ts'
+import type { ChatLoader } from './types/vendor/prismarine-chat.ts'
 
-const sortItems = (a, b) => {
+const sortItems = (a: ScoreBoardItem, b: ScoreBoardItem) => {
   if (a.value > b.value) return -1
   if (a.value < b.value) return 1
   return 1
 }
 
-export default (bot) => {
-  const ChatMessage = prismarineChat(bot.registry)
+export default (bot: BotInternal) => {
+  const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
 
-  class ScoreBoard {
-    constructor (packet) {
+  class ScoreBoard implements ScoreBoardInstance {
+    declare name: string
+    declare title: string
+    declare itemsMap: { [name: string]: ScoreBoardItem }
+    declare static positions: ScoreBoardPositions
+
+    constructor (packet: { name: string, displayText?: TextComponent }) {
       this.name = packet.name
       this.setTitle(packet.displayText)
       this.itemsMap = {}
     }
 
-    setTitle (title) {
+    setTitle (title: TextComponent | undefined) {
       try {
-        this.title = JSON.parse(title).text // version>1.13
+        this.title = JSON.parse(title as string).text // version>1.13
       } catch {
-        this.title = title
+        this.title = title as string
       }
     }
 
-    add (name, value) {
-      this.itemsMap[name] = { name, value }
+    add (name: string, value: number) {
+      this.itemsMap[name] = { name, value } as ScoreBoardItem
       this.itemsMap[name] = {
         name,
         value,
@@ -39,8 +48,8 @@ export default (bot) => {
       return this.itemsMap[name]
     }
 
-    remove (name) {
-      const removed = this.itemsMap[name]
+    remove (name: string) {
+      const removed: ScoreBoardItem | undefined = this.itemsMap[name]
       delete this.itemsMap[name]
       return removed
     }
@@ -53,9 +62,9 @@ export default (bot) => {
   // The named slots alias the numeric ones and stay non-enumerable, so
   // Object.keys/values(bot.scoreboard) only ever yield displayed objectives.
   ScoreBoard.positions = Object.defineProperties({}, {
-    list: { get () { return this[0] } },
-    sidebar: { get () { return this[1] } },
-    belowName: { get () { return this[2] } }
-  })
+    list: { get (this: ScoreBoardPositions) { return this[0] } },
+    sidebar: { get (this: ScoreBoardPositions) { return this[1] } },
+    belowName: { get (this: ScoreBoardPositions) { return this[2] } }
+  }) as ScoreBoardPositions
   return ScoreBoard
 }
