@@ -394,9 +394,8 @@ function inject (bot: BotInternal): void {
     const eventName = entityStatusEvents[packet.entityStatus]
 
     if (eventName === 'entityHandSwap' && entity.equipment) {
+      // entity.heldItem is a getter for equipment[0], so it follows the swap
       [entity.equipment[0], entity.equipment[1]] = [entity.equipment[1], entity.equipment[0]]
-      // @ts-expect-error heldItem is a getter-only accessor (typed read-only)
-      entity.heldItem = entity.equipment[0] // Update held item like prismarine-entity does upon equipment updates
     }
 
     if (eventName) bot.emit(eventName, entity)
