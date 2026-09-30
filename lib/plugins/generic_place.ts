@@ -1,17 +1,21 @@
 import assert from 'assert'
 import prismarineItem from 'prismarine-item'
+import type { Block } from 'prismarine-block'
+import type { Vec3 } from 'vec3'
+import type { BotInternal, PlaceOptions } from '../types/internal.ts'
+import type { ItemClass } from '../types/vendor/prismarine-item.ts'
 
 export default inject
 
-function inject (bot) {
-  const Item = prismarineItem(bot.registry)
+function inject (bot: BotInternal): void {
+  const Item = prismarineItem(bot.registry) as ItemClass
   /**
    *
    * @param {import('prismarine-block').Block} referenceBlock
    * @param {import('vec3').Vec3} faceVector
    * @param {{half?: 'top'|'bottom', delta?: import('vec3').Vec3, forceLook?: boolean | 'ignore', offhand?: boolean, swingArm?: 'right' | 'left', showHand?: boolean}} options
    */
-  async function _genericPlace (referenceBlock, faceVector, options) {
+  async function _genericPlace (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions): Promise<Vec3> {
     let handToPlaceWith = 0
     if (options.offhand) {
       if (!bot.inventory.slots[45]) {
@@ -93,7 +97,7 @@ function inject (bot) {
   bot._genericPlace = _genericPlace
 }
 
-function vectorToDirection (v) {
+function vectorToDirection (v: Vec3): number {
   if (v.y < 0) {
     return 0
   } else if (v.y > 0) {

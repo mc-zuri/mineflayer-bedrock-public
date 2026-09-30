@@ -3,11 +3,14 @@ import { Vec3 } from 'vec3'
 import { sleep, onceWithCleanup } from '../promise_utils.ts'
 import { once } from '../promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { Item as ItemT } from 'prismarine-item'
+import type { BotInternal } from '../types/internal.ts'
+import type { ItemClass } from '../types/vendor/prismarine-item.ts'
 
 export default inject
 
-function inject (bot) {
-  const Item = prismarineItem(bot.registry)
+function inject (bot: BotInternal): void {
+  const Item = prismarineItem(bot.registry) as ItemClass
 
   // these features only work when you are in creative mode.
   bot.creative = {
@@ -15,24 +18,24 @@ function inject (bot) {
     flyTo,
     startFlying,
     stopFlying,
-    clearSlot: slotNum => setInventorySlot(slotNum, null),
+    clearSlot: (slotNum: number) => setInventorySlot(slotNum, null),
     clearInventory
   }
 
-  const creativeSlotsUpdates = []
+  const creativeSlotsUpdates: boolean[] = []
 
   // The server answers client_command stats requests in the order it received
   // them, so each statistics packet belongs to the oldest pending request.
   // Anything written before that request has been processed by then.
-  const pendingStatsRequests = []
+  const pendingStatsRequests: Array<{ answered: () => void }> = []
 
   bot._client.on('statistics', () => {
     const oldest = pendingStatsRequests.shift()
     if (oldest) oldest.answered()
   })
 
-  function confirmServerProcessed (timeoutMs) {
-    return new Promise((resolve) => {
+  function confirmServerProcessed (timeoutMs: number) {
+    return new Promise<void>((resolve) => {
       const request = {
         answered () {
           clearTimeout(timer)
@@ -52,7 +55,7 @@ function inject (bot) {
   }
 
   // WARN: This method should not be called twice on the same slot before first promise succeeds
-  async function setInventorySlot (slot, item, waitTimeout = 400) {
+  async function setInventorySlot (slot: number, item: ItemT | null, waitTimeout = 400): Promise<void> {
     assert(slot >= 0 && slot <= 44)
 
     if (Item.equal(bot.inventory.slots[slot], item, true)) return
@@ -72,8 +75,9 @@ function inject (bot) {
       // A rejection is a set_slot correction the server sends while
       // processing our packet on its main thread, so a stats round trip on
       // the same ordered connection is proof the rejection window has passed.
-      return new Promise((resolve, reject) => {
-        function updateSlot (oldItem, newItem) {
+      return new Promise<void>((resolve, reject) => {
+        function updateSlot (oldItem: ItemT | null, newItem: ItemT | null) {
+          // @ts-expect-error prismarine-item has no itemId: both sides are undefined (and newItem / item can be null)
           if (newItem.itemId !== item.itemId) {
             creativeSlotsUpdates[slot] = false
             reject(Error('Server rejected'))
@@ -89,7 +93,7 @@ function inject (bot) {
     }
 
     try {
-      await onceWithCleanup(bot.inventory, `updateSlot:${slot}`, {
+      await onceWithCleanup<[ItemT | null, ItemT | null]>(bot.inventory, `updateSlot:${slot}`, {
         timeout: 5000,
         checkCondition: (oldItem, newItem) => item === null ? newItem === null : newItem?.name === item.name && newItem?.count === item.count && newItem?.metadata === item.metadata
       })
@@ -99,14 +103,14 @@ function inject (bot) {
   }
 
   async function clearInventory () {
-    return Promise.all(bot.inventory.slots.filter(item => item).map(item => setInventorySlot(item.slot, null)))
+    return Promise.all(bot.inventory.slots.filter(item => item).map(item => setInventorySlot(item!.slot, null)))
   }
 
-  let normalGravity = null
+  let normalGravity: number | null = null
   const flyingSpeedPerUpdate = 0.5
 
   // straight line, so make sure there's a clear path.
-  async function flyTo (destination) {
+  async function flyTo (destination: Vec3) {
     // TODO: consider sending 0x13
     startFlying()
 
@@ -138,11 +142,11 @@ function inject (bot) {
   }
 
   function stopFlying () {
-    bot.physics.gravity = normalGravity
+    bot.physics.gravity = normalGravity as number // null when startFlying never ran
   }
 }
 
 // this should be in the vector library
-function vecMagnitude (vec) {
+function vecMagnitude (vec: Vec3) {
   return Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
 }

@@ -145,11 +145,17 @@ export interface BotEvents {
     volume: number,
     pitch: number
   ) => Promise<void> | void
-  noteHeard: (block: Block, instrument: Instrument, pitch: number) => Promise<void> | void
+  /** instrument is undefined for an id minecraft-data does not know */
+  noteHeard: (block: Block, instrument: Instrument | undefined, pitch: number) => Promise<void> | void
   pistonMove: (block: Block, isPulling: number, direction: number) => Promise<void> | void
   chestLidMove: (block: Block, isOpen: number, block2: Block | null) => Promise<void> | void
-  blockBreakProgressObserved: (block: Block, destroyStage: number) => Promise<void> | void
-  blockBreakProgressEnd: (block: Block) => Promise<void> | void
+  /** block is null in an unloaded chunk; entity undefined when unknown */
+  blockBreakProgressObserved: (block: Block | null, destroyStage: number, entity: Entity | undefined) => Promise<void> | void
+  blockBreakProgressEnd: (block: Block | null, entity: Entity | undefined) => Promise<void> | void
+  /** bot.placeBlock succeeded */
+  blockPlaced: (oldBlock: Block, newBlock: Block) => Promise<void> | void
+  /** bot.placeEntity succeeded */
+  entityPlaced: (entity: Entity) => Promise<void> | void
   diggingCompleted: (block: Block) => Promise<void> | void
   diggingAborted: (block: Block) => Promise<void> | void
   move: (position: Vec3) => Promise<void> | void
@@ -688,9 +694,10 @@ export interface Effect {
   duration: number
 }
 
+/** minecraft-data instrument (names vary by version: harp, basedrum, snare, hat, bass, flute, ...) */
 export interface Instrument {
   id: number
-  name: 'harp' | 'doubleBass' | 'snareDrum' | 'sticks' | 'bassDrum'
+  name: string
 }
 
 export interface FindBlockOptions {
@@ -730,7 +737,7 @@ export interface creativeMethods {
 
   clearSlot: (slot: number) => Promise<void>
 
-  clearInventory: () => Promise<void>
+  clearInventory: () => Promise<void[]>
 
   flyTo: (destination: Vec3) => Promise<void>
 
@@ -764,6 +771,7 @@ export interface StorageEvents {
   open: () => void
   close: () => void
   updateSlot: (slot: number, oldItem: Item | null, newItem: Item | null) => void
+  [slotEvent: `updateSlot:${number}`]: (oldItem: Item | null, newItem: Item | null) => void
 }
 
 interface FurnaceEvents extends StorageEvents {

@@ -1,11 +1,16 @@
 import assert from 'assert'
 import { toNotchianYaw, toNotchianPitch } from '../conversions.ts'
 import prismarineItem from 'prismarine-item'
+import type { Block } from 'prismarine-block'
+import type { Entity } from 'prismarine-entity'
+import type { Vec3 } from 'vec3'
+import type { BotInternal, PlaceOptions } from '../types/internal.ts'
+import type { ItemClass } from '../types/vendor/prismarine-item.ts'
 
 export default inject
 
-function inject (bot) {
-  const Item = prismarineItem(bot.registry)
+function inject (bot: BotInternal): void {
+  const Item = prismarineItem(bot.registry) as ItemClass
 
   /**
    *
@@ -13,7 +18,7 @@ function inject (bot) {
    * @param {import('vec3').Vec3} faceVector
    * @param {{forceLook?: boolean | 'ignore', offhand?: boolean, swingArm?: 'right' | 'left', showHand?: boolean}} options
    */
-  async function placeEntityWithOptions (referenceBlock, faceVector, options) {
+  async function placeEntityWithOptions (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions): Promise<Entity> {
     if (!bot.heldItem) throw new Error('must be holding an item to place an entity')
 
     const type = bot.heldItem.name // used for assert
@@ -65,11 +70,11 @@ function inject (bot) {
     return entity
   }
 
-  async function placeEntity (referenceBlock, faceVector) {
+  async function placeEntity (referenceBlock: Block, faceVector: Vec3) {
     return await placeEntityWithOptions(referenceBlock, faceVector, {})
   }
 
-  function waitForEntitySpawn (name, placePosition) {
+  function waitForEntitySpawn (name: string, placePosition: Vec3): Promise<Entity> {
     const maxDistance = name === 'bat' ? 4 : name === 'boat' ? 3 : 2
     let mobName = name
     if (name === 'end_crystal') {
@@ -95,7 +100,7 @@ function inject (bot) {
     }
 
     return new Promise((resolve, reject) => {
-      function listener (entity) {
+      function listener (entity: Entity) {
         const dist = entity.position.distanceTo(placePosition)
         if (entity.name === mobName && dist < maxDistance) {
           resolve(entity)

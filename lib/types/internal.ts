@@ -3,12 +3,13 @@
 import type { Vec3 } from 'vec3'
 import type { Block } from 'prismarine-block'
 import type { Item } from 'prismarine-item'
+import type { Entity } from 'prismarine-entity'
 import type { Window } from 'prismarine-windows'
 import type { Bot, Player } from './mineflayer.ts'
 import type { TypedClient } from './protocol.ts'
 
 export interface PlaceOptions {
-  /** 'left' | 'right' hand; 'right' when omitted */
+  /** true: place with the off hand (slot 45) */
   offhand?: boolean
   swingArm?: 'left' | 'right'
   showHand?: boolean
@@ -27,7 +28,7 @@ export interface BotInternal extends Omit<Bot, '_client'> {
   /** queue a teleport / ping answer for the start of the next physics tick */
   _replyOnNextTick: (reply: () => void) => void
   _placeBlockWithOptions: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<void>
-  _placeEntityWithOptions: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<any>
+  _placeEntityWithOptions: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<Entity>
   _genericPlace: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<Vec3>
   /** window slot of the first hotbar slot in the player inventory (simple_inventory) */
   QUICK_BAR_START: number

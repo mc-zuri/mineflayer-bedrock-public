@@ -1,54 +1,61 @@
 import { Vec3 } from 'vec3'
+import type { Block } from 'prismarine-block'
+import type { BotInternal } from '../types/internal.ts'
+
+type Cardinal = 'north' | 'south' | 'west' | 'east'
+type ChestType = 'single' | 'right' | 'left'
 
 export default inject
 
-const CARDINALS = {
+const CARDINALS: { [cardinal in Cardinal]: Vec3 } = {
   north: new Vec3(0, 0, -1),
   south: new Vec3(0, 0, 1),
   west: new Vec3(-1, 0, 0),
   east: new Vec3(1, 0, 0)
 }
 
-const FACING_MAP = {
+/** for a chest facing a cardinal: which half a neighbour in each perpendicular cardinal is */
+const FACING_MAP: { [facing in Cardinal]: { [side in Cardinal]?: 'left' | 'right' } } = {
   north: { west: 'right', east: 'left' },
   south: { west: 'left', east: 'right' },
   west: { north: 'left', south: 'right' },
   east: { north: 'right', south: 'left' }
 }
 
-function inject (bot) {
+function inject (bot: BotInternal): void {
   const { instruments, blocks } = bot.registry
 
   // Stores how many players have currently open a container at a certain position
-  const openCountByPos = {}
+  // keyed by Vec3.toString()
+  const openCountByPos: { [pos: string]: number } = {}
 
   // The server drops the closing block event of a container that is no
   // longer there, so a replaced container must not keep its open count.
   bot.on('blockUpdate', (oldBlock, newBlock) => {
     if (!newBlock || oldBlock?.name === newBlock.name) return
-    delete openCountByPos[newBlock.position]
+    delete openCountByPos[newBlock.position as unknown as string]
   })
 
-  function parseChestMetadata (chestBlock) {
-    const chestTypes = ['single', 'right', 'left']
+  function parseChestMetadata (chestBlock: Block): { facing: Cardinal | undefined, waterlogged?: boolean, type?: ChestType } {
+    const chestTypes: ChestType[] = ['single', 'right', 'left']
 
     return bot.supportFeature('doesntHaveChestType')
-      ? { facing: Object.keys(CARDINALS)[chestBlock.metadata - 2] }
+      ? { facing: (Object.keys(CARDINALS) as Cardinal[])[chestBlock.metadata - 2] }
       : {
           waterlogged: !(chestBlock.metadata & 1),
           type: chestTypes[(chestBlock.metadata >> 1) % 3],
-          facing: Object.keys(CARDINALS)[Math.floor(chestBlock.metadata / 6)]
+          facing: (Object.keys(CARDINALS) as Cardinal[])[Math.floor(chestBlock.metadata / 6)]
         }
   }
 
-  function getChestType (chestBlock) { // Returns 'single', 'right' or 'left'
+  function getChestType (chestBlock: Block): ChestType | undefined { // Returns 'single', 'right' or 'left'
     if (bot.supportFeature('doesntHaveChestType')) {
       const facing = parseChestMetadata(chestBlock).facing
 
       if (!facing) return 'single'
 
       // We have to check if the adjacent blocks in the perpendicular cardinals are the same type
-      const perpendicularCardinals = Object.keys(FACING_MAP[facing])
+      const perpendicularCardinals = Object.keys(FACING_MAP[facing]) as Cardinal[]
       for (const cardinal of perpendicularCardinals) {
         const cardinalOffset = CARDINALS[cardinal]
         if (bot.blockAt(chestBlock.position.plus(cardinalOffset))?.type === chestBlock.type) {
@@ -78,26 +85,27 @@ function inject (bot) {
     } else if (blockName === 'sticky_piston' || blockName === 'piston') {
       bot.emit('pistonMove', block, packet.byte1, packet.byte2)
     } else {
-      let block2 = null
+      let block2: Block | null = null
 
       if (blockName === 'chest' || blockName === 'trapped_chest') {
         const chestType = getChestType(block)
         if (chestType === 'right') {
-          const index = Object.values(FACING_MAP[parseChestMetadata(block).facing]).indexOf('left')
-          const cardinalBlock2 = Object.keys(FACING_MAP[parseChestMetadata(block).facing])[index]
+          // a 'right' chest half always has a facing
+          const index = Object.values(FACING_MAP[parseChestMetadata(block).facing!]).indexOf('left')
+          const cardinalBlock2 = (Object.keys(FACING_MAP[parseChestMetadata(block).facing!]) as Cardinal[])[index]
           const block2Position = block.position.plus(CARDINALS[cardinalBlock2])
           block2 = bot.blockAt(block2Position)
         } else if (chestType === 'left') return // Omit left part of the chest so 'chestLidMove' doesn't emit twice when it's a double chest
       }
 
       // Emit 'chestLidMove' only if the number of players with the lid open changes
-      if (openCountByPos[block.position] !== packet.byte2) {
+      if (openCountByPos[block.position as unknown as string] !== packet.byte2) {
         bot.emit('chestLidMove', block, packet.byte2, block2)
 
         if (packet.byte2 > 0) {
-          openCountByPos[block.position] = packet.byte2
+          openCountByPos[block.position as unknown as string] = packet.byte2
         } else {
-          delete openCountByPos[block.position]
+          delete openCountByPos[block.position as unknown as string]
         }
       }
     }

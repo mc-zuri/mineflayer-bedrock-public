@@ -81,7 +81,7 @@ function inject (bot: BotInternal): void {
 
   async function sleep (bedBlock: Block) {
     const thunderstorm = bot.isRaining && (bot.thunderState > 0)
-    if (!thunderstorm && !(bot.time.timeOfDay >= 12541 && bot.time.timeOfDay <= 23458)) {
+    if (!thunderstorm && !((bot.time.timeOfDay as number) >= 12541 && (bot.time.timeOfDay as number) <= 23458)) { // null (no time yet) is not night
       throw new Error("it's not night and it's not a thunderstorm")
     } else if (bot.isSleeping) {
       throw new Error('already sleeping')
