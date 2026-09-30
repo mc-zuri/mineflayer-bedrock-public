@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import prismarineItem from 'prismarine-item'
+import prismarineWindows from 'prismarine-windows'
 import inventoryPlugin from '../lib/plugins/inventory.ts'
 import simpleInventoryPlugin from '../lib/plugins/simple_inventory.ts'
 
@@ -95,4 +96,15 @@ describe('inventory plugin', () => {
       assert.strictEqual(bot.usingHeldItem, false, 'cooldown on the held item')
     })
   }
+
+  it('a click in a merchant window without a selected trade', async () => {
+    const bot = createFakeBot('1.20.4')
+    const Item = prismarineItem(bot.registry)
+    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']
+    bot._client.emit('open_window', { windowId: 1, inventoryType: merchant.type, windowTitle: JSON.stringify({ text: 'Villager' }) })
+    bot._client.emit('window_items', { windowId: 1, stateId: 1, items: new Array(merchant.slots).fill(Item.toNotch(null)), carriedItem: Item.toNotch(null) })
+    assert.strictEqual(bot.currentWindow?.type, 'minecraft:merchant')
+    await bot.clickWindow(0, 0, 0)
+    await bot.clickWindow(2, 0, 0)
+  })
 })

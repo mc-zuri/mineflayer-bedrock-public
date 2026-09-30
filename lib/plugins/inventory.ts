@@ -51,6 +51,7 @@ type OpenedWindow = Window<StorageEvents> & WindowMethods
 
 /** a merchant window; openVillager (villager.ts) sets selectedTrade to null, trade() to the trade */
 type MerchantWindow = Window & { selectedTrade?: VillagerTrade | null }
+type TradingWindow = Window & { selectedTrade: VillagerTrade }
 
 function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
   const Item = prismarineItem(bot.registry) as ItemClass
@@ -507,7 +508,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     )
   }
 
-  function expectTradeUpdate (window: MerchantWindow & { selectedTrade: VillagerTrade }): boolean {
+  function expectTradeUpdate (window: TradingWindow): boolean {
     const trade = window.selectedTrade
     const hasItem = !!window.slots[2]
 
@@ -531,8 +532,10 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
         await once(bot.currentWindow!, 'updateSlot:0')
       }
     } else if (window.type === 'minecraft:merchant') {
+      // without a trade selected by bot.trade, the result slot cannot be predicted
+      const trade = (window as MerchantWindow).selectedTrade
       const toUpdate: Array<Promise<unknown>> = []
-      if (slot <= 1 && !(window as MerchantWindow).selectedTrade.tradeDisabled && expectTradeUpdate(window as MerchantWindow)) {
+      if (slot <= 1 && trade && !trade.tradeDisabled && expectTradeUpdate(window as TradingWindow)) {
         toUpdate.push(once(bot.currentWindow!, 'updateSlot:2'))
       }
       if (slot === 2) {
@@ -542,7 +545,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       }
       await Promise.all(toUpdate)
 
-      if (slot === 2 && !(window as MerchantWindow).selectedTrade.tradeDisabled && expectTradeUpdate(window as MerchantWindow)) {
+      if (slot === 2 && trade && !trade.tradeDisabled && expectTradeUpdate(window as TradingWindow)) {
         // After the trade goes through, if the inputs are still satisfied,
         // expect another update in slot 2
         await once(bot.currentWindow!, 'updateSlot:2')
