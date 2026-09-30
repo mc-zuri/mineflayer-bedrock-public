@@ -366,6 +366,19 @@ function inject (bot: BotInternal): void {
   bot._client.on('entity_teleport', (packet) => {
     // entity teleport
     const entity = fetchEntity(packet.entityId)
+    if (bot.supportFeature('entityTeleportHasRelativeFlags')) {
+      // 1.21.3+: like the player position packet, position, velocity and rotation (float degrees)
+      // are each absolute or, when their flag is set, relative to the current value
+      const flags = packet.flags!
+      const pos = entity.position
+      const vel = entity.velocity
+      pos.set(flags.x ? pos.x + packet.x : packet.x, flags.y ? pos.y + packet.y : packet.y, flags.z ? pos.z + packet.z : packet.z)
+      vel.set(flags.dx ? vel.x + packet.dx! : packet.dx!, flags.dy ? vel.y + packet.dy! : packet.dy!, flags.dz ? vel.z + packet.dz! : packet.dz!)
+      entity.yaw = conv.fromNotchianYaw((flags.yaw ? conv.toNotchianYaw(entity.yaw) : 0) + packet.yaw)
+      entity.pitch = conv.fromNotchianPitch((flags.pitch ? conv.toNotchianPitch(entity.pitch) : 0) + packet.pitch)
+      bot.emit('entityMoved', entity)
+      return
+    }
     if (bot.supportFeature('fixedPointPosition')) {
       entity.position.set(packet.x / 32, packet.y / 32, packet.z / 32)
     }

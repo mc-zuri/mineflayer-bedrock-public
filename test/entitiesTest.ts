@@ -4,6 +4,7 @@ import EventEmitter from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import { Vec3 } from 'vec3'
+import * as conv from '../lib/conversions.ts'
 import entitiesPlugin from '../lib/plugins/entities.ts'
 import rayTracePlugin from '../lib/plugins/ray_trace.ts'
 import bedPlugin from '../lib/plugins/bed.ts'
@@ -125,6 +126,30 @@ describe('entities plugin', () => {
           x: 0, y: 64, z: 0, pitch: 0, yaw: 0, headPitch: 0, objectData: 0, velocity: wire
         })
         assert.deepStrictEqual(round(bot.entities[5].velocity), expected)
+      })
+    }
+  })
+
+  describe('entity_teleport 1.21.3+', () => {
+    for (const version of ['1.21.4', '1.21.11']) {
+      it(`applies relative flags, velocity and degree rotation (${version})`, () => {
+        const bot = createFakeBot(version)
+        const round = (v: any) => v.toArray().map((n: number) => Math.round(n * 1e6) / 1e6)
+        const teleport = (fields: object) => bot._client.emit('entity_teleport', {
+          entityId: 5, x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: 0, yaw: 0, pitch: 0, flags: {}, onGround: true, ...fields
+        })
+        teleport({ x: 10, y: 64, z: -3, dx: 0.25, yaw: 90, pitch: 30 })
+        const entity = bot.entities[5]
+        assert.deepStrictEqual(round(entity.position), [10, 64, -3])
+        assert.deepStrictEqual(round(entity.velocity), [0.25, 0, 0])
+        assert.strictEqual(entity.yaw, conv.fromNotchianYaw(90))
+        assert.strictEqual(entity.pitch, conv.fromNotchianPitch(30))
+
+        teleport({ x: 1, y: -1, z: 0.5, dx: 0.5, dy: 0.1, yaw: 10, pitch: -5, flags: { x: true, y: true, z: true, dx: true, yaw: true, pitch: true } })
+        assert.deepStrictEqual(round(entity.position), [11, 63, -2.5])
+        assert.deepStrictEqual(round(entity.velocity), [0.75, 0.1, 0])
+        assert.strictEqual(Math.round(entity.yaw * 1e9), Math.round(conv.fromNotchianYaw(100) * 1e9))
+        assert.strictEqual(Math.round(entity.pitch * 1e9), Math.round(conv.fromNotchianPitch(25) * 1e9))
       })
     }
   })
