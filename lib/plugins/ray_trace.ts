@@ -61,7 +61,8 @@ export default (bot: BotInternal): void => {
   }
 
   bot.blockAtEntityCursor = (entity = bot.entity, maxDistance = 256, matcher: RaycastMatcher | null = null) => {
-    if (!entity.position || !entity.height || !entity.pitch || !entity.yaw) return null
+    // pitch and yaw 0 (looking straight ahead, north) are valid
+    if (!entity.position || !entity.height || entity.pitch == null || entity.yaw == null) return null
     const { position, height, pitch, yaw } = entity
 
     const eyePosition = position.offset(0, height, 0)

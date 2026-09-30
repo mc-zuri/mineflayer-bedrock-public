@@ -3,7 +3,9 @@
 import EventEmitter from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
+import { Vec3 } from 'vec3'
 import entitiesPlugin from '../lib/plugins/entities.ts'
+import rayTracePlugin from '../lib/plugins/ray_trace.ts'
 
 function createFakeBot (version: string) {
   const registry = prismarineRegistry(version)
@@ -121,5 +123,20 @@ describe('entities plugin', () => {
         assert.strictEqual(updated, 1)
       })
     }
+  })
+})
+
+describe('ray_trace plugin', () => {
+  it('blockAtEntityCursor raycasts for an entity looking at pitch 0 / yaw 0', () => {
+    const bot: any = new EventEmitter()
+    const hit = { name: 'stone' }
+    const casts: any[] = []
+    bot.world = { raycast: (...args: any[]) => { casts.push(args); return hit } }
+    rayTracePlugin(bot)
+    const entity = { position: new Vec3(0, 64, 0), height: 1.8, pitch: 0, yaw: 0 }
+    assert.strictEqual(bot.blockAtEntityCursor(entity, 5), hit)
+    assert.strictEqual(casts.length, 1)
+    assert.deepStrictEqual(casts[0][0], new Vec3(0, 65.8, 0))
+    assert.deepStrictEqual(casts[0][1].toArray().map((v: number) => Math.round(v * 1e6) / 1e6 + 0), [0, 0, -1])
   })
 })
