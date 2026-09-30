@@ -1,9 +1,16 @@
 {
-    "compilerOptions": {
-      "module": "commonjs",
-      "strictNullChecks": true
-    },
-    "files": [
-      "index.d.ts"
-    ]
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "types": ["node", "mocha"]
+  },
+  "include": ["index.ts", "index.d.ts", "lib/**/*.ts", "test/**/*.ts"]
 }
