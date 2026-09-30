@@ -611,7 +611,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     // wait a bit
     if (slot >= bot.QUICK_BAR_START && bot.lastDigTime != null) {
       let timeSinceLastDig
-      while ((timeSinceLastDig = new Date() - bot.lastDigTime) < DIG_CLICK_TIMEOUT) {
+      while ((timeSinceLastDig = performance.now() - bot.lastDigTime) < DIG_CLICK_TIMEOUT) {
         await sleep(DIG_CLICK_TIMEOUT - timeSinceLastDig)
       }
     }
