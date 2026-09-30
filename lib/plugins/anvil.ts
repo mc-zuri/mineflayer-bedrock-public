@@ -89,7 +89,8 @@ function inject (bot: BotInternal): void {
       if (bot.game.gameMode !== 'creative' && bot.experience.level! < normalCost) {
         err('Player does not have enough xp to do action, cancelling.')
       }
-      const xpPromise = once(bot, 'experience')
+      // taking the output costs no levels in creative, so no experience packet comes
+      const xpPromise = bot.game.gameMode === 'creative' ? Promise.resolve() : once(bot, 'experience')
       await putSomething(0, item.type, item.metadata, item.count, item.nbt)
       sendItemName('') // sent like this by vnailla
       if (!bot.supportFeature('useMCItemName')) sendItemName('')

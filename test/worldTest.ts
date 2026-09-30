@@ -74,4 +74,11 @@ describe('anvil plugin', () => {
     await assert.rejects(anvil.combine(sword, diamond), /not have enough xp/)
     await assert.rejects(anvil.combine(diamond, sword), /not have enough xp/)
   })
+
+  it('rename in creative does not wait for an xp change', async () => {
+    const { bot, anvil } = await openFakeAnvil('creative', 0)
+    const Item = prismarineItem(bot.registry)
+    const sword = new Item(bot.registry.itemsByName.diamond_sword.id, 1)
+    await anvil.rename(sword, 'Sting')
+  })
 })
