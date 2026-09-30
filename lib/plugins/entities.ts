@@ -782,6 +782,9 @@ function inject (bot: BotInternal): void {
 
   // attaching to a vehicle
   bot._client.on('attach_entity', (packet) => {
+    // Only 1.8 with leash false is riding. Otherwise (1.8 leash true, and every 1.9+ packet since
+    // riding moved to set_passengers) vanilla ties a leash, which is not riding: ignored here.
+    if (!bot.supportFeature('attachStackEntity') || packet.leash) return
     const passenger = fetchEntity(packet.entityId)
     const vehicle = packet.vehicleId === -1 ? null : fetchEntity(packet.vehicleId)
 
@@ -821,6 +824,7 @@ function inject (bot: BotInternal): void {
         if (passengers.includes(oldPassenger.id)) continue
         vehicle.passengers.splice(vehicle.passengers.indexOf(oldPassenger), 1)
         oldPassenger.vehicle = null as unknown as EntityT // null when not riding
+        bot.emit('entityDetach', oldPassenger, vehicle)
       }
     }
 
@@ -833,6 +837,7 @@ function inject (bot: BotInternal): void {
       passengerEntity.vehicle = vehicle as EntityT // null when not riding
       if (vehicle) {
         vehicle.passengers.push(passengerEntity)
+        if (originalVehicle !== vehicle) bot.emit('entityAttach', passengerEntity, vehicle)
       }
     }
 

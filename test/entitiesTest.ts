@@ -83,6 +83,26 @@ describe('entities plugin', () => {
     })
   })
 
+  describe('attach_entity (leash)', () => {
+    for (const [version, leash] of [['1.8.8', true], ['1.12.2', undefined], ['1.20.4', undefined], ['1.21.11', undefined]] as const) {
+      it(`a leash is not riding (${version})`, () => {
+        const bot = createFakeBot(version)
+        const events: string[] = []
+        for (const event of ['entityAttach', 'entityDetach', 'mount', 'dismount']) bot.on(event, () => events.push(event))
+        bot._client.emit('entity_head_rotation', { entityId: 7, headYaw: 0 }) // makes entity 7 known
+        // the bot (and entity 2) are leashed to entity 7, then unleashed
+        bot._client.emit('attach_entity', { entityId: 1, vehicleId: 7, leash })
+        bot._client.emit('attach_entity', { entityId: 2, vehicleId: 7, leash })
+        assert.ok(!bot.vehicle) // undefined before any mount
+        assert.ok(!bot.entity.vehicle)
+        assert.deepStrictEqual(bot.entities[7].passengers, [])
+        bot._client.emit('attach_entity', { entityId: 1, vehicleId: -1, leash })
+        assert.ok(!bot.vehicle)
+        assert.deepStrictEqual(events, [])
+      })
+    }
+  })
+
   describe('set_passengers (1.9+ riding)', () => {
     for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
       it(`a passenger missing from the new list has dismounted (${version})`, () => {
@@ -90,6 +110,8 @@ describe('entities plugin', () => {
         const events: string[] = []
         bot.on('mount', () => events.push('mount'))
         bot.on('dismount', (vehicle: any) => events.push(`dismount ${vehicle?.id}`))
+        bot.on('entityAttach', (entity: any, vehicle: any) => events.push(`attach ${entity.id} ${vehicle.id}`))
+        bot.on('entityDetach', (entity: any, vehicle: any) => events.push(`detach ${entity.id} ${vehicle.id}`))
         bot._client.emit('entity_head_rotation', { entityId: 7, headYaw: 0 }) // makes entity 7 known
         bot._client.emit('set_passengers', { entityId: 7, passengers: [1, 2] })
         const boat = bot.entities[7]
@@ -106,7 +128,8 @@ describe('entities plugin', () => {
         bot._client.emit('set_passengers', { entityId: 7, passengers: [] })
         assert.strictEqual(bot.entities[2].vehicle, null)
         assert.deepStrictEqual(boat.passengers, [])
-        assert.deepStrictEqual(events, ['mount', 'dismount 7'])
+        // set_passengers is the riding packet from 1.9: it emits the riding events (once per change)
+        assert.deepStrictEqual(events, ['attach 1 7', 'attach 2 7', 'mount', 'detach 1 7', 'dismount 7', 'detach 2 7'])
       })
     }
   })
