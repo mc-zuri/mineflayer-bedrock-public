@@ -42,4 +42,23 @@ describe('entities plugin', () => {
       })
     }
   })
+
+  describe('player_info before 1.19.3', () => {
+    for (const version of ['1.8.8', '1.12.2', '1.19.2']) {
+      it(`update_game_mode updates the player's gamemode (${version})`, () => {
+        const bot = createFakeBot(version)
+        const uuid = '00000000-0000-0000-0000-000000000002'
+        bot._client.emit('player_info', {
+          action: 'add_player',
+          data: [{ uuid, name: 'other', properties: [], gamemode: 0, ping: 5 }]
+        })
+        assert.strictEqual(bot.players.other.gamemode, 0)
+        let updated = 0
+        bot.on('playerUpdated', () => { updated++ })
+        bot._client.emit('player_info', { action: 'update_game_mode', data: [{ uuid, gamemode: 1 }] })
+        assert.strictEqual(bot.players.other.gamemode, 1)
+        assert.strictEqual(updated, 1)
+      })
+    }
+  })
 })

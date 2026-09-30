@@ -724,8 +724,7 @@ function inject (bot: BotInternal): void {
           else bot.emit('playerUpdated', player!)
           break
         }
-        // @ts-expect-error the action is named update_game_mode
-        case 'update_gamemode': {
+        case 'update_game_mode': {
           if (player) {
             player.gamemode = item.gamemode!
             bot.emit('playerUpdated', player)
