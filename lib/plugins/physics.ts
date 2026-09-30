@@ -10,7 +10,7 @@ import type { IndexedData } from 'minecraft-data'
 import type { Effect } from 'prismarine-entity'
 import type { BotInternal } from '../types/internal.ts'
 import type { BotOptions, ControlState, ControlStateStatus } from '../types/mineflayer.ts'
-import type { ClientboundPackets, MovementFlags } from '../types/protocol.ts'
+import type { MovementFlags } from '../types/protocol.ts'
 
 type Reply = (() => void) & { teleport?: boolean }
 

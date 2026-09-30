@@ -121,10 +121,8 @@ describe('entities plugin', () => {
         bot._client.emit('entity_velocity', { entityId: 1, velocity: wire })
         assert.deepStrictEqual(round(bot.entity.velocity), expected)
         const zombie = bot.registry.entitiesByName.zombie.id
-        bot._client.emit('spawn_entity', {
-          entityId: 5, objectUUID: '00000000-0000-0000-0000-000000000005', type: zombie,
-          x: 0, y: 64, z: 0, pitch: 0, yaw: 0, headPitch: 0, objectData: 0, velocity: wire
-        })
+        const spawn = { entityId: 5, objectUUID: '00000000-0000-0000-0000-000000000005', type: zombie, objectData: 0, velocity: wire }
+        bot._client.emit('spawn_entity', { ...spawn, x: 0, y: 64, z: 0, pitch: 0, yaw: 0, headPitch: 0 })
         assert.deepStrictEqual(round(bot.entities[5].velocity), expected)
       })
     }
