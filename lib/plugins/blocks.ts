@@ -579,9 +579,11 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
 
       // EventEmitter internals: a single listener is stored as the function, several as an array
       for (const [name, listener] of Object.entries((bot as unknown as { _events: { [event: string]: Function | Function[] } })._events)) {
-        if (name.startsWith('blockUpdate:') && typeof listener === 'function') {
+        if (name.startsWith('blockUpdate:')) {
           bot.emit(name as `blockUpdate:${string}`, null, null)
-          bot.off(name as `blockUpdate:${string}`, listener as BotEvents[`blockUpdate:${string}`])
+          for (const oneListener of [listener].flat()) {
+            bot.off(name as `blockUpdate:${string}`, oneListener as BotEvents[`blockUpdate:${string}`])
+          }
         }
       }
 
