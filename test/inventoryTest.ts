@@ -7,6 +7,7 @@ import prismarineWindows from 'prismarine-windows'
 import inventoryPlugin from '../lib/plugins/inventory.ts'
 import simpleInventoryPlugin from '../lib/plugins/simple_inventory.ts'
 import villagerPlugin from '../lib/plugins/villager.ts'
+import craftPlugin from '../lib/plugins/craft.ts'
 import { Vec3 } from 'vec3'
 
 interface Write { name: string, params: any }
@@ -206,5 +207,18 @@ describe('villager plugin', () => {
     await bot.trade(villager, 0, 1)
     assert.deepStrictEqual(plain, [])
     assert.strictEqual(villager.slots[invStart + 1]?.name, 'bread')
+  })
+})
+
+describe('craft plugin', () => {
+  it('craft rejects with the original error', async () => {
+    const bot = createFakeBot('1.20.4')
+    craftPlugin(bot)
+    const [recipe] = bot.recipesAll(bot.registry.itemsByName.oak_planks.id, null, null)
+    await assert.rejects(bot.craft(recipe, 1, null), (err: Error) => {
+      assert.strictEqual(err.message, 'missing ingredient')
+      assert.match(err.stack!, /clickShape|nextIngredientsClick/)
+      return true
+    })
   })
 })

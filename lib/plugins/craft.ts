@@ -40,7 +40,7 @@ function inject (bot: BotInternal): void {
         bot.closeWindow(windowCraftingTable)
         windowCraftingTable = undefined
       }
-      throw new Error(err)
+      throw err
     }
   }
 
