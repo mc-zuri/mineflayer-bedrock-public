@@ -52,10 +52,7 @@ function inject (bot, { version }) {
     }
   }
 
-  // Handle all possible packet names
   bot._client.on('boss_bar', handleBossBarPacket)
-  bot._client.on('bossbar', handleBossBarPacket)
-  bot._client.on('boss_bar_update', handleBossBarPacket)
 
   Object.defineProperty(bot, 'bossBars', {
     get () {
