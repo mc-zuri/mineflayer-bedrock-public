@@ -45,12 +45,10 @@ const parseGameMode = (gameModeBits: number): GameMode => {
 
 function inject (bot: BotInternal, options: BotOptions): void {
   function getBrandCustomChannelName () {
-    if (bot.supportFeature('customChannelMCPrefixed')) {
+    if (bot.supportFeature('customChannelMCPrefixed')) { // 1.8 – 1.12.2
       return 'MC|Brand'
-    } else if (bot.supportFeature('customChannelIdentifier')) {
-      return 'minecraft:brand'
     }
-    throw new Error('Unsupported brand channel name')
+    return 'minecraft:brand' // customChannelIdentifier, 1.13+
   }
 
   function handleRespawnPacketData (packet: SpawnData) {
