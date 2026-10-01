@@ -11,6 +11,7 @@ import bedPlugin from '../lib/plugins/bed.ts'
 import creativePlugin from '../lib/plugins/creative.ts'
 import placeEntityPlugin from '../lib/plugins/place_entity.ts'
 import prismarineItem from 'prismarine-item'
+import mc from 'minecraft-protocol'
 
 function createFakeBot (version: string) {
   const registry = prismarineRegistry(version)
@@ -190,6 +191,26 @@ describe('entities plugin', () => {
         bot._client.emit('player_info', { action: 'update_game_mode', data: [{ uuid, gamemode: 1 }] })
         assert.strictEqual(bot.players.other.gamemode, 1)
         assert.strictEqual(updated, 1)
+      })
+    }
+  })
+
+  describe('entity attributes', () => {
+    // the attribute id field is `key` except on 1.17 – 1.20.4, where it is `name`
+    for (const [version, id] of [['1.8.8', 'generic.movementSpeed'], ['1.16.5', 'minecraft:generic.movement_speed'],
+      ['1.17.1', 'minecraft:generic.movement_speed'], ['1.20.4', 'minecraft:generic.movement_speed'], ['1.21.4', 'generic.movement_speed']]) {
+      it(`are stored under their id (${version})`, () => {
+        const bot = createFakeBot(version)
+        const packetName = bot.registry.version['<']('1.9') ? 'update_attributes' : 'entity_update_attributes'
+        // round trip through the protocol, so the test sees the real field name
+        const serializer = mc.createSerializer({ state: mc.states.PLAY, isServer: true, version, customPackets: {} })
+        const deserializer = mc.createDeserializer({ state: mc.states.PLAY, isServer: false, version, customPackets: {} })
+        const fields = bot.registry.version['>=']('1.17') && bot.registry.version['<']('1.20.5') ? { name: id } : { key: id }
+        const buffer = serializer.createPacketBuffer({ name: packetName, params: { entityId: 1, properties: [{ ...fields, value: 0.1, modifiers: [] }] } })
+        const { data } = deserializer.parsePacketBuffer(buffer)
+        bot._client.emit(data.name, data.params)
+        assert.deepStrictEqual(Object.keys(bot.entity.attributes), [id])
+        assert.strictEqual(bot.entity.attributes[id].value, 0.1)
       })
     }
   })

@@ -610,7 +610,8 @@ function inject (bot: BotInternal): void {
     const entity = fetchEntity(packet.entityId)
     if (!entity.attributes) entity.attributes = {}
     for (const prop of packet.properties) {
-      entity.attributes[prop.key!] = {
+      // the attribute id is \`name\` on 1.17 – 1.20.4, \`key\` otherwise
+      entity.attributes[(prop.key ?? prop.name)!] = {
         value: prop.value,
         modifiers: prop.modifiers
       }
