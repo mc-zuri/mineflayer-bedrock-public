@@ -73,6 +73,8 @@ export default (): Record<string, TestFunction> => ({
     try {
       await bot.waitForTicks(10) // it floats
       await mount(bot, boat)
+      // looking south too (before 1.9 the server paddles the boat where its rider looks)
+      await bot.look(Math.PI, 0, true)
       await bot.waitForTicks(2)
       assertSeated(bot, boat)
       const driven = await driveForward(bot, boat, 30, 2)

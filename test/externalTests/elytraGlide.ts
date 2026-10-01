@@ -8,6 +8,8 @@ import type { TestFunction } from './plugins/testCommon.ts'
 
 export default (): TestFunction => async (bot) => {
   if (!bot.supportFeature('hasElytraFlying')) return
+  // an earlier test's glide lasts until the server sees the bot on the ground (it stands at the origin)
+  while (bot.entity.elytraFlying) await onceWithCleanup(bot, 'physicsTick', { timeout: 5000 })
   const Item = prismarineItem(bot.registry)
   await bot.test.setInventorySlot(6, new Item(bot.registry.itemsByName['elytra']!.id, 1))
   // (rockets attach to a gliding player, and boost it, since 1.11)
