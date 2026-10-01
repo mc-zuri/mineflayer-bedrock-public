@@ -523,7 +523,7 @@ describe('physics plugin', function () {
     }
 
     // the steady walking speed of a vanilla player on flat ground (0.1 movement speed): 4.317 blocks a second
-    for (const version of ['1.8.8', '1.12.2', '1.20.4', '1.21.11']) {
+    for (const version of ['1.8.8', '1.12.2', '1.13.2', '1.14.4', '1.20.4', '1.21.11']) {
       it(`walks at vanilla's speed (${version})`, async () => {
         const bot = createFakeBot(version)
         const speed = await walkingSpeed(bot)

@@ -52,6 +52,9 @@ export default (): Record<string, TestFunction> => ({
   async walkSprintJump (bot) {
     const { corrections, done } = await onTheGround(bot)
     try {
+      // not straight along an axis: on 1.13 the float sine of exactly north leaves a move across of 1e-16
+      // blocks, which vanilla's collision drops and counts as hitting a wall, which stops the sprint
+      await bot.look(0.2, 0, true)
       bot.setControlState('forward', true)
       await bot.waitForTicks(10)
       const walk = await speed(bot)
