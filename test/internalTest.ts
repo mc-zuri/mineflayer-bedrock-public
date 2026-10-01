@@ -1660,28 +1660,34 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
       const zombieId = entities.zombie ? entities.zombie.id : entities.Zombie.id
       let bedBlock
-      if (bot.supportFeature('oneBlockForSeveralVariations', version.majorVersion)) {
+      if (bot.supportFeature('oneBlockForSeveralVariations')) {
         bedBlock = blocks.bed
-      } else if (bot.supportFeature('blockSchemeIsFlat', version.majorVersion)) {
+      } else if (bot.supportFeature('blockSchemeIsFlat')) {
         bedBlock = blocks.red_bed
       }
       const bedId = bedBlock.id
 
-      bot.once('chunkColumnLoad', (columnPoint) => {
-        for (const bed in beds) {
-          const bedBock = bot.blockAt(beds[bed].foot)
-          const bedBockMetadata = bot.parseBedMetadata(bedBock)
-          assert.strictEqual(bedBockMetadata.facing, beds[bed].facing, 'The facing property seems to be wrong')
-          assert.strictEqual(bedBockMetadata.part, false, 'The part property seems to be wrong') // Is the foot
+      bot.once('chunkColumnLoad', async (columnPoint) => {
+        try {
+          for (const bed in beds) {
+            const bedBock = bot.blockAt(beds[bed].foot)
+            const bedBockMetadata = bot.parseBedMetadata(bedBock)
+            assert.strictEqual(bedBockMetadata.facing, beds[bed].facing, 'The facing property seems to be wrong')
+            assert.strictEqual(bedBockMetadata.part, false, 'The part property seems to be wrong') // Is the foot
 
-          if (beds[bed].throws) {
-            bot.sleep(bedBock).catch(err => assert.strictEqual(err, beds[bed].error))
-          } else {
-            bot.sleep(bedBock).catch(err => assert.ifError(err))
+            const sleeping = bot.sleep(bedBock)
+            if (beds[bed].throws) {
+              await assert.rejects(sleeping, beds[bed].error)
+            } else {
+              bot.emit('sleep') // the mock server never puts the bot to sleep
+              await sleeping
+            }
           }
-        }
 
-        done()
+          done()
+        } catch (err) {
+          done(err)
+        }
       })
 
       server.once('playerJoin', (client) => {
@@ -1697,7 +1703,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           chunk.setBlockType(beds[bed].foot, bedId)
         }
 
-        if (bot.supportFeature('blockStateId', version.majorVersion)) {
+        if (bot.supportFeature('blockStateId')) {
           chunk.setBlockStateId(beds[0].foot, 3 + bedBlock.minStateId) // { facing: north, occupied: false, part: foot }
           chunk.setBlockStateId(beds[0].head, 2 + bedBlock.minStateId) // { facing:north, occupied: false, part: head }
 
@@ -1709,7 +1715,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
           chunk.setBlockStateId(beds[3].foot, 11 + bedBlock.minStateId) // { facing: west, occupied: false, part: foot }
           chunk.setBlockStateId(beds[3].head, 10 + bedBlock.minStateId) // { facing: west, occupied: false, part: head }
-        } else if (bot.supportFeature('blockMetadata', version.majorVersion)) {
+        } else if (bot.supportFeature('blockMetadata')) {
           chunk.setBlockData(beds[0].foot, 2) // { facing: north, occupied: false, part: foot }
           chunk.setBlockData(beds[0].head, 10) // { facing:north, occupied: false, part: head }
 
