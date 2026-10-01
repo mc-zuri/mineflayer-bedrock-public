@@ -146,6 +146,18 @@ describe('edge cases', () => {
       assert.deepStrictEqual(titles, [['plain {text', 'title'], ['quoted', 'subtitle'], ['hi', 'title']])
     })
 
+    it('1.17 (protocol 755, already without the title packet) reads the set_title_* packets', () => {
+      const bot = fakeBot('1.17')
+      titlePlugin(bot)
+      const events: unknown[] = []
+      bot.on('title', (text: string, type: string) => events.push([type, text]))
+      bot.on('title_clear', () => events.push(['clear']))
+      bot._client.emit('set_title_text', { text: '{"text":"hi"}' })
+      bot._client.emit('set_title_subtitle', { text: '{"text":"there"}' })
+      bot._client.emit('clear_titles', { reset: false })
+      assert.deepStrictEqual(events, [['title', 'hi'], ['subtitle', 'there'], ['clear']])
+    })
+
     it('set_title_time emits title_times', () => {
       const bot = fakeBot('1.18.2')
       titlePlugin(bot)

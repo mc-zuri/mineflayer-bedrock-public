@@ -15,7 +15,8 @@ function inject (bot: BotInternal): void {
     }
   }
 
-  if (bot.supportFeature('titleUsesLegacyPackets')) {
+  // minecraft-data's titleUsesLegacyPackets also lists 1.17, whose protocol already has the new packets
+  if (bot.supportFeature('titleUsesLegacyPackets') && bot.registry.version['<']('1.17')) {
     bot._client.on('title', (packet) => {
       if (packet.action === 0) bot.emit('title', parseTitle(packet.text), 'title')
       else if (packet.action === 1) bot.emit('title', parseTitle(packet.text), 'subtitle')
@@ -28,7 +29,7 @@ function inject (bot: BotInternal): void {
         else bot.emit('title_clear')
       } else if (packet.action === 4 || packet.action === 5) bot.emit('title_clear')
     })
-  } else if (bot.supportFeature('titleUsesNewPackets')) {
+  } else { // titleUsesNewPackets (1.17.1+) and 1.17
     function getText (packet: { text: TextComponent }) {
       let text = packet.text
       // 1.20.3+: NBT, as the JSON string older versions send (a plain text is a bare string tag)
