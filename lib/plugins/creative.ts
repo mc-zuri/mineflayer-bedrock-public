@@ -4,6 +4,7 @@ import { sleep, onceWithCleanup } from '../promise_utils.ts'
 import { once } from '../promise_utils.ts'
 import prismarineItem from 'prismarine-item'
 import type { Item as ItemT } from 'prismarine-item'
+import { confirmServerProcessed } from '../server_round_trip.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ItemClass } from '../types/vendor/prismarine-item.ts'
 
@@ -23,36 +24,6 @@ function inject (bot: BotInternal): void {
   }
 
   const creativeSlotsUpdates: boolean[] = []
-
-  // The server answers client_command stats requests in the order it received
-  // them, so each statistics packet belongs to the oldest pending request.
-  // Anything written before that request has been processed by then.
-  const pendingStatsRequests: Array<{ answered: () => void }> = []
-
-  bot._client.on('statistics', () => {
-    const oldest = pendingStatsRequests.shift()
-    if (oldest) oldest.answered()
-  })
-
-  function confirmServerProcessed (timeoutMs: number) {
-    return new Promise<void>((resolve) => {
-      const request = {
-        answered () {
-          clearTimeout(timer)
-          resolve()
-        }
-      }
-      // Timing out resolves as success: a server that never answers stats
-      // degrades to the previous fixed-wait behavior, never a hang.
-      const timer = setTimeout(() => {
-        const i = pendingStatsRequests.indexOf(request)
-        if (i !== -1) pendingStatsRequests.splice(i, 1)
-        resolve()
-      }, timeoutMs)
-      pendingStatsRequests.push(request)
-      bot._client.write('client_command', bot.supportFeature('respawnIsPayload') ? { payload: 1 } : { actionId: 1 })
-    })
-  }
 
   // WARN: This method should not be called twice on the same slot before first promise succeeds
   async function setInventorySlot (slot: number, item: ItemT | null, waitTimeout = 400): Promise<void> {
@@ -84,7 +55,7 @@ function inject (bot: BotInternal): void {
           }
         }
         bot.inventory.once(`updateSlot:${slot}`, updateSlot)
-        confirmServerProcessed(waitTimeout).then(() => {
+        confirmServerProcessed(bot, waitTimeout).then(() => {
           bot.inventory.off(`updateSlot:${slot}`, updateSlot)
           creativeSlotsUpdates[slot] = false
           resolve()
