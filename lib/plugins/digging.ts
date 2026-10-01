@@ -283,6 +283,9 @@ function inject (bot: BotInternal): void {
     }
 
     const creative = bot.game.gameMode === 'creative'
+    // minecraft-data gives the unbreakable solid blocks (bedrock, barrier, command blocks...) a hardness
+    // of null (1.8 - 1.15, 1.18) or 0 (1.16, 1.17) instead of -1, which prismarine-block takes for an instant break
+    if (!creative && !block.diggable && block.boundingBox === 'block') return Infinity
     return block.digTime(
       type,
       creative,
