@@ -153,7 +153,7 @@ describe('physics plugin', function () {
   })
 
   describe('other entities', () => {
-    for (const [version, boat] of [['1.12.2', 'boat'], ['1.20.4', 'boat'], ['1.21.11', 'oak_boat']] as const) {
+    for (const [version, boat] of [['1.10.2', 'Boat'], ['1.12.2', 'boat'], ['1.20.4', 'boat'], ['1.21.11', 'oak_boat']] as const) {
       it(`walks up onto a boat, which is solid (${version})`, async () => {
         const bot = createFakeBot(version)
         addEntity(bot, 7, boat, new Vec3(0.5, GROUND, 2.5))
@@ -172,7 +172,7 @@ describe('physics plugin', function () {
 
       it(`a mob it overlaps pushes it away (${version})`, async () => {
         const bot = createFakeBot(version)
-        addEntity(bot, 8, 'zombie', new Vec3(0.5, GROUND, 0.8))
+        addEntity(bot, 8, bot.registry.entitiesByName['zombie'] ? 'zombie' : 'Zombie', new Vec3(0.5, GROUND, 0.8))
         teleport(bot, new Vec3(0.5, GROUND, 0.5))
         await ticks(bot, 10)
         end(bot)
@@ -248,7 +248,7 @@ describe('physics plugin', function () {
   })
 
   describe('riding', () => {
-    const versions: Array<[string, string]> = [['1.12.2', 'boat'], ['1.20.4', 'boat'], ['1.21.11', 'oak_boat']]
+    const versions: Array<[string, string]> = [['1.10.2', 'Boat'], ['1.12.2', 'boat'], ['1.20.4', 'boat'], ['1.21.11', 'oak_boat']]
     /** the bot mounted on a vehicle the test adds at pos */
     async function mounted (version: string, name: string, pos: Vec3) {
       const bot = createFakeBot(version)

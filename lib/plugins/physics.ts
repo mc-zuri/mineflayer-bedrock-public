@@ -41,6 +41,9 @@ const MOUNT_DEFAULTS: { [name: string]: { speed: number, jump: number } } = {
 // block_action's piston direction (byte2): down, up, north, south, west, east
 const PISTON_DIRECTIONS: Array<[number, number, number]> = [[0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1], [-1, 0, 0], [1, 0, 0]]
 const isBoat = (name: string) => /boat$|raft$/.test(name)
+// minecraft-data names the entities of 1.8 - 1.10 by their old save ids; the engine knows the later names
+const LEGACY_NAMES: { [name: string]: string } = { Boat: 'boat', Shulker: 'shulker', MinecartRideable: 'minecart', EntityHorse: 'horse', Pig: 'pig' }
+const vehicleType = (name: string | undefined) => LEGACY_NAMES[name ?? ''] ?? name ?? ''
 const isMinecart = (name: string) => /minecart$/.test(name)
 
 interface Ridden {
@@ -360,7 +363,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
       if (entity === bot.entity || entity === bot.vehicle || entity.isValid === false || !entity.name) continue
       const at = entity.position
       if (Math.abs(at.x - pos.x) > ENTITY_REACH || Math.abs(at.y - pos.y) > ENTITY_REACH || Math.abs(at.z - pos.z) > ENTITY_REACH) continue
-      result.push({ id: entity.id, type: entity.name, pos: at.clone(), vel: entity.velocity.clone() })
+      const type = entity.name === 'Boat' || entity.name === 'Shulker' ? vehicleType(entity.name) : entity.name
+      result.push({ id: entity.id, type, pos: at.clone(), vel: entity.velocity.clone() })
     }
     return result
   }
@@ -434,7 +438,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
       return
     }
     if (ridden?.entity === vehicle) return
-    const name = vehicle.name ?? ''
+    const name = vehicleType(vehicle.name)
     const known = bot.registry.version['>=']('1.9') && (isBoat(name) || isMinecart(name) || name in MOUNT_DEFAULTS)
     ridden = { entity: vehicle, state: known ? vehicleState(vehicle) : null, driven: false, paddles: { left: false, right: false, up: false, down: false } }
   }
@@ -442,7 +446,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
   function vehicleState (vehicle: Entity): PhysicsVehicle {
     return {
       id: vehicle.id,
-      type: vehicle.name ?? '',
+      type: vehicleType(vehicle.name),
       pos: vehicle.position.clone(),
       vel: vehicle.velocity.clone(),
       yaw: Math.fround(conv.toNotchianYaw(vehicle.yaw)),
@@ -456,7 +460,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
 
   // Whether the client controls the vehicle (its getControllingPassenger is the player)
   function clientDrives (vehicle: Entity): boolean {
-    const name = vehicle.name ?? ''
+    const name = vehicleType(vehicle.name)
     if (isBoat(name)) return true
     if (HORSES.has(name)) return !knownUnsaddled(vehicle)
     const held = [bot.heldItem?.name, bot.inventory.slots[45]?.name]
