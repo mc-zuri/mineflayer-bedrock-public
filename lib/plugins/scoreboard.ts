@@ -49,10 +49,11 @@ function inject (bot: BotInternal): void {
       return bot.emit('scoreRemoved', scoreboard, removed)
     }
 
+    // no objective: the server reset the player's scores in every objective
     for (const sb of Object.values(scoreboards)) {
       if (itemName in sb.itemsMap) {
         const removed = sb.remove(itemName)
-        return bot.emit('scoreRemoved', sb, removed)
+        bot.emit('scoreRemoved', sb, removed)
       }
     }
     return undefined
