@@ -3,7 +3,7 @@ import { once } from '../promise_utils.ts'
 import prismarineItem from 'prismarine-item'
 import type { Entity } from 'prismarine-entity'
 import type { Window } from 'prismarine-windows'
-import type { BotOptions, ConditionalStorageEvents, TransferOptions, Villager, VillagerTrade } from '../types/mineflayer.ts'
+import type { ConditionalStorageEvents, TransferOptions, Villager, VillagerTrade } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ChannelName, ClientboundPackets } from '../types/protocol.ts'
 import type { ItemClass } from '../types/vendor/prismarine-item.ts'
@@ -19,7 +19,7 @@ type OpeningVillager = Window<ConditionalStorageEvents> & Partial<Pick<Villager,
 
 export default inject
 
-function inject (bot: BotInternal, { version }: BotOptions): void {
+function inject (bot: BotInternal): void {
   const { entitiesByName } = bot.registry
   const Item = prismarineItem(bot.registry) as ItemClass
 
@@ -86,7 +86,7 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
   }
 
   async function openVillager (villagerEntity: Entity): Promise<Villager> {
-    const villagerType = entitiesByName.villager ? entitiesByName.villager.id : entitiesByName.Villager.id
+    const villagerType = entitiesByName['villager'] ? entitiesByName['villager'].id : entitiesByName['Villager']!.id
     assert.strictEqual(villagerEntity.entityType, villagerType)
     let ready = false
 
@@ -147,7 +147,7 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
     const choice = parseInt(index as string, 10) // allow string argument
     assert.notStrictEqual(villager.trades, null)
     assert.notStrictEqual(villager.trades[choice], null)
-    const Trade = villager.trades[choice]
+    const Trade = villager.trades[choice]!
     villager.selectedTrade = Trade
     count = count || Trade.maximumNbTradeUses - Trade.nbTradeUses
     assert.ok(Trade.maximumNbTradeUses - Trade.nbTradeUses > 0, 'trade blocked')

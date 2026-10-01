@@ -69,7 +69,7 @@ function inject (bot: BotInternal): void {
         it = {
           x: 0,
           y: 0,
-          row: recipe.inShape[0]
+          row: recipe.inShape[0]!
         }
         await clickShape()
       } else {
@@ -82,7 +82,7 @@ function inject (bot: BotInternal): void {
           it.y += 1
           if (it.y >= recipe.inShape.length) return null
           it.x = 0
-          it.row = recipe.inShape[it.y]
+          it.row = recipe.inShape[it.y]!
         }
         return it
       }
@@ -99,7 +99,7 @@ function inject (bot: BotInternal): void {
 
       async function clickShape (): Promise<void> {
         const destSlot = slot(it.x, it.y)
-        const ingredient = it.row[it.x]
+        const ingredient = it.row[it.x]!
         if (ingredient.id === -1) return nextShapeClick()
         if (!window.selectedItem || window.selectedItem.type !== ingredient.id ||
           (ingredient.metadata != null &&
@@ -115,7 +115,7 @@ function inject (bot: BotInternal): void {
       }
 
       async function nextIngredientsClick (): Promise<void> {
-        const ingredient = recipe.ingredients[ingredientIndex]
+        const ingredient = recipe.ingredients[ingredientIndex]!
         const destSlot = extraSlots.pop()! // a shapeless recipe has at most w * h ingredients
         if (!window.selectedItem || window.selectedItem.type !== ingredient.id ||
           (ingredient.metadata != null &&
@@ -160,12 +160,12 @@ function inject (bot: BotInternal): void {
         }
         const slotsToClick: number[] = []
         for (let y = 0; y < recipe.outShape.length; ++y) {
-          const row = recipe.outShape[y]
+          const row = recipe.outShape[y]!
           for (let x = 0; x < row.length; ++x) {
             const _slot = slot(x, y)
             let item = null
-            if (row[x].id !== -1) {
-              item = new Item(row[x].id, row[x].count, row[x].metadata || null)
+            if (row[x]!.id !== -1) {
+              item = new Item(row[x]!.id, row[x]!.count, row[x]!.metadata || null)
               slotsToClick.push(_slot)
             }
             window.updateSlot(_slot, item)
@@ -187,9 +187,9 @@ function inject (bot: BotInternal): void {
         let row
         if (recipe.inShape) {
           for (y = 0; y < recipe.inShape.length; ++y) {
-            row = recipe.inShape[y]
+            row = recipe.inShape[y]!
             for (x = 0; x < row.length; ++x) {
-              if (row[x].id === -1) result.push(slot(x, y))
+              if (row[x]!.id === -1) result.push(slot(x, y))
             }
             for (; x < w; ++x) {
               result.push(slot(x, y))
@@ -241,7 +241,7 @@ function inject (bot: BotInternal): void {
 
     // false if not enough inventory to make all the ones that we want
     for (let i = 0; i < recipe.delta.length; ++i) {
-      const d = recipe.delta[i]
+      const d = recipe.delta[i]!
       if (bot.inventory.count(d.id, d.metadata) + d.count * craftCount < 0) return false
     }
 

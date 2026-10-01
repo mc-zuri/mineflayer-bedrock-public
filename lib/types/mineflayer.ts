@@ -761,21 +761,21 @@ export type EquipmentDestination = 'hand' | 'head' | 'torso' | 'legs' | 'feet' |
 
 export interface TransferOptions {
   /** defaults to bot.currentWindow, then bot.inventory */
-  window?: Window | null
+  window?: Window | null | undefined
   itemType: number
   /** null / omitted matches any metadata */
-  metadata?: number | null
+  metadata?: number | null | undefined
   /** null / omitted means 1 */
-  count?: number | null
+  count?: number | null | undefined
   /** null / omitted ignores nbt */
-  nbt?: Item['nbt']
+  nbt?: Item['nbt'] | undefined
   sourceStart: number
   /** defaults to sourceStart + 1 */
-  sourceEnd?: number | null
+  sourceEnd?: number | null | undefined
   /** -999 tosses the items */
   destStart: number
   /** defaults to destStart + 1 */
-  destEnd?: number | null
+  destEnd?: number | null | undefined
 }
 
 export interface creativeMethods {

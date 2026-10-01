@@ -30,6 +30,17 @@ const CROUCH_EYEHEIGHT = 1.27
 
 export default inject
 
+/** entity_metadata values by their minecraft-data metadata key (mcDataHasEntityMetadata) */
+interface EntityMetas {
+  sleeping_pos?: unknown
+  pose?: number
+  attached_to_target?: number
+  fireworks_item?: unknown
+  shared_flags?: number
+  air_supply?: number
+  [key: string]: unknown
+}
+
 type EntityEventName = 'entitySwingArm' | 'entityHurt' | 'entityWake' | 'entityEat' | 'entityCriticalEffect' | 'entityMagicCriticalEffect' |
   'entityDead' | 'entityTaming' | 'entityTamed' | 'entityShakingOffWater' | 'entityEatingGrass' | 'entityHandSwap'
 
@@ -100,7 +111,7 @@ function inject (bot: BotInternal): void {
 
   bot._playerFromUUID = (uuid) => Object.values(bot.players).find(player => player.uuid === uuid)
 
-  bot.nearestEntity = (match = (entity: EntityT) => { return true }) => {
+  bot.nearestEntity = (match = (_entity: EntityT) => { return true }) => {
     let best: EntityT | null = null
     let bestDistance = Number.MAX_VALUE
 
@@ -189,7 +200,7 @@ function inject (bot: BotInternal): void {
       entity.displayName = entityData.displayName
       entity.entityType = entityData.id
       entity.name = entityData.name
-      entity.kind = entityData.category
+      entity.kind = entityData.category! // undefined in the 1.17 / 1.18 data: reads like unset
       entity.height = entityData.height as number
       entity.width = entityData.width as number
     } else {
@@ -223,15 +234,15 @@ function inject (bot: BotInternal): void {
     const entity = fetchEntity(entityId)
     entity.type = 'player'
     entity.name = 'player'
-    entity.username = bot.uuidToUsername[uuid as string]
-    entity.uuid = uuid
+    entity.username = bot.uuidToUsername[uuid as string]! // optional fields: undefined reads like unset
+    entity.uuid = uuid!
     updateEntityPos(entity, pos)
     entity.eyeHeight = PLAYER_EYEHEIGHT
     entity.height = PLAYER_HEIGHT
     entity.width = PLAYER_WIDTH
     // an unknown uuid leaves username undefined, which looks up the key 'undefined'
-    if (bot.players[entity.username as string] !== undefined && !bot.players[entity.username as string].entity) {
-      bot.players[entity.username as string].entity = entity
+    if (bot.players[entity.username as string] !== undefined && !bot.players[entity.username as string]!.entity) {
+      bot.players[entity.username as string]!.entity = entity
     }
     return entity
   }
@@ -241,7 +252,7 @@ function inject (bot: BotInternal): void {
     const entityData = bot.registry.entities[entityType]
     setEntityData(entity, entityType, entityData)
     updateEntityPos(entity, pos)
-    entity.uuid = uuid
+    entity.uuid = uuid!
     return entity
   }
 
@@ -294,7 +305,7 @@ function inject (bot: BotInternal): void {
     // spawn mob
     const entity = fetchEntity(packet.entityId)
     entity.type = 'mob'
-    entity.uuid = packet.entityUUID
+    entity.uuid = packet.entityUUID!
     const entityData: EntityData | undefined = mobs[packet.type]
 
     setEntityData(entity, packet.type, entityData)
@@ -328,7 +339,7 @@ function inject (bot: BotInternal): void {
       bot.emit('entityGone', entity)
       entity.isValid = false
       if (entity.username && bot.players[entity.username]) {
-        bot.players[entity.username].entity = null
+        bot.players[entity.username]!.entity = null
       }
       delete bot.entities[id]
     })
@@ -423,7 +434,7 @@ function inject (bot: BotInternal): void {
 
     if (eventName === 'entityHandSwap' && entity.equipment) {
       // entity.heldItem is a getter for equipment[0], so it follows the swap
-      [entity.equipment[0], entity.equipment[1]] = [entity.equipment[1], entity.equipment[0]]
+      [entity.equipment[0], entity.equipment[1]] = [entity.equipment[1]!, entity.equipment[0]!]
     }
 
     if (eventName) bot.emit(eventName, entity)
@@ -432,7 +443,7 @@ function inject (bot: BotInternal): void {
   bot._client.on('damage_event', (packet) => { // 1.20+
     const entity = bot.entities[packet.entityId]
     const source = bot.entities[packet.sourceCauseId - 1] // damage_event : SourceCauseId : The ID + 1 of the entity responsible for the damage, if present. If not present, the value is 0
-    bot.emit('entityHurt', entity, source)
+    bot.emit('entityHurt', entity!, source)
   })
 
   bot.fireworkRocketDuration = 0
@@ -497,7 +508,7 @@ function inject (bot: BotInternal): void {
 
     if (bot.supportFeature('mcDataHasEntityMetadata')) {
       const metadataKeys = bot.registry.entitiesByName[entity.name as string]?.metadataKeys
-      const metas: { [key: string]: any } = metadataKeys ? Object.fromEntries(packet.metadata.map(e => [metadataKeys[e.key], e.value])) : {}
+      const metas: EntityMetas = metadataKeys ? Object.fromEntries(packet.metadata.map(e => [metadataKeys[e.key], e.value])) : {}
       if (packet.metadata.some(m => m.type === 'item_stack')) {
         bot.emit('itemDrop', entity)
       }
@@ -635,7 +646,7 @@ function inject (bot: BotInternal): void {
     const entity = fetchEntity(packet.entityId)
     entity.type = 'global'
     entity.globalType = 'thunderbolt'
-    entity.uuid = (packet as { entityUUID?: string }).entityUUID // no version sends one: always undefined
+    entity.uuid = (packet as { entityUUID?: string }).entityUUID! // no version sends one: always undefined
     entity.position.set(packet.x / 32, packet.y / 32, packet.z / 32)
     bot.emit('entitySpawn', entity)
   })
@@ -817,7 +828,7 @@ function inject (bot: BotInternal): void {
         bot.vehicle = null
         bot.emit('dismount', vehicle)
       } else {
-        bot.vehicle = bot.entities[packet.vehicleId]
+        bot.vehicle = bot.entities[packet.vehicleId]!
         bot.emit('mount')
       }
     }
@@ -857,7 +868,7 @@ function inject (bot: BotInternal): void {
         bot.vehicle = null
         bot.emit('dismount', originalVehicle)
       } else {
-        bot.vehicle = bot.entities[entityId]
+        bot.vehicle = bot.entities[entityId]!
         bot.emit('mount')
       }
     } else if (vehicle && bot.vehicle === vehicle) {
@@ -1014,15 +1025,15 @@ function extractSkinInformation (properties: GameProfileProperty[] | undefined):
   }
 
   const props = Object.fromEntries(properties.map((e) => [e.name, e]))
-  if (!props.textures || !props.textures.value) {
+  if (!props['textures'] || !props['textures'].value) {
     return undefined
   }
 
   let skinTexture: any
   try { // Handles mojangson-style player data
-    skinTexture = JSON.parse(Buffer.from(props.textures.value, 'base64') as unknown as string) // JSON.parse stringifies the Buffer
+    skinTexture = JSON.parse(Buffer.from(props['textures'].value, 'base64') as unknown as string) // JSON.parse stringifies the Buffer
   } catch (e) {
-    skinTexture = mojangson.simplify(mojangson.parse(Buffer.from(props.textures.value, 'base64').toString('utf-8')))
+    skinTexture = mojangson.simplify(mojangson.parse(Buffer.from(props['textures'].value, 'base64').toString('utf-8')))
   }
 
   const skinTextureUrl = skinTexture?.textures?.SKIN?.url ?? undefined

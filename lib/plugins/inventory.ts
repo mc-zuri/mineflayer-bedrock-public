@@ -9,7 +9,7 @@ import type { Block } from 'prismarine-block'
 import type { Entity } from 'prismarine-entity'
 import type { Item as PrismarineItem } from 'prismarine-item'
 import type { Click, Window } from 'prismarine-windows'
-import type { BotOptions, StorageEvents, TransferOptions, VillagerTrade } from '../types/mineflayer.ts'
+import type { StorageEvents, TransferOptions, VillagerTrade } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ClientboundPackets, ServerboundPackets } from '../types/protocol.ts'
 import type { ItemClass } from '../types/vendor/prismarine-item.ts'
@@ -53,7 +53,7 @@ type OpenedWindow = Window<StorageEvents> & WindowMethods
 type MerchantWindow = Window & { selectedTrade?: VillagerTrade | null }
 type TradingWindow = Window & { selectedTrade: VillagerTrade }
 
-function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
+function inject (bot: BotInternal): void {
   const Item = prismarineItem(bot.registry) as ItemClass
   const windows = prismarineWindows(bot.version)
   const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
@@ -489,12 +489,12 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
   function copyInventory (window: Window): void {
     const slotOffset = window.inventoryStart - bot.inventory.inventoryStart
     for (let i = window.inventoryStart; i < window.inventoryEnd; i++) {
-      const item = window.slots[i]
+      const item = window.slots[i] as PrismarineItem | null
       const slot = i - slotOffset
       if (item) {
         item.slot = slot
       }
-      if (!Item.equal(bot.inventory.slots[slot], item, true)) bot.inventory.updateSlot(slot, item)
+      if (!Item.equal(bot.inventory.slots[slot] as PrismarineItem | null, item, true)) bot.inventory.updateSlot(slot, item)
     }
   }
 
@@ -512,8 +512,8 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     const hasItem = !!window.slots[2]
 
     // The result slot is present iff every input is satisfied.
-    const satisfied = tradeMatch(trade.inputItem1, window.slots[0]) &&
-      (!trade.hasItem2 || tradeMatch(trade.inputItem2, window.slots[1]))
+    const satisfied = tradeMatch(trade.inputItem1, window.slots[0] as PrismarineItem | null) &&
+      (!trade.hasItem2 || tradeMatch(trade.inputItem2, window.slots[1] as PrismarineItem | null))
     return hasItem !== satisfied
   }
 
@@ -556,7 +556,8 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
     // drop the queue entries for all the clicks that the server did not send
     // transaction packets for.
     // Also reject transactions that aren't sent from mineflayer
-    let click = windowClickQueue[0]
+    // undefined only for an empty queue, handled right below
+    let click = windowClickQueue[0] as WindowClick
     if (click === undefined || !windowClickQueue.some(clicks => clicks.id === actionId)) {
       // mimic vanilla client and send a rejection for faulty transaction packets
       bot._client.write('transaction', {
@@ -636,7 +637,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       mode,
       id: actionId,
       windowId: window.id,
-      item: slot === -999 ? null : window.slots[slot]
+      item: slot === -999 ? null : window.slots[slot] as PrismarineItem | null
     }
 
     let changedSlots
@@ -687,7 +688,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
         slot,
         mouseButton,
         mode,
-        changedSlots,
+        changedSlots: changedSlots!, // set: these versions have no transaction packet
         cursorItem: Item.toNotch(window.selectedItem)
       })
     } else if (bot.supportFeature('actionIdUsed')) { // <= 1.16.5
@@ -706,7 +707,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
         slot,
         mouseButton,
         mode,
-        changedSlots,
+        changedSlots: changedSlots!, // set: these versions have no transaction packet
         cursorItem: Item.toNotch(window.selectedItem)
       })
     }
@@ -791,7 +792,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       })
     } else {
       for (let i = 0; i < windowItems.items.length; ++i) {
-        const item = Item.fromNotch(windowItems.items[i])
+        const item = Item.fromNotch(windowItems.items[i]!)
         window.updateSlot(i, item)
       }
       // consume the buffer so a later window reusing this id cannot open
@@ -818,7 +819,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
       'HorseWindow', 'Horse', packet.nbSlots)
     prepareWindow(bot.currentWindow)
   })
-  bot._client.on('close_window', (packet) => {
+  bot._client.on('close_window', () => {
     // close window
     const oldWindow = bot.currentWindow
     if (!oldWindow) return
@@ -849,7 +850,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
   })
   bot._setSlot = (slotId, newItem, window = bot.inventory) => {
     // set slot
-    const oldItem = window.slots[slotId]
+    const oldItem = window.slots[slotId] as PrismarineItem | null
     window.updateSlot(slotId, newItem)
     updateHeldItem()
     bot.emit(`setSlot:${window.id}`, oldItem, newItem)
@@ -907,7 +908,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
         packet.items.length === lastClosedWindow.slots.length) {
         for (let i = lastClosedWindow.inventoryStart; i < lastClosedWindow.inventoryEnd && i < packet.items.length; i++) {
           const invSlot = i - (lastClosedWindow.inventoryStart - bot.inventory.inventoryStart)
-          bot._setSlot(invSlot, Item.fromNotch(packet.items[i]))
+          bot._setSlot(invSlot, Item.fromNotch(packet.items[i]!))
         }
       }
       return
@@ -915,7 +916,7 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
 
     // set window items
     for (let i = 0; i < packet.items.length; ++i) {
-      const item = Item.fromNotch(packet.items[i])
+      const item = Item.fromNotch(packet.items[i]!)
       window.updateSlot(i, item)
     }
     if (packet.carriedItem !== undefined) window.selectedItem = Item.fromNotch(packet.carriedItem)
