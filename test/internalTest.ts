@@ -1710,7 +1710,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
       const entities = bot.registry.entitiesByName
 
       const playerPos = vec3(10, 0, 0)
-      const zombiePos = vec3(0, 0, 0)
+      // inside vanilla's monster box of the third bed (x 0 .. 16 before 1.15, 0.5 .. 16.5 since), outside the others'
+      const zombiePos = vec3(1, 0, 0)
       const beds = [
         { head: vec3(10, 0, 3), foot: vec3(10, 0, 2), facing: 2, throws: false },
         { head: vec3(9, 0, 4), foot: vec3(10, 0, 4), facing: 3, throws: true, error: new Error('the bed is too far') },
