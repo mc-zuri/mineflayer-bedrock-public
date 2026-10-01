@@ -70,6 +70,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | commit | bug |
 | --- | --- |
 | `753c21a2` | drop listeners for packets no version has |
+| `51a30b7a` | removing an unknown boss bar emitted bossBarDeleted with undefined |
 
 ### bossbar
 
@@ -82,6 +83,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | commit | bug |
 | --- | --- |
 | `05c04ed4` | tabComplete sent no transaction id on 1.13+ and no looked-at block on 1.8 |
+| `1f7b2f7a` | an unfinished pattern set stopped the other chat patterns from matching the message |
 
 ### craft
 
@@ -104,6 +106,12 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `f608485c` | stopDigging sent the dig's face instead of 0 (down) |
 | `844f9fd0` | a dig that interrupted another started with face null |
 
+### enchantment_table
+
+| commit | bug |
+| --- | --- |
+| `6429ee3e` | enchant() with a bad choice rejected with a TypeError |
+
 ### entities
 
 | commit | bug |
@@ -119,6 +127,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `05396376` | 1.17 - 1.20.4 entity attributes were stored under "undefined" |
 | `afd66c72` | apply the 1.21.3+ entity_teleport rotate-delta flag |
 | `4e169b3f` | bot.vehicle was undefined until the first mount/dismount |
+| `bfd58481` | damage_event for an unknown entity emitted entityHurt(undefined) |
 
 ### esm
 
@@ -148,6 +157,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `60233d61` | end credits client_command used a field no version has |
 | `a6027b22` | a peaceful difficulty in login / respawn was ignored (1.8 - 1.13) |
 | `75608781` | a registry_data entry without a value crashed the registry load |
+| `f9f6cee7` | a 1.20.5+ dimension id missing from the registry left bot.game.dimension undefined |
 
 ### inventory
 
@@ -163,6 +173,12 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `13a44dd7` | a server-side window close did not emit the window's close event |
 | `73413489` | the click action number wrap tripped the transaction queue assert |
 | `2fc27d85` | transfer compared the cursor nbt with the nbt option by reference |
+
+### loader
+
+| commit | bug |
+| --- | --- |
+| `3bf5aef1` | an outdated minecraft-data crashed before the 'is it up to date?' error |
 
 ### physics
 
@@ -195,6 +211,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | --- | --- |
 | `a87bda23` | denyResourcePack on 1.20.3+ wrote a uuid-less answer |
 | `c8e50665` | drop the unreachable UUID branch of resource_pack_send |
+| `36cab113` | accept/denyResourcePack before any offer sent an undefined hash/uuid |
 
 ### scoreboard
 
@@ -202,6 +219,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | --- | --- |
 | `f5966605` | track scores on 1.20.3+ |
 | `bc7afd40` | read the objective title from NBT on 1.20.3+ |
+| `82e0bee1` | removing an unknown objective emitted scoreboardDeleted with undefined |
 
 ### settings
 
@@ -236,6 +254,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | --- | --- |
 | `11f198c3` | a trade without a second input has inputItem2 null |
 | `785259df` | predict the trading slots as Item instances |
+| `da24d517` | trade with an index the villager has no trade for crashed past its assertion |
 
 ### tests
 
@@ -258,6 +277,9 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `469257ef` | the boat placement test spawned a 'boat' where 1.21.2+ has oak_boat |
 | `fe74eace` | the chat test read reply fields no serverbound chat packet has |
 | `7cf92507` | drop the version constant the bed test no longer reads |
+| `a9b1eb38` | scoreboard reset test read bot.teams before the plugins were injected |
+| `5a86d82f` | teleport rotation test counted the next tick's movement packet |
+| `383316b4` | particles test left its listener asserting on every later particle |
 
 ## Known limitations
 
