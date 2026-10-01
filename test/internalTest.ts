@@ -2196,6 +2196,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('clears teams and objectives on login but not on respawn', async () => {
         const teamPacketName = bot.supportFeature('teamUsesScoreboard') ? 'scoreboard_team' : 'teams'
         const [client] = await once(server, 'playerJoin')
+        // bot.teams and bot.scoreboards only exist once the plugins are injected
+        await bot.test.pluginsLoaded
         const loginPacket = bot.test.generateLoginPacket()
         const teams = bot.teams
         const teamMap = bot.teamMap
