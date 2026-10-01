@@ -522,11 +522,20 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
       return
     }
     if (bot.supportFeature('newPlayerInputPacket')) {
-      bot._client.write('player_input', {
-        inputs: {
-          jump: true
-        }
-      })
+      // the sneak key gets a passenger off (1.21.2+: player_input's shift), the other keys as they are; the
+      // next tick sends the keys again
+      const keys = ridingControls()
+      const inputs = {
+        forward: keys.forward,
+        backward: keys.back,
+        left: keys.left,
+        right: keys.right,
+        jump: keys.jump,
+        shift: true,
+        sprint: keys.sprint
+      }
+      sentInput = Object.values(inputs).join()
+      bot._client.write('player_input', { inputs })
     } else {
       bot._client.write('steer_vehicle', {
         sideways: 0.0,

@@ -374,6 +374,23 @@ describe('physics plugin', function () {
       assert.ok(!bot.writes.some(w => w.name === 'vehicle_move'))
     })
 
+    for (const version of ['1.20.4', '1.21.4', '1.21.11']) {
+      it(`dismount presses the sneak key, not jump (${version})`, async () => {
+        const { bot } = await mounted(version, version === '1.20.4' ? 'boat' : 'oak_boat', new Vec3(0.5, GROUND, 0.5))
+        await ticks(bot, 2)
+        bot.writes.length = 0
+        bot.dismount()
+        await ticks(bot, 2)
+        end(bot)
+        if (bot.supportFeature('newPlayerInputPacket')) {
+          const none = { forward: false, backward: false, left: false, right: false, jump: false, shift: false, sprint: false }
+          assert.deepStrictEqual(bot.writes.filter(w => w.name === 'player_input').map(w => w.params.inputs), [{ ...none, shift: true }, none])
+        } else {
+          assert.deepStrictEqual(bot.writes[0], { name: 'steer_vehicle', params: { sideways: 0, forward: 0, jump: 2 } })
+        }
+      })
+    }
+
     it('dismount without a vehicle emits an error', () => {
       const bot = createFakeBot('1.20.4')
       let error: Error | undefined
