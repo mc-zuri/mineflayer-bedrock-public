@@ -29,12 +29,8 @@ function inject (bot: BotInternal): void {
     if (data.uuid === undefined) {
       activeResourcePacks = {}
     } else {
-      // Try to remove uuid from set
-      try {
-        delete activeResourcePacks[data.uuid]
-      } catch (error) {
-        console.error('Tried to remove UUID but it was not in the active list.')
-      }
+      // a uuid that was never added is a no-op
+      delete activeResourcePacks[data.uuid]
     }
   })
 
