@@ -179,7 +179,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           client.write('chat', { message, position: 0, sender: '0' })
         }
         function onChat (packet) {
-          const msg = packet.message || packet.unsignedChatContent || packet.signedChatContent
+          const msg = packet.message
           assert.strictEqual(msg, 'hi')
           done()
         }
