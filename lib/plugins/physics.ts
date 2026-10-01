@@ -8,7 +8,7 @@ import { Physics, PlayerState } from 'prismarine-physics'
 import minecraftData from 'minecraft-data'
 import type { IndexedData } from 'minecraft-data'
 import type { Effect, Entity } from 'prismarine-entity'
-import type { PhysicsAttribute } from 'prismarine-physics'
+import type { PhysicsAttribute, PhysicsEntity } from 'prismarine-physics'
 import type { BotInternal } from '../types/internal.ts'
 import type { BotOptions, ControlState, ControlStateStatus } from '../types/mineflayer.ts'
 import type { MovementFlags } from '../types/protocol.ts'
@@ -115,6 +115,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
       // server (or creative.startFlying) says so
       state.sprintTriggerTime = 0
       state.jumpTriggerTime = 0
+      // The entities around: boats and shulkers are solid, mobs push the player away
+      state.entities = nearbyEntities()
       physics.simulatePlayer(state, world).apply(bot)
       if (state.flying !== !!bot.entity.flying) {
         // the client ended (or started) the flight itself: it tells the server, like vanilla's onUpdateAbilities
@@ -256,6 +258,21 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
   bot.physics = physics
   const DEFAULT_GRAVITY = physics.gravity
   const gravityResource = bot.registry.attributesArray.find(attribute => attribute.name === 'gravity')?.resource ?? ''
+
+  // The entities a tick can reach (the client knows them all; a tick moves the player well under 8 blocks): the
+  // engine collides with the solid ones (boats, shulkers) and is pushed by the mobs it touches
+  const ENTITY_REACH = 8
+  function nearbyEntities (): PhysicsEntity[] {
+    const pos = bot.entity.position
+    const result: PhysicsEntity[] = []
+    for (const entity of Object.values(bot.entities)) {
+      if (entity === bot.entity || entity === bot.vehicle || entity.isValid === false || !entity.name) continue
+      const at = entity.position
+      if (Math.abs(at.x - pos.x) > ENTITY_REACH || Math.abs(at.y - pos.y) > ENTITY_REACH || Math.abs(at.z - pos.z) > ENTITY_REACH) continue
+      result.push({ id: entity.id, type: entity.name, pos: at.clone(), vel: entity.velocity.clone() })
+    }
+    return result
+  }
 
   // ServerboundPlayerAbilitiesPacket: since 1.16 only the flying bit, before every ability and both speeds
   function sendAbilities () {

@@ -4,6 +4,7 @@ import EventEmitter from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import prismarineBlock from 'prismarine-block'
+import prismarineEntity from 'prismarine-entity'
 import { Vec3 } from 'vec3'
 import entitiesPlugin from '../lib/plugins/entities.ts'
 import physicsPlugin from '../lib/plugins/physics.ts'
@@ -81,6 +82,17 @@ async function ticks (bot: FakeBot, n: number) {
   for (let i = 0; i < n; i++) await new Promise<void>(resolve => bot.once('physicsTick', () => resolve()))
 }
 
+/** an entity the bot knows of, as the entities plugin would have it after its spawn packet */
+function addEntity (bot: FakeBot, id: number, name: string, pos: Vec3) {
+  const Entity = (prismarineEntity as unknown as (version: string) => new (id: number) => BotInternal['entity'])(bot.version)
+  const entity = new Entity(id)
+  entity.name = name
+  entity.type = bot.registry.entitiesByName[name]!.type as BotInternal['entity']['type']
+  entity.position = pos
+  bot.entities[id] = entity
+  return entity
+}
+
 function end (bot: FakeBot) {
   bot.emit('end', 'test')
 }
@@ -135,6 +147,35 @@ describe('physics plugin', function () {
     await ticks(bot, 10)
     end(bot)
     assert.strictEqual(bot.entity.position.y, GROUND + 6)
+  })
+
+  describe('other entities', () => {
+    for (const [version, boat] of [['1.12.2', 'boat'], ['1.20.4', 'boat'], ['1.21.11', 'oak_boat']] as const) {
+      it(`walks up onto a boat, which is solid (${version})`, async () => {
+        const bot = createFakeBot(version)
+        addEntity(bot, 7, boat, new Vec3(0.5, GROUND, 2.5))
+        teleport(bot, new Vec3(0.5, GROUND, 0.5))
+        await ticks(bot, 3)
+        bot.entity.yaw = Math.PI // facing +z
+        bot.setControlState('forward', true)
+        await ticks(bot, 12)
+        bot.setControlState('forward', false)
+        await ticks(bot, 3)
+        end(bot)
+        // the boat is 0.5625 high, under the player's 0.6 step
+        assert.ok(Math.abs(bot.entity.position.y - (GROUND + 0.5625)) < 1e-6, `y ${bot.entity.position.y}`)
+        assert.ok(bot.entity.position.z > 1.5, `z ${bot.entity.position.z}`)
+      })
+
+      it(`a mob it overlaps pushes it away (${version})`, async () => {
+        const bot = createFakeBot(version)
+        addEntity(bot, 8, 'zombie', new Vec3(0.5, GROUND, 0.8))
+        teleport(bot, new Vec3(0.5, GROUND, 0.5))
+        await ticks(bot, 10)
+        end(bot)
+        assert.ok(bot.entity.position.z < 0.4, `z ${bot.entity.position.z}`)
+      })
+    }
   })
 
   describe('flying (abilities)', () => {
