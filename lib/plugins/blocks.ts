@@ -275,7 +275,8 @@ function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): 
   // also works on anything with a position value
   function canSeeBlock (block: { position: Vec3 }): boolean | null {
     const headPos = bot.entity.position.offset(0, bot.entity.eyeHeight, 0)
-    const range = headPos.distanceTo(block.position)
+    // the ray aims at the centre: the face it enters through is at most that far
+    const range = headPos.distanceTo(block.position.offset(0.5, 0.5, 0.5))
     const dir = block.position.offset(0.5, 0.5, 0.5).minus(headPos)
     const match = (inputBlock: BlockInstance, iter: RaycastIterator): boolean => {
       const intersect = iter.intersect(inputBlock.shapes, inputBlock.position)

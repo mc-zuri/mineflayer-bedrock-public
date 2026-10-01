@@ -47,5 +47,16 @@ describe('line of sight', () => {
       assert.strictEqual(bot.blockAtCursor()?.position.toString(), new Vec3(4, 65, 2).toString())
       assert.strictEqual(bot.blockAtEntityCursor(bot.entity)?.position.toString(), new Vec3(4, 65, 2).toString())
     })
+
+    // The ray only went as far as the block's minimum corner, which can be nearer than
+    // the face the ray enters through.
+    it(`${version}: canSeeBlock sees a block whose minimum corner is nearer than its face`, () => {
+      const floating = new Vec3(7, 66, 5)
+      const bot = createBot([floating])
+      assert.strictEqual(bot.canSeeBlock({ position: floating }), true)
+      // and still not through another block
+      const hidden = createBot([floating, new Vec3(6, 66, 5), new Vec3(6, 65, 5)])
+      assert(!hidden.canSeeBlock({ position: floating }))
+    })
   }
 })
