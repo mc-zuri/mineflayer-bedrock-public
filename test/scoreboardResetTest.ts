@@ -1,4 +1,4 @@
-// Resetting a player's scores, on a fake bot fed scoreboard packets
+// Resetting a player's scores and clearing display slots, on a fake bot fed scoreboard packets
 import EventEmitter from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
@@ -48,6 +48,17 @@ describe('scoreboard resets and display slots', () => {
       reset(client, 'bob', 'deaths')
       assert.deepStrictEqual(Object.keys(bot.scoreboards['kills']!.itemsMap), ['bob'])
       assert.deepStrictEqual(Object.keys(bot.scoreboards['deaths']!.itemsMap), [])
+    })
+
+    // The slot kept showing the objective after the server cleared it.
+    it(`${version}: an empty objective name clears the display slot`, () => {
+      const { bot, client } = createBot()
+      client.emit('scoreboard_display_objective', { position: 1, name: 'kills' })
+      client.emit('scoreboard_display_objective', { position: 0, name: 'deaths' })
+      assert.strictEqual(bot.scoreboard.sidebar, bot.scoreboards['kills'])
+      client.emit('scoreboard_display_objective', { position: 1, name: '' })
+      assert.strictEqual(bot.scoreboard.sidebar, undefined)
+      assert.deepStrictEqual(Object.values(bot.scoreboard), [bot.scoreboards['deaths']])
     })
   }
 })

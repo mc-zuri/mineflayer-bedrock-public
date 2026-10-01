@@ -86,6 +86,9 @@ function inject (bot: BotInternal): void {
     if (scoreboard !== undefined) {
       bot.emit('scoreboardPosition', position, scoreboard, ScoreBoard.positions[position])
       ScoreBoard.positions[position] = scoreboard
+    } else {
+      // an empty name clears the slot
+      delete ScoreBoard.positions[position]
     }
   })
 
