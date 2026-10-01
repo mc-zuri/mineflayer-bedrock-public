@@ -682,7 +682,11 @@ function inject (bot: BotInternal): void {
     entity.type = 'global'
     entity.globalType = 'thunderbolt'
     entity.uuid = (packet as { entityUUID?: string }).entityUUID! // no version sends one: always undefined
-    entity.position.set(packet.x / 32, packet.y / 32, packet.z / 32)
+    if (bot.supportFeature('fixedPointPosition')) {
+      entity.position.set(packet.x / 32, packet.y / 32, packet.z / 32)
+    } else {
+      entity.position.set(packet.x, packet.y, packet.z)
+    }
     bot.emit('entitySpawn', entity)
   })
 
