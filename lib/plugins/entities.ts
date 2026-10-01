@@ -1018,21 +1018,11 @@ function inject (bot: BotInternal): void {
     }
   }
 
-  function useEntity (target: EntityT, leftClick: number, x?: number, y?: number, z?: number) {
+  function useEntity (target: EntityT, leftClick: number) {
     const sneaking = bot.getControlState('sneak')
     if (leftClick && bot.supportFeature('attackUsesOwnPacket')) {
       bot._client.write('attack', {
         entityId: target.id
-      })
-    } else if (x && y && z) {
-      bot._client.write('use_entity', {
-        target: target.id,
-        mouse: leftClick,
-        x,
-        y,
-        z,
-        sneaking,
-        location: new Vec3(x, y, z)
       })
     } else {
       bot._client.write('use_entity', {
