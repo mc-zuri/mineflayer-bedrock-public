@@ -208,5 +208,6 @@ export default (): Record<string, TestFunction> => {
   return Object.fromEntries(Object.entries(tests).map(([name, test]) => [name, async (bot: TestBot, done: Mocha.Done) => {
     await test(bot, done)
     await bot.waitForTicks(4)
+    bot.setQuickBarSlot(0) // the hotbar selection survives the reset between tests, and later tests hold their items in slot 0
   }]))
 }

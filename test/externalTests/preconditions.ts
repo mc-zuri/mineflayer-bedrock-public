@@ -48,7 +48,7 @@ export default (): Record<string, TestFunction> => {
     while (!bot.entity.onGround) await onceWithCleanup(bot, 'physicsTick', { timeout: 5000 })
   }
 
-  return {
+  const tests: Record<string, TestFunction> = {
     async elytra (bot) {
       if (!bot.supportFeature('hasElytraFlying')) return // no elytra before 1.9
       const ground = bot.test.groundY
@@ -207,4 +207,12 @@ export default (): Record<string, TestFunction> => {
       await assert.rejects(third, /Fishing cancelled$/)
     }
   }
+  // the hotbar selection survives the reset between tests, and later tests hold their items in slot 0
+  return Object.fromEntries(Object.entries(tests).map(([name, test]) => [name, async (bot: TestBot, done: Mocha.Done) => {
+    try {
+      await test(bot, done)
+    } finally {
+      bot.setQuickBarSlot(0)
+    }
+  }]))
 }
