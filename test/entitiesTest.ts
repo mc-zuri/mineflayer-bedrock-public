@@ -267,6 +267,26 @@ describe('entities plugin', () => {
       })
     }
   })
+
+  describe('air supply (oxygenLevel)', () => {
+    for (const version of ['1.20.4', '1.21.11']) {
+      it(`only the bot's own air_supply sets oxygenLevel (${version})`, () => {
+        const bot = createFakeBot(version)
+        bot.oxygenLevel = 20
+        let breaths = 0
+        bot.on('breath', () => { breaths++ })
+        bot._client.emit('entity_head_rotation', { entityId: 5, headYaw: 0 }) // makes entity 5 known
+        bot.entities[5].name = 'zombie'
+        // air_supply is metadata key 1 on every entity
+        bot._client.emit('entity_metadata', { entityId: 5, metadata: [{ key: 1, type: 'int', value: 0 }] })
+        assert.strictEqual(bot.oxygenLevel, 20)
+        assert.strictEqual(breaths, 0)
+        bot._client.emit('entity_metadata', { entityId: 1, metadata: [{ key: 1, type: 'int', value: 150 }] })
+        assert.strictEqual(bot.oxygenLevel, 10)
+        assert.strictEqual(breaths, 1)
+      })
+    }
+  })
 })
 
 describe('entities plugin 26.3', () => {

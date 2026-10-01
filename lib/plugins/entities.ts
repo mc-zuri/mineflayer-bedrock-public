@@ -569,7 +569,7 @@ function inject (bot: BotInternal): void {
       }
 
       // Breathing (formerly in breath.js)
-      if (metas.air_supply != null) {
+      if (metas.air_supply != null && entity === bot.entity) {
         bot.oxygenLevel = Math.round(metas.air_supply / 15)
         bot.emit('breath')
       }
