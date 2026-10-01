@@ -75,7 +75,7 @@ function inject (bot: BotInternal): void {
       else await putInAnvil(itemTwo, itemOne)
 
       await addCustomName(name)
-      await bot.putAway(2)
+      await takeResult()
       await xpPromise
     }
 
@@ -97,8 +97,16 @@ function inject (bot: BotInternal): void {
       sendItemName('') // sent like this by vnailla
       if (!bot.supportFeature('useMCItemName')) sendItemName('')
       await addCustomName(name)
-      await bot.putAway(2)
+      await takeResult()
       await xpPromise
+    }
+
+    // 1.17.1+ clicks are not confirmed, so the result the server computes for the
+    // inputs (and name) may not have arrived yet: the take click would then
+    // pick up an empty slot. A round trip brings the window up to date first.
+    async function takeResult (): Promise<void> {
+      await bot._syncWindow(anvil)
+      await bot.putAway(2)
     }
 
     async function putSomething (destSlot: number, itemId: number, metadata: number | null, count: number, nbt: ItemInstance['nbt']): Promise<void> {
