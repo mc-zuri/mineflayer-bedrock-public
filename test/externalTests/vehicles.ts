@@ -52,7 +52,7 @@ async function driveForward (bot: TestBot, vehicle: Entity, ticks: number, minDi
   await bot.waitForTicks(10)
   assertSeated(bot, vehicle)
   const driven = vehicle.position.clone()
-  assert.ok(driven.distanceTo(start) > minDistance, `the vehicle went from ${start} to ${driven}`)
+  if (minDistance > 0) assert.ok(driven.distanceTo(start) > minDistance, `the vehicle went from ${start} to ${driven}`)
   return driven
 }
 
@@ -77,13 +77,16 @@ export default (): Record<string, TestFunction> => ({
       await bot.look(Math.PI, 0, true)
       await bot.waitForTicks(2)
       assertSeated(bot, boat)
-      const driven = await driveForward(bot, boat, 30, 2)
+      // (before 1.9 the server moves the boat, from the keys: only that the bot stays in it is the client's)
+      const clientDriven = bot.registry.version['>=']('1.9')
+      const driven = await driveForward(bot, boat, 30, clientDriven ? 2 : 0)
       // moveVehicle holds the keys too
       bot.moveVehicle(0, 1)
       await bot.waitForTicks(15)
       bot.moveVehicle(0, 0)
       await bot.waitForTicks(10)
-      assert.ok(boat.position.z > driven.z + 0.5, `moveVehicle left the boat at ${boat.position}`)
+      assertSeated(bot, boat)
+      if (clientDriven) assert.ok(boat.position.z > driven.z + 0.5, `moveVehicle left the boat at ${boat.position}`)
       const end = boat.position.clone()
       await dismount(bot)
       if (bot.registry.version['>=']('1.9')) {
