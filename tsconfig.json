@@ -8,6 +8,7 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
+    "preserveSymlinks": true,
     "types": ["node", "mocha"],
 
     "strict": true,

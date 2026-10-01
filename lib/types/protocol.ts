@@ -1,5 +1,5 @@
 // Packet shapes mineflayer reads and writes, merged by hand across every tested version
-// (lib/version.ts testedVersions, 1.8.8 – 26.1).
+// (lib/version.ts testedVersions, 1.8.8 – 26.3).
 //
 // A field present in every version is required. A field that only some versions send is
 // optional and carries the version range. A field whose type changed is a union.
@@ -23,6 +23,18 @@ export type TextComponent = string | AnonymousNbt
 
 export interface Vec3Like { x: number, y: number, z: number }
 export type Position = Vec3Like
+
+/** a relative move in 1/4096 block (1.14+; 1/32 before) */
+export interface DeltaStep { dX: number, dY: number, dZ: number }
+/**
+ * 26.3+ entity move (minecraft-protocol `vecDelta`): one delta, or the moves of several batched
+ * ticks as chained steps, each relative to the position the previous step left
+ */
+export type VecDelta = { onGround: boolean } & (DeltaStep | { steps: Array<DeltaStep & { ticks: number }> })
+/** 26.3+ sync_entity_position path */
+export type PositionPath = Vec3Like | { steps: Array<Vec3Like & { tickOffset: number }> }
+/** light section masks: i64 arrays 1.17 – 26.2, byte arrays (BitSet bytes) 26.3+ */
+export type LightMask = Int64[] | Buffer
 
 /** item slot, as the three wire formats prismarine-item's fromNotch accepts */
 export type Slot =
@@ -202,7 +214,17 @@ export interface ClientboundPackets {
   entity_head_rotation: { entityId: number, headYaw: number }
   entity_look: { entityId: number, yaw: number, pitch: number, onGround: boolean }
   entity_metadata: { entityId: number, metadata: EntityMetadataEntry[] }
-  entity_move_look: { entityId: number, dX: number, dY: number, dZ: number, yaw: number, pitch: number, onGround: boolean }
+  entity_move_look: {
+    entityId: number
+    yaw: number
+    pitch: number
+    // before 26.3
+    dX?: number
+    dY?: number
+    dZ?: number
+    onGround?: boolean
+    delta?: VecDelta // 26.3+
+  }
   entity_status: { entityId: number, entityStatus: number }
   entity_teleport: {
     entityId: number
@@ -237,6 +259,7 @@ export interface ClientboundPackets {
     // 1.21.2+
     playerKnockback?: Vec3Like
     blockCount?: number // 1.21.9+
+    playSound?: boolean // 26.3+
     [key: string]: any
   }
   game_state_change: {
@@ -273,6 +296,7 @@ export interface ClientboundPackets {
     portalCooldown?: number // 1.20 – 1.20.4
     doLimitedCrafting?: boolean // 1.20.2+
     worldState?: SpawnInfo // 1.20.5+
+    onlineMode?: boolean // 26.3+
     enforcesSecureChat?: boolean // 1.20.5+
   }
   map_chunk: {
@@ -288,10 +312,10 @@ export interface ClientboundPackets {
     blockEntities?: any[] // 1.9+
     // 1.18+ light data
     trustEdges?: boolean // 1.18 – 1.19.4
-    skyLightMask?: Int64[]
-    blockLightMask?: Int64[]
-    emptySkyLightMask?: Int64[]
-    emptyBlockLightMask?: Int64[]
+    skyLightMask?: LightMask
+    blockLightMask?: LightMask
+    emptySkyLightMask?: LightMask
+    emptyBlockLightMask?: LightMask
     skyLight?: number[][]
     blockLight?: number[][]
   }
@@ -386,7 +410,15 @@ export interface ClientboundPackets {
     id?: string
     entries?: Array<{ key: string, value?: AnonymousNbt }>
   }
-  rel_entity_move: { entityId: number, dX: number, dY: number, dZ: number, onGround: boolean }
+  rel_entity_move: {
+    entityId: number
+    // before 26.3
+    dX?: number
+    dY?: number
+    dZ?: number
+    onGround?: boolean
+    delta?: VecDelta // 26.3+
+  }
   remove_entity_effect: { entityId: number, effectId: number }
   /** 1.20.3+ */
   remove_resource_pack: { uuid?: string }
@@ -460,6 +492,8 @@ export interface ClientboundPackets {
   set_title_subtitle: { text: TextComponent }
   /** 1.17+ */
   set_title_text: { text: TextComponent }
+  /** 26.3+: arm swings (before: animation 0 / 3) */
+  swing_animation: { entityId: number, hand: 'main_hand' | 'off_hand', animation: 'none' | 'whack' | 'stab', duration: number }
   /** 1.17+ */
   set_title_time: { fadeIn: number, stay: number, fadeOut: number }
   /** 1.9+ */
@@ -538,7 +572,22 @@ export interface ClientboundPackets {
     }>
   }
   /** 1.21.2+ */
-  sync_entity_position: { entityId: number, x: number, y: number, z: number, dx: number, dy: number, dz: number, yaw: number, pitch: number, onGround: boolean }
+  sync_entity_position: {
+    entityId: number
+    yaw: number
+    pitch: number
+    onGround: boolean
+    // 1.21.2 – 26.2
+    x?: number
+    y?: number
+    z?: number
+    dx?: number
+    dy?: number
+    dz?: number
+    // 26.3+
+    pathType?: 'linear' | 'stepped'
+    path?: PositionPath
+  }
   /** 1.9+ (1.8: scoreboard_team) */
   teams: {
     team: string
@@ -584,11 +633,11 @@ export interface ClientboundPackets {
     chunkX: number
     chunkZ: number
     trustEdges?: boolean // 1.16 – 1.19.4
-    /** number before 1.17, i64 array after */
-    skyLightMask: number | Int64[]
-    blockLightMask: number | Int64[]
-    emptySkyLightMask: number | Int64[]
-    emptyBlockLightMask: number | Int64[]
+    /** number before 1.17, i64 array 1.17 – 26.2, byte array 26.3+ */
+    skyLightMask: number | LightMask
+    blockLightMask: number | LightMask
+    emptySkyLightMask: number | LightMask
+    emptyBlockLightMask: number | LightMask
     data?: Buffer // 1.14 – 1.16
     skyLight?: number[][] // 1.17+
     blockLight?: number[][] // 1.17+
@@ -617,9 +666,14 @@ export interface ClientboundPackets {
     data?: any
     // 1.20.5+
     particle?: Particle
-    velocityOffset?: number
+    velocityOffset?: number // 1.20.5 – 26.2
     amount?: number
     alwaysShow?: boolean // 1.21.4+
+    // 26.3+: one speed per axis
+    velocityOffsetX?: number
+    velocityOffsetY?: number
+    velocityOffsetZ?: number
+    randomizationType?: 'default' | 'alternative' | 'alternative_with_speed'
     // all versions
     longDistance: boolean
     x: number
@@ -632,9 +686,12 @@ export interface ClientboundPackets {
 }
 
 export interface ServerboundPackets {
+  /** 1.8 – 26.2 (26.3+: punch) */
   arm_animation: {
     hand?: number // 1.9+
   }
+  /** 26.3+: a main hand swing at nothing; the server swings the arm and resets the attack strength */
+  punch: {}
   /** 26.1+ */
   attack: { entityId: number }
   block_dig: {
@@ -746,14 +803,25 @@ export interface ServerboundPackets {
     transactionId?: number // 1.13+
   }
   /** 1.9+ */
-  teleport_confirm: { teleportId: number }
+  /** 1.21.2+: ends a client tick; 26.3+ servers accept one move packet per tick */
+  tick_end: {}
+  teleport_confirm: {
+    teleportId: number
+    // 26.3+: the position and rotation (degrees) the client resolved the teleport to
+    x?: number
+    y?: number
+    z?: number
+    yaw?: number
+    pitch?: number
+  }
   /** 1.8 – 1.16 */
   transaction: { windowId: number, action: number, accepted: boolean }
   /** 1.13+ */
   update_command_block: { location: Position, command: string, mode: number, flags: number }
   update_sign: {
     location: Position
-    isFrontText?: boolean // 1.20+
+    isFrontText?: boolean // 1.20 – 26.2
+    slot?: 'back' | 'front' // 26.3+
     text1: string
     text2: string
     text3: string
