@@ -245,7 +245,7 @@ describe('edge cases', () => {
         assert.deepStrictEqual(bot._client.writes, [
           { name: 'resource_pack_receive', params: { result: 3, ...hash } },
           { name: 'resource_pack_receive', params: { result: 0, ...hash } },
-          { name: 'resource_pack_receive', params: { result: 1 } }
+          { name: 'resource_pack_receive', params: { result: 1, ...hash } }
         ], version)
       }
     })
