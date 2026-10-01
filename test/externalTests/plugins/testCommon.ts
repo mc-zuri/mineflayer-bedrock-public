@@ -143,6 +143,9 @@ function inject (bot: TestBot, wrap: WrapServer): void {
       const realY = y + bot.test.groundY - 4
       bot.chat(`/fill ~-5 ${realY} ~-5 ~5 ${realY} ~5 ` + layerNames[y])
     }
+    // A fill that replaces one half of a bed or a door drops the other half as an item, which
+    // the bot would pick up in the middle of the next test.
+    bot.chat(`/kill @e[type=${bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Item' : 'item'}]`)
     // The marker echo only proves the fills executed: command feedback is
     // sent immediately while block changes flush at tick end, so the client
     // can still hold pre-fill blocks after the echo.
