@@ -16,6 +16,8 @@ import settingsPlugin from '../lib/plugins/settings.ts'
 import explosionPlugin from '../lib/plugins/explosion.ts'
 import timePlugin from '../lib/plugins/time.ts'
 import chatPlugin from '../lib/plugins/chat.ts'
+import minecraftData from 'minecraft-data'
+import { latestSupportedVersion } from '../lib/version.ts'
 
 interface Write { name: string, params: any }
 
@@ -55,7 +57,7 @@ describe('core', () => {
 
     it('removing an unknown boss bar emits no bossBarDeleted', () => {
       const bot = fakeBot('1.16.5')
-      bossBarPlugin(bot)
+      bossBarPlugin(bot, {} as any)
       const deleted: unknown[] = []
       bot.on('bossBarDeleted', (bar: unknown) => deleted.push(bar))
       bot._client.emit('boss_bar', { entityUUID: '00000000-0000-0000-0000-000000000000', action: 1 })
@@ -381,6 +383,21 @@ describe('core', () => {
     it('rejects on timeout', async () => {
       const bot = chatBot('1.20.4')
       await assert.rejects(bot.tabComplete('/he', false, false, 10))
+    })
+  })
+
+  describe('loader', () => {
+    it('a minecraft-data without the latest supported version fails with the "is it up to date?" error', async () => {
+      const versions = minecraftData.versionsByMinecraftVersion.pc
+      const saved = versions[latestSupportedVersion]
+      delete versions[latestSupportedVersion]
+      // the query string evaluates a fresh copy of the loader module
+      const specifier = '../lib/loader.ts?outdated-minecraft-data'
+      try {
+        await assert.rejects(import(specifier), /not supported by minecraft-data - is it up to date\?/)
+      } finally {
+        versions[latestSupportedVersion] = saved!
+      }
     })
   })
 })
