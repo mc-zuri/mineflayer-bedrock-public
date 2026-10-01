@@ -17,6 +17,7 @@ function inject (bot: BotInternal): void {
   let waitTimeout: ReturnType<typeof setTimeout> | null = null
 
   let diggingTask = createDoneTask()
+  let stoppingForNewDigRequest = false
 
   bot.targetDigBlock = null
   bot.targetDigFace = null
@@ -135,7 +136,11 @@ function inject (bot: BotInternal): void {
 
     // In vanilla the client will cancel digging the current block once the other block is at the crosshair.
     // Todo: don't wait until lookAt is at middle of the block, but at the edge of it.
-    if (bot.targetDigBlock) bot.stopDigging()
+    if (bot.targetDigBlock) {
+      stoppingForNewDigRequest = true
+      bot.stopDigging()
+      stoppingForNewDigRequest = false
+    }
 
     diggingTask = createTask()
     bot._client.write('block_dig', {
@@ -174,14 +179,14 @@ function inject (bot: BotInternal): void {
     const eventName: `blockUpdate:${string}` = `blockUpdate:${block.position}`
     bot.on(eventName, onBlockUpdate)
 
-    const currentBlock = block
     bot.stopDigging = () => {
       if (!bot.targetDigBlock) return
 
       // Replicate the odd vanilla cancellation face value.
       // When the cancellation is because of a new dig request on another block it's the same as the new dig start face. In all other cases it's 0.
-      const stoppedBecauseOfNewDigRequest = !currentBlock.position.equals(bot.targetDigBlock.position)
-      const cancellationDiggingFace = !stoppedBecauseOfNewDigRequest ? bot.targetDigFace! : 0
+      // (bot.targetDigFace is already the new dig's face then)
+      const stoppedBecauseOfNewDigRequest = stoppingForNewDigRequest
+      const cancellationDiggingFace = stoppedBecauseOfNewDigRequest ? bot.targetDigFace! : 0
 
       bot.removeListener(eventName, onBlockUpdate)
       clearInterval(swingInterval)

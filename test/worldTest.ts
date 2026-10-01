@@ -182,4 +182,36 @@ describe('digging plugin', () => {
       [0, blockB.position.toString(), 3] // start B, with B's face
     ])
   })
+
+  it('the cancel face is the new dig\'s face for a new dig request and 0 (down) for stopDigging, like vanilla', async () => {
+    const bot: any = new EventEmitter()
+    const writes: Array<{ status: number, location: Vec3, face: number | null }> = []
+    bot._client = { write: (name: string, params: any) => { if (name === 'block_dig') writes.push({ status: params.status, location: params.location, face: params.face }) } }
+    bot._nextSequence = () => 0
+    bot._updateBlockState = () => {}
+    bot.swingArm = () => {}
+    bot.heldItem = null
+    bot.inventory = { slots: [] }
+    bot.getEquipmentDestSlot = () => 5
+    bot.game = { gameMode: 'survival' }
+    bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
+    bot.blockAt = () => null
+    bot.lookAt = async () => {}
+    diggingPlugin(bot)
+    const blockA = { name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 1000 }
+    const blockB = { name: 'dirt', position: new Vec3(0, 64, 1), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 1000 }
+
+    const digA = bot.dig(blockA, true, new Vec3(1, 0, 0)).catch(() => {}) // east face (5)
+    await new Promise(resolve => setImmediate(resolve))
+    const digB = bot.dig(blockB, true, new Vec3(0, 0, 1)).catch(() => {}) // south face (3)
+    await digA
+    bot.stopDigging()
+    await digB
+
+    const aborts = writes.filter(({ status }) => status === 1)
+    assert.deepStrictEqual(aborts.map(({ location, face }) => [location.toString(), face]), [
+      [blockA.position.toString(), 3], // abort A for the new dig: the new dig's face
+      [blockB.position.toString(), 0] // stopDigging: face down (0)
+    ])
+  })
 })
