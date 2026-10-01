@@ -45,7 +45,9 @@ export default (): Record<string, TestFunction> => {
   async function landOnGround (bot: TestBot) {
     await bot.test.becomeSurvival()
     bot.creative.stopFlying()
-    while (!bot.entity.onGround) await onceWithCleanup(bot, 'physicsTick', { timeout: 5000 })
+    // (a glide, an earlier test's, lasts until the server sees the bot on the ground and ends it, as on
+    // vanilla's client)
+    while (!bot.entity.onGround || bot.entity.elytraFlying) await onceWithCleanup(bot, 'physicsTick', { timeout: 5000 })
   }
 
   const tests: Record<string, TestFunction> = {
