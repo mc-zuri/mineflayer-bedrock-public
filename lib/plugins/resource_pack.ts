@@ -81,7 +81,12 @@ function inject (bot: BotInternal): void {
 
   function denyResourcePack () {
     if (!packOffered()) return
-    if (bot.supportFeature('resourcePackUsesUUID')) {
+    if (bot.supportFeature('resourcePackUsesHash')) {
+      bot._client.write('resource_pack_receive', {
+        result: TEXTURE_PACK_RESULTS.DECLINED,
+        hash: latestHash!
+      })
+    } else if (bot.supportFeature('resourcePackUsesUUID')) {
       bot._client.write('resource_pack_receive', {
         uuid: latestUUID!,
         result: TEXTURE_PACK_RESULTS.DECLINED
