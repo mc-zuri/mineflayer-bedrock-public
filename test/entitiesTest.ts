@@ -248,6 +248,28 @@ describe('entities plugin', () => {
     }
   })
 
+  describe('a new login (proxy server switch)', () => {
+    it('emits entityGone for the entities and playerLeft for the players it clears', () => {
+      const bot = createFakeBot('1.12.2')
+      bot._client.emit('player_info', { action: 'add_player', data: [{ uuid: '00000000-0000-0000-0000-000000000002', name: 'other', properties: [], gamemode: 0, ping: 5 }] })
+      bot._client.emit('entity_head_rotation', { entityId: 5, headYaw: 0 }) // makes entity 5 known
+      const oldBotEntity = bot.entity
+      const other = bot.players.other
+      const zombie = bot.entities[5]
+      const gone: unknown[] = []
+      const left: unknown[] = []
+      bot.on('entityGone', (entity: unknown) => gone.push(entity))
+      bot.on('playerLeft', (player: unknown) => left.push(player))
+      bot._client.emit('login', { entityId: 7 })
+      assert.deepStrictEqual(gone, [zombie]) // not the bot's own entity
+      assert.strictEqual(zombie.isValid, false)
+      assert.deepStrictEqual(left, [other])
+      assert.notStrictEqual(bot.entity, oldBotEntity)
+      assert.deepStrictEqual(Object.keys(bot.entities), ['7'])
+      assert.deepStrictEqual(bot.players, {})
+    })
+  })
+
   describe('entity attributes', () => {
     // the attribute id field is `key` except on 1.17 – 1.20.4, where it is `name`
     for (const [version, id] of [['1.8.8', 'generic.movementSpeed'], ['1.16.5', 'minecraft:generic.movement_speed'],

@@ -138,6 +138,16 @@ function inject (bot: BotInternal): void {
 
   // Reset list of players and entities on login
   bot._client.on('login', (packet) => {
+    // a login after the first (proxy server switch) starts a new world: the old entities and players are gone
+    for (const entity of Object.values(bot.entities)) {
+      if (entity === bot.entity) continue
+      bot.emit('entityGone', entity)
+      entity.isValid = false
+    }
+    for (const player of Object.values(bot.players)) {
+      player.entity = null
+      bot.emit('playerLeft', player)
+    }
     bot.players = {}
     bot.uuidToUsername = {}
     bot.entities = {}
