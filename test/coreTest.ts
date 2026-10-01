@@ -158,6 +158,7 @@ describe('core', () => {
       bot.on('title', (text: string, type: string) => events.push(['title', text, type]))
       bot.on('title_times', (...times: number[]) => events.push(['title_times', ...times]))
       bot.on('title_clear', () => events.push(['title_clear']))
+      bot.on('actionBar', (msg: any, verified: unknown) => events.push(['actionBar', msg.toString(), verified]))
       return events
     }
 
@@ -178,7 +179,19 @@ describe('core', () => {
       bot12._client.emit('title', { action: 3, fadeIn: 1, stay: 2, fadeOut: 3 })
       bot12._client.emit('title', { action: 4 })
       bot12._client.emit('title', { action: 5 })
-      assert.deepStrictEqual(events12, [['title_times', 1, 2, 3], ['title_clear'], ['title_clear']])
+      assert.deepStrictEqual(events12, [['actionBar', 'action bar', null], ['title_times', 1, 2, 3], ['title_clear'], ['title_clear']])
+    })
+
+    it('emits actionBar for the action bar packet (1.17+)', () => {
+      for (const [version, text] of [['1.17.1', '{"text":"json bar"}'], ['1.20.4', { type: 'string', value: 'nbt bar' }],
+        ['1.21.11', { type: 'compound', name: '', value: { text: { type: 'string', value: 'styled bar' }, color: { type: 'string', value: 'red' } } }]] as const) {
+        const bot = fakeBot(version)
+        titlePlugin(bot)
+        const events = record(bot)
+        bot._client.emit('action_bar', { text })
+        const expected = typeof text === 'string' ? 'json bar' : version === '1.20.4' ? 'nbt bar' : 'styled bar'
+        assert.deepStrictEqual(events, [['actionBar', expected, null]], version)
+      }
     })
 
     it('reads NBT titles on 1.20.3+', () => {

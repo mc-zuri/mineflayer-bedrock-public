@@ -153,6 +153,8 @@ export interface Trade {
 
 export interface ClientboundPackets {
   abilities: { flags: number, flyingSpeed: number, walkingSpeed: number }
+  /** 1.17+ (1.11 – 1.16: title action 2) */
+  action_bar: { text: TextComponent }
   /** 1.20.3+ */
   add_resource_pack: { uuid: string, url: string, hash: string, forced: boolean, promptMessage?: AnonymousNbt }
   animation: { entityId: number, animation: number }

@@ -1,9 +1,11 @@
-import { processNbtMessage } from 'prismarine-chat'
+import prismarineChat, { processNbtMessage } from 'prismarine-chat'
 import type { BotInternal } from '../types/internal.ts'
 import type { TextComponent } from '../types/protocol.ts'
+import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
 
 export default inject
 function inject (bot: BotInternal): void {
+  const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
   function parseTitle (text: TextComponent | undefined): string {
     try {
       const parsed = JSON.parse(text as string)
@@ -20,6 +22,7 @@ function inject (bot: BotInternal): void {
       // 1.8 – 1.10: 2 times, 3 clear, 4 reset; 1.11+: 2 action bar text, 3 times, 4 clear, 5 reset
       else if (packet.action === 2) {
         if (packet.text === undefined) bot.emit('title_times', packet.fadeIn!, packet.stay!, packet.fadeOut!)
+        else bot.emit('actionBar', ChatMessage.fromNotch(packet.text), null)
       } else if (packet.action === 3) {
         if (packet.fadeIn !== undefined) bot.emit('title_times', packet.fadeIn, packet.stay!, packet.fadeOut!)
         else bot.emit('title_clear')
@@ -40,5 +43,6 @@ function inject (bot: BotInternal): void {
       }
     })
     bot._client.on('clear_titles', () => bot.emit('title_clear'))
+    bot._client.on('action_bar', (packet) => bot.emit('actionBar', ChatMessage.fromNotch(packet.text), null))
   }
 }
