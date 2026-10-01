@@ -25,7 +25,7 @@ const TEST_TIMEOUT_MS = 90000
 /** mocha's Runnable keeps its retry count in the private _currentRetry */
 interface RetriedTest { _currentRetry: number }
 
-const excludedTests = ['digEverything', 'anvil', 'placeEntity']
+const excludedTests = ['digEverything', 'anvil']
 
 const propOverrides: ServerProperties = {
   'level-type': 'FLAT',
