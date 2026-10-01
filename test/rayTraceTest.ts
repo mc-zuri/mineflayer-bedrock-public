@@ -53,10 +53,10 @@ describe('line of sight', () => {
     it(`${version}: canSeeBlock sees a block whose minimum corner is nearer than its face`, () => {
       const floating = new Vec3(7, 66, 5)
       const bot = createBot([floating])
-      assert.strictEqual(bot.canSeeBlock({ position: floating }), true)
+      assert.strictEqual(bot.canSeeBlock(bot.blockAt(floating)!), true)
       // and still not through another block
       const hidden = createBot([floating, new Vec3(6, 66, 5), new Vec3(6, 65, 5)])
-      assert(!hidden.canSeeBlock({ position: floating }))
+      assert(!hidden.canSeeBlock(hidden.blockAt(floating)!))
     })
   }
 })
