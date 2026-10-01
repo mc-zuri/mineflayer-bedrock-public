@@ -28,6 +28,12 @@ function inject (bot: BotInternal): void {
 
     let name = bot.heldItem.name // used for finding entity after spawn
       .replace(/.+_boat/, 'boat')
+    // 1.21.2+: each boat is its own entity, named like its item (oak_boat, oak_chest_boat, ...);
+    // before, every wood was one boat (or chest_boat) entity
+    if (type === 'boat') {
+      if (bot.registry.entitiesByName[bot.heldItem.name]) name = bot.heldItem.name
+      else if (bot.heldItem.name.endsWith('_chest_boat')) name = 'chest_boat'
+    }
 
     if (name.endsWith('spawn_egg')) {
       name = bot.heldItem.spawnEggMobName
@@ -75,7 +81,7 @@ function inject (bot: BotInternal): void {
   }
 
   function waitForEntitySpawn (name: string, placePosition: Vec3): Promise<Entity> {
-    const maxDistance = name === 'bat' ? 4 : name === 'boat' ? 3 : 2
+    const maxDistance = name === 'bat' ? 4 : name.endsWith('boat') ? 3 : 2
     let mobName = name
     if (name === 'end_crystal') {
       if (bot.supportFeature('enderCrystalNameEndsInErNoCaps')) {

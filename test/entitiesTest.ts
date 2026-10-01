@@ -394,6 +394,28 @@ describe('place_entity plugin', () => {
     const entity = await bot.placeEntity({ position: new Vec3(0, 64, 0) }, new Vec3(0, 1, 0))
     assert.strictEqual(entity.name, 'armor_stand')
   })
+
+  // [version, held item, the entity vanilla spawns]
+  for (const [version, item, entityName] of [['1.12.2', 'boat', 'boat'], ['1.20.4', 'oak_boat', 'boat'], ['1.20.4', 'oak_chest_boat', 'chest_boat'], ['1.21.4', 'oak_boat', 'oak_boat'], ['1.21.11', 'spruce_chest_boat', 'spruce_chest_boat']]) {
+    it(`placeEntity with ${item} finds the ${entityName} entity (${version})`, async () => {
+      const registry = prismarineRegistry(version)
+      const bot: any = new EventEmitter()
+      bot.registry = registry
+      bot.supportFeature = registry.supportFeature.bind(registry)
+      bot._client = new EventEmitter()
+      bot._client.write = () => {}
+      bot._nextSequence = () => 0
+      bot.entity = { yaw: 0, pitch: 0 }
+      bot.heldItem = { name: item, type: registry.itemsByName[item].id, count: 1 }
+      bot._genericPlace = async (referenceBlock: any, faceVector: any) => {
+        setImmediate(() => bot.emit('entitySpawn', { name: entityName, position: new Vec3(0.5, 64, 0.5) }))
+        return referenceBlock.position
+      }
+      placeEntityPlugin(bot)
+      const entity = await bot.placeEntity({ position: new Vec3(0, 64, 0) }, new Vec3(0, 1, 0))
+      assert.strictEqual(entity.name, entityName)
+    })
+  }
 })
 
 describe('bed plugin', () => {
