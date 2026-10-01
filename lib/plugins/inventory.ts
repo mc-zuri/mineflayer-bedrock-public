@@ -675,6 +675,12 @@ function inject (bot: BotInternal, { hideErrors }: BotOptions): void {
 
     // WHEN ADDING SUPPORT FOR OTHER CLICKS, MAKE SURE TO CHANGE changedSlots TO SUPPORT THEM
     if (bot.supportFeature('stateIdUsed')) { // 1.17.1 +
+      // From 1.21.5 the slots are HashedSlots: each data component goes out as a
+      // hash, which vanilla computes with HashOps (CRC32C) over the component's
+      // persistent codec form (registry keys, codec field names and defaults),
+      // not over its network encoding, so minecraft-protocol cannot produce it.
+      // Components are written with hash 0; for an item with components the
+      // server sees a mismatch and resends the slot, which is self-correcting.
       bot._client.write('window_click', {
         windowId: window.id,
         stateId,
