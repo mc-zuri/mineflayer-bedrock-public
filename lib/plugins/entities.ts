@@ -441,9 +441,9 @@ function inject (bot: BotInternal): void {
   })
 
   bot._client.on('damage_event', (packet) => { // 1.20+
-    const entity = bot.entities[packet.entityId]
+    const entity = fetchEntity(packet.entityId)
     const source = bot.entities[packet.sourceCauseId - 1] // damage_event : SourceCauseId : The ID + 1 of the entity responsible for the damage, if present. If not present, the value is 0
-    bot.emit('entityHurt', entity!, source)
+    bot.emit('entityHurt', entity, source)
   })
 
   bot.fireworkRocketDuration = 0

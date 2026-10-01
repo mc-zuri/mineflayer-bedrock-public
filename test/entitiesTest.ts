@@ -52,6 +52,25 @@ describe('entities plugin', () => {
     }
   })
 
+  describe('damage_event (1.20+)', () => {
+    it('emits entityHurt with an Entity for an entity id the bot has not seen', () => {
+      const bot = createFakeBot('1.20.4')
+      const hurt: Array<[any, any]> = []
+      bot.on('entityHurt', (entity: any, source: any) => { hurt.push([entity, source]) })
+      // no source (sourceCauseId 0)
+      bot._client.emit('damage_event', { entityId: 42, sourceTypeId: 0, sourceCauseId: 0, sourceDirectId: 0 })
+      // the bot as the source (sourceCauseId is the id + 1)
+      bot._client.emit('damage_event', { entityId: 43, sourceTypeId: 0, sourceCauseId: 2, sourceDirectId: 2 })
+      assert.strictEqual(hurt.length, 2)
+      assert.ok(hurt[0]![0], 'entityHurt must not be emitted with an undefined entity')
+      assert.strictEqual(hurt[0]![0].id, 42)
+      assert.strictEqual(hurt[0]![0], bot.entities[42])
+      assert.strictEqual(hurt[0]![1], undefined)
+      assert.strictEqual(hurt[1]![0].id, 43)
+      assert.strictEqual(hurt[1]![1], bot.entities[1])
+    })
+  })
+
   describe('attach_entity (1.8 riding)', () => {
     it('keeps vehicle.passengers in step with entity.vehicle', () => {
       const bot = createFakeBot('1.8.8')
