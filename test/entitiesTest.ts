@@ -606,4 +606,62 @@ describe('bed plugin', () => {
     await assert.rejects(sleeping, { message: 'bot is not sleeping' })
     assert.strictEqual(bot.listenerCount('sleep'), 0)
   })
+
+  // a bed facing north: head at (0, 64, 1), foot at (0, 64, 2)
+  function sleepBot (version: string, position: Vec3, entities: object = {}) {
+    const registry = prismarineRegistry(version)
+    const bot: any = new EventEmitter()
+    bot.registry = registry
+    bot.supportFeature = registry.supportFeature.bind(registry)
+    bot._client = new EventEmitter()
+    bot.isRaining = false
+    bot.thunderState = 0
+    bot.time = { timeOfDay: 13000 }
+    bot.game = { gameMode: 'survival' }
+    bot.entity = { position }
+    bot.entities = entities
+    bot.canDigBlock = () => true
+    bot.activateBlock = async () => { bot.emit('sleep') } // the server puts the bot to sleep
+    bedPlugin(bot)
+    const head = registry.supportFeature('blockStateId')
+      ? { name: 'red_bed', stateId: registry.blocksByName['red_bed']!.minStateId! + 2, position: new Vec3(0, 64, 1) } // facing north, not occupied, head
+      : { name: 'bed', metadata: 8 | 2, position: new Vec3(0, 64, 1) } // head, facing north
+    return bot.sleep(head)
+  }
+
+  // vanilla (Player / ServerPlayer.startSleepInBed): within 3 blocks horizontally and 2 vertically of the head block -
+  // since 1.11 or of the foot block - measured from the block's corner before 1.15 and from its bottom centre since
+  for (const [version, reach] of [
+    ['1.8.8', { corner: true, foot: false }], ['1.12.2', { corner: true, foot: true }], ['1.14.4', { corner: true, foot: true }],
+    ['1.15.2', { corner: false, foot: true }], ['1.20.4', { corner: false, foot: true }], ['26.1', { corner: false, foot: true }]
+  ] as const) {
+    it(`sleep is in reach where vanilla lets the player sleep (${version})`, async () => {
+      const cases: Array<[Vec3, boolean]> = [
+        [new Vec3(3.4, 64, 1), !reach.corner], // 3.4 from the corner, 2.9 from the centre
+        [new Vec3(-2.8, 64, 1), reach.corner], // 2.8 from the corner, 3.3 from the centre
+        [new Vec3(0, 66, 1), true], // 2 above
+        [new Vec3(0, 66.5, 1), false],
+        [new Vec3(0, 64, -1.9), reach.corner], // 2.9 north of the head's corner, 3.4 of its centre
+        [new Vec3(0.5, 64, 4.8), reach.foot], // 2.8 south of the foot's corner, 2.3 of its centre, 3.8 / 3.3 of the head's
+        [new Vec3(0.5, 64, 5.5), reach.foot && !reach.corner] // 3.5 south of the foot's corner, 3 of its centre
+      ]
+      for (const [position, inReach] of cases) {
+        if (inReach) await sleepBot(version, position)
+        else await assert.rejects(sleepBot(version, position), { message: 'the bed is too far' }, `${position}`)
+      }
+    })
+  }
+
+  it('monsters keep the bot awake where vanilla finds them (1.15+: box around the bed\'s bottom centre)', async () => {
+    const zombie = (x: number) => ({ 1: { type: 'hostile', position: new Vec3(x, 64, 1), width: 0.6, height: 1.95 } })
+    // the bed's box spans x -7.5 .. 8.5: a zombie whose box reaches into it
+    await assert.rejects(sleepBot('1.20.4', new Vec3(0.5, 64, 1.5), zombie(8.7)), { message: 'there are monsters nearby' })
+    await assert.rejects(sleepBot('1.20.4', new Vec3(0.5, 64, 1.5), zombie(-7.7)), { message: 'there are monsters nearby' })
+    // and one just outside of it
+    await sleepBot('1.20.4', new Vec3(0.5, 64, 1.5), zombie(-7.9))
+    await sleepBot('1.20.4', new Vec3(0.5, 64, 1.5), zombie(8.9))
+    // before 1.15 the box is around the head block's corner: x -8 .. 8
+    await sleepBot('1.12.2', new Vec3(0.5, 64, 1.5), zombie(8.4))
+    await assert.rejects(sleepBot('1.12.2', new Vec3(0.5, 64, 1.5), zombie(-8.2)), { message: 'there are monsters nearby' })
+  })
 })

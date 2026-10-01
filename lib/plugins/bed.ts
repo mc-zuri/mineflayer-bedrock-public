@@ -5,8 +5,6 @@ import type { BedMetadata } from '../types/mineflayer.ts'
 
 export default inject
 
-const CARDINAL_DIRECTIONS = ['south', 'west', 'north', 'east']
-
 function inject (bot: BotInternal): void {
   bot.isSleeping = false
 
@@ -88,7 +86,7 @@ function inject (bot: BotInternal): void {
     } else if (!isABed(bedBlock)) {
       throw new Error('wrong block : not a bed block')
     } else {
-      const botPos = bot.entity.position.floored()
+      const botPos = bot.entity.position
       const metadata = parseBedMetadata(bedBlock)
       let headPoint = bedBlock.position
 
@@ -118,31 +116,26 @@ function inject (bot: BotInternal): void {
         throw new Error('cant click the bed')
       }
 
-      const clickRange: [number, number, number, number] = [2, -3, -3, 2] // [south, west, north, east]
-      const monsterRange: [number, number, number, number] = [7, -8, -8, 7]
-      const oppositeCardinal = (metadata.facing + 2) % CARDINAL_DIRECTIONS.length
-
-      if (clickRange[oppositeCardinal]! < 0) {
-        clickRange[oppositeCardinal]!--
-      } else {
-        clickRange[oppositeCardinal]!++
-      }
-
-      const nwClickCorner = headPoint.offset(clickRange[1], -2, clickRange[2]) // North-West lower corner
-      const seClickCorner = headPoint.offset(clickRange[3], 2, clickRange[0]) // South-East upper corner
-      if (botPos.x > seClickCorner.x || botPos.x < nwClickCorner.x || botPos.y > seClickCorner.y || botPos.y < nwClickCorner.y || botPos.z > seClickCorner.z || botPos.z < nwClickCorner.z) {
+      // vanilla Player / ServerPlayer.startSleepInBed measures from the head block - and since 1.11 also from
+      // the foot block - its corner before 1.15, its bottom centre since
+      const centre = bot.registry.version['>=']('1.15') ? 0.5 : 0
+      const inReach = (point: Vec3) => Math.abs(botPos.x - (point.x + centre)) <= 3 && Math.abs(botPos.y - point.y) <= 2 && Math.abs(botPos.z - (point.z + centre)) <= 3
+      if (!inReach(headPoint) && !(bot.registry.version['>=']('1.11') && inReach(headPoint.minus(metadata.headOffset)))) {
         throw new Error('the bed is too far')
       }
 
       if (bot.game.gameMode !== 'creative' || bot.supportFeature('creativeSleepNearMobs')) { // If in creative mode the bot should be able to sleep even if there are monster nearby (starting in 1.13)
-        const nwMonsterCorner = headPoint.offset(monsterRange[1], -6, monsterRange[2]) // North-West lower corner
-        const seMonsterCorner = headPoint.offset(monsterRange[3], 4, monsterRange[0]) // South-East upper corner
+        // vanilla: the monsters whose box touches 8 blocks horizontally and 5 vertically around the head block (as above)
+        const bedPoint = headPoint.offset(centre, 0, centre)
 
         for (const key of Object.keys(bot.entities)) {
           const entity = bot.entities[key]!
           if (entity.kind === 'Hostile mobs' || entity.type === 'hostile') { // 1.17 / 1.18 data has no category, only the type
-            const entityPos = entity.position.floored()
-            if (entityPos.x <= seMonsterCorner.x && entityPos.x >= nwMonsterCorner.x && entityPos.y <= seMonsterCorner.y && entityPos.y >= nwMonsterCorner.y && entityPos.z <= seMonsterCorner.z && entityPos.z >= nwMonsterCorner.z) {
+            const { x, y, z } = entity.position
+            const halfWidth = (entity.width ?? 0) / 2
+            const height = entity.height ?? 0
+            if (x - halfWidth < bedPoint.x + 8 && x + halfWidth > bedPoint.x - 8 && y < bedPoint.y + 5 && y + height > bedPoint.y - 5 &&
+              z - halfWidth < bedPoint.z + 8 && z + halfWidth > bedPoint.z - 8) {
               throw new Error('there are monsters nearby')
             }
           }
