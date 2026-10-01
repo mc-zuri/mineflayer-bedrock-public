@@ -178,6 +178,71 @@ describe('physics plugin', function () {
     }
   })
 
+  describe('the keys the server hears', () => {
+    const actions = (bot: FakeBot) => bot.writes.filter(w => w.name === 'entity_action').map(w => w.params.actionId)
+    for (const version of ['1.8.8', '1.12.2', '1.20.4', '1.21.11']) {
+      it(`start / stop sprinting follow the bot's sprint, not the key (${version})`, async () => {
+        const bot = createFakeBot(version)
+        teleport(bot, new Vec3(0.5, GROUND, 0.5))
+        await ticks(bot, 2)
+        const [start, stop] = bot.supportFeature('entityActionUsesStringMapper') ? ['start_sprinting', 'stop_sprinting'] : [3, 4]
+        bot.setControlState('sprint', true)
+        await ticks(bot, 3)
+        assert.deepStrictEqual(actions(bot), [], 'no sprint without moving forward')
+        bot.setControlState('forward', true)
+        await ticks(bot, 3)
+        assert.ok(bot.entity.sprinting)
+        assert.deepStrictEqual(actions(bot), [start])
+        bot.setControlState('forward', false)
+        await ticks(bot, 3)
+        assert.deepStrictEqual(actions(bot), [start, stop])
+        bot.clearControlStates()
+        await ticks(bot, 2)
+        end(bot)
+        assert.deepStrictEqual(actions(bot), [start, stop])
+      })
+    }
+
+    for (const version of ['1.8.8', '1.20.4']) {
+      it(`sneaking is start / stop sneaking before player_input (${version})`, async () => {
+        const bot = createFakeBot(version)
+        teleport(bot, new Vec3(0.5, GROUND, 0.5))
+        await ticks(bot, 2)
+        bot.setControlState('sneak', true)
+        await ticks(bot, 2)
+        bot.setControlState('sneak', false)
+        await ticks(bot, 2)
+        end(bot)
+        assert.deepStrictEqual(actions(bot), [0, 1])
+        assert.ok(!bot.writes.some(w => w.name === 'player_input'))
+      })
+    }
+
+    for (const version of ['1.21.4', '1.21.11']) {
+      it(`player_input carries every key, once per change (${version})`, async () => {
+        const bot = createFakeBot(version)
+        teleport(bot, new Vec3(0.5, GROUND, 0.5))
+        await ticks(bot, 2)
+        bot.setControlState('forward', true)
+        bot.setControlState('sneak', true)
+        await ticks(bot, 3)
+        bot.setControlState('sneak', false)
+        await ticks(bot, 2)
+        bot.clearControlStates()
+        await ticks(bot, 2)
+        end(bot)
+        const none = { forward: false, backward: false, left: false, right: false, jump: false, shift: false, sprint: false }
+        assert.deepStrictEqual(bot.writes.filter(w => w.name === 'player_input').map(w => w.params.inputs), [
+          { ...none, forward: true, shift: true },
+          { ...none, forward: true },
+          none
+        ])
+        // the shift key is no entity_action any more
+        assert.ok(!bot.writes.some(w => w.name === 'entity_action' && (w.params.actionId === 0 || w.params.actionId === 1)))
+      })
+    }
+  })
+
   describe('flying (abilities)', () => {
     for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
       it(`hovers while the server says it flies (${version})`, async () => {

@@ -1881,6 +1881,12 @@ You may use bot.lookAt in conjunction with this to control movement. The jumper.
  * `control` - one of ['forward', 'back', 'left', 'right', 'jump', 'sprint', 'sneak']
  * `state` - `true` or `false`
 
+The keys reach the server with the next physics tick, as vanilla sends them: on 1.21.2+ a `player_input`
+packet with every key whenever one changed; the sneak key as start / stop sneaking before that. Like a player
+holding the sprint key, `sprint` makes the bot sprint only when it can (moving forward, food above 6, not
+blind, not sneaking...): the server is told when the bot starts or stops sprinting (`bot.entity.sprinting`),
+not when the key changes. The bot never double-taps forward or jump.
+
 #### bot.getControlState(control)
 
 Returns true if a control state is toggled.

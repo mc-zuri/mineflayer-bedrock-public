@@ -25,6 +25,12 @@ declare module 'prismarine-entity' {
     isInWeb?: boolean
     isCollidedHorizontally?: boolean
     isCollidedVertically?: boolean
+    /** the sprint state the engine keeps (vanilla's isSprinting): the sprint key starts it, the game stops it */
+    sprinting?: boolean
+    /** the pose the engine keeps (1.14+: 'standing', 'crouching', 'swimming', 'fall_flying'...) */
+    javaPose?: string
+    swimming?: boolean
+    fallDistance?: number
     // flight state copied from the abilities packet (abilities.ts, bot entity only) for prismarine-physics
     flying?: boolean
     flyingSpeed?: number

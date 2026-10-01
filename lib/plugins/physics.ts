@@ -211,6 +211,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     // Don't send position with invalid coordinates (NaN after death)
     if (!Number.isFinite(bot.entity.position.x)) return
 
+    sendInputState()
+
     // Increment the yaw in baby steps so that notchian clients (not the server) can keep up.
     const dYaw = deltaYaw(bot.entity.yaw, lastSentYaw)
     const dPitch = bot.entity.pitch - (lastSentPitch || 0)
@@ -366,31 +368,60 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     controlState[control] = state
     if (control === 'jump' && state) {
       bot.jumpQueued = true
-    } else if (control === 'sprint') {
+    }
+    // the keys reach the server with the next tick's packets (sendInputState)
+  }
+
+  // What the server hears of the keys, sent each tick before the movement packet like vanilla's
+  // LocalPlayer.sendPosition: 1.21.2+ the keys themselves (player_input) when one changed; the sprint
+  // state when it changed (the sprint the engine decided: it needs forward, food, no blindness...);
+  // before player_input, the sneak key when it changed.
+  const NO_INPUT = 'false,false,false,false,false,false,false'
+  let sentInput = NO_INPUT
+  let sentSprinting = false
+  let sentSneaking = false
+  function sendInputState () {
+    if (bot.supportFeature('newPlayerInputPacket')) {
+      const inputs = {
+        forward: controlState.forward,
+        backward: controlState.back,
+        left: controlState.left,
+        right: controlState.right,
+        jump: controlState.jump,
+        shift: controlState.sneak,
+        sprint: controlState.sprint
+      }
+      const keys = Object.values(inputs).join()
+      if (keys !== sentInput) {
+        sentInput = keys
+        bot._client.write('player_input', { inputs })
+      }
+    }
+    const sprinting = bot.physicsEnabled ? !!bot.entity.sprinting : controlState.sprint
+    if (sprinting !== sentSprinting) {
+      sentSprinting = sprinting
       bot._client.write('entity_action', {
         entityId: bot.entity.id,
         actionId: bot.supportFeature('entityActionUsesStringMapper')
-          ? (state ? 'start_sprinting' : 'stop_sprinting')
-          : (state ? 3 : 4),
+          ? (sprinting ? 'start_sprinting' : 'stop_sprinting')
+          : (sprinting ? 3 : 4),
         jumpBoost: 0
       })
-    } else if (control === 'sneak') {
-      if (bot.supportFeature('newPlayerInputPacket')) {
-        // In 1.21.6+, sneak is handled via player_input packet
-        bot._client.write('player_input', {
-          inputs: {
-            shift: state
-          }
-        })
-      } else {
-        // Legacy entity_action approach for older versions
-        bot._client.write('entity_action', {
-          entityId: bot.entity.id,
-          actionId: state ? 0 : 1,
-          jumpBoost: 0
-        })
-      }
     }
+    if (!bot.supportFeature('newPlayerInputPacket') && controlState.sneak !== sentSneaking) {
+      sentSneaking = controlState.sneak
+      bot._client.write('entity_action', {
+        entityId: bot.entity.id,
+        actionId: sentSneaking ? 0 : 1,
+        jumpBoost: 0
+      })
+    }
+  }
+  function resetInputState () {
+    // a new player entity (login, respawn) starts with no keys, not sprinting, not sneaking on the server
+    sentInput = NO_INPUT
+    sentSprinting = false
+    sentSneaking = false
   }
 
   bot.getControlState = (control) => {
@@ -660,6 +691,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
   })
   bot.on('respawn', () => {
     shouldUsePhysics = false
+    resetInputState()
     // A teleport queued before the respawn positioned the bot in the old world; answering it now
     // would turn physics back on before the server has placed the bot in the new one. Pongs stay
     // queued, as transaction-ordering anticheats expect every ping answered in order.
@@ -669,6 +701,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
   })
   bot.on('login', () => {
     shouldUsePhysics = false
+    resetInputState()
     cancelRespawnReply()
     // A reply still queued here belongs to the world the bot just left, and its id means nothing
     // to the server it is about to talk to.
