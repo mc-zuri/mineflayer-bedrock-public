@@ -15,7 +15,7 @@ export default (): TestFunction => async (bot) => {
 
   // Put the bed
   const bedUpdates = [bedPos1, bedPos2].map(pos => onceWithCleanup(bot.world, `blockUpdate:(${pos.x}, ${pos.y}, ${pos.z})`, { timeout: 5000 }))
-  if (bot.supportFeature('setBlockUsesMetadataNumber', bot.version)) {
+  if (bot.supportFeature('setBlockUsesMetadataNumber')) {
     bot.chat(`/setblock ${bedPos1.toArray().join(' ')} ${bedItem.name} 0`) // Footer
     bot.chat(`/setblock ${bedPos2.toArray().join(' ')} ${bedItem.name} 8`) // Head
   } else {

@@ -1,5 +1,5 @@
 import assert from 'assert'
-import Vec3 from 'vec3'
+import { Vec3 } from 'vec3'
 import prismarineItem from 'prismarine-item'
 import type { TestFunction } from './plugins/testCommon.ts'
 
@@ -15,7 +15,7 @@ export default (): TestFunction => async (bot) => {
 
   const p = new Promise<void>((resolve) => {
     bot._client.once('open_sign_entity', (packet) => {
-      const sign = bot.blockAt(new Vec3(packet.location))!
+      const sign = bot.blockAt(new Vec3(packet.location.x, packet.location.y, packet.location.z))!
       bot.updateSign(sign, '1\n2\n3\n')
 
       setTimeout(() => {

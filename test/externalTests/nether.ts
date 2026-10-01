@@ -1,5 +1,5 @@
 import assert from 'assert'
-import Vec3 from 'vec3'
+import { Vec3 } from 'vec3'
 import { once, sleep, onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
 import type { TestFunction } from './plugins/testCommon.ts'
