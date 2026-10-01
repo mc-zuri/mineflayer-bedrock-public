@@ -186,9 +186,8 @@ function createBot (options: Partial<BotOptions> = {}): Bot {
   }
   function next () {
     const serverPingVersion = bot._client.version
-    // a pc version string: the pc registry
+    // a pc version string: the pc registry. A version without minecraft-data throws 'Do not have data for <version>'.
     bot.registry = prismarineRegistry(serverPingVersion) as RegistryPc
-    if (!bot.registry?.version) throw new Error(`Server version '${serverPingVersion}' is not supported, no data for version`)
 
     const versionData = bot.registry.version
     if (versionData['>'](latestSupportedVersion) && (versionData.version !== latestSupportedProtocolVersion)) {
