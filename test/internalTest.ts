@@ -2606,8 +2606,10 @@ for (const supportedVersion of mineflayer.testedVersions) {
               replies.length = 0
               bot._client.emit('position', { ...teleport, yaw: 30, teleportId: 1 })
               bot._client.emit('player_rotation', { yaw: 90, pitch: 0 })
-              await once(bot, 'forcedMove')
-              assert.deepStrictEqual(replies, [30], 'the teleport is answered with its own rotation')
+              // Snapshot inside the listener: a late physics timer runs catch-up ticks in the same
+              // macrotask, and the next tick's movement packet would land before an awaited once()
+              const answered = new Promise<number[]>(resolve => bot.once('forcedMove', () => resolve(replies.slice())))
+              assert.deepStrictEqual(await answered, [30], 'the teleport is answered with its own rotation')
               assert.strictEqual(bot.entity.yaw, conversionsModule.fromNotchianYaw(90), 'the later rotation wins')
             } finally {
               bot._client.write = write
