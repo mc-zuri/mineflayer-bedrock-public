@@ -9,9 +9,6 @@ import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 // The inventory helpers' less travelled paths: full inventories, equipment slots, tossing, entity interaction.
 export default (): Record<string, TestFunction> => {
   const make = async (bot: TestBot) => {
-    // The reset before each test clears the inventory with /clear, whose slot updates reach the client at the
-    // end of the server tick, after the command feedback: a creative slot set before then reads as rejected.
-    await bot.waitForTicks(2)
     const Item = prismarineItem(bot.registry)
     const item = (name: string, count = 1) => new Item(bot.registry.itemsByName[name]!.id, count, 0)
     const count = (name: string) => bot.inventory.count(bot.registry.itemsByName[name]!.id, null)
@@ -210,11 +207,8 @@ export default (): Record<string, TestFunction> => {
       assert.strictEqual(bot.inventory.slots[diamondSlot]?.count, 6)
     }
   }
-  // Clicks resolve without a server answer on 1.17+ and 1.21.9+ servers do not order them behind commands:
-  // let them land before the next reset clears the inventory, or their full resyncs land in the next test.
   return Object.fromEntries(Object.entries(tests).map(([name, test]) => [name, async (bot: TestBot, done: Mocha.Done) => {
     await test(bot, done)
-    await bot.waitForTicks(4)
     bot.setQuickBarSlot(0) // the hotbar selection survives the reset between tests, and later tests hold their items in slot 0
   }]))
 }

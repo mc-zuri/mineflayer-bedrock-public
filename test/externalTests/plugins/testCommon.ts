@@ -3,7 +3,7 @@ import { spawn } from 'child_process'
 import { once } from '../../../lib/promise_utils.ts'
 import process from 'process'
 import assert from 'assert'
-import { sleep, onceWithCleanup } from '../../../lib/promise_utils.ts'
+import { sleep, onceWithCleanup, withTimeout } from '../../../lib/promise_utils.ts'
 import * as trace from '../../common/trace.ts'
 import type { Item } from 'prismarine-item'
 import type { Entity } from 'prismarine-entity'
@@ -236,9 +236,33 @@ function inject (bot: TestBot, wrap: WrapServer): void {
     // Clear after the fills: they destroy the previous test's containers,
     // and those deferred closes return items into the inventory — the clear's
     // give-retry converges over those late returns.
-    if (bot.inventory.slots.some((slot) => slot != null) || bot.inventory.selectedItem) {
-      await clearInventory()
+    // a late click of the previous test can refill the inventory after the clear: clear again
+    for (let attempt = 0; ; attempt++) {
+      if (bot.inventory.slots.some((slot) => slot != null) || bot.inventory.selectedItem) {
+        await clearInventory()
+      }
+      const left = await settleInventory()
+      if (left.length === 0) break
+      if (attempt === 2) throw new Error(`the inventory is not empty after the reset (${left.join(', ')})`)
     }
+  }
+
+  // Bring the model to a state that no late slot update will change in the next test (where it
+  // would read as a rejected creative slot set or a received item), and return what is left in it:
+  // - 1.17.1+ clicks are not confirmed and 1.21.9+ servers do not order them behind commands, so the
+  //   previous test's last clicks can be processed after the reset's /clear and their resync arrive
+  //   later still. A round trip (a stale click, answered with the whole window) is processed after
+  //   them and brings the model up to date with everything sent before it.
+  // - /clear's slot changes go out at the end of the server tick, after its feedback: wait for them.
+  async function settleInventory () {
+    await withTimeout(bot._syncWindow(bot.currentWindow ?? bot.inventory), timeout)
+      .catch(() => { throw new Error('the server did not answer the inventory round trip') })
+    const filled = () => bot.inventory.slots.filter((slot) => slot != null).map((slot) => `${slot!.slot}: ${slot!.name}`)
+    while (filled().length > 0) {
+      const changed = await onceWithCleanup(bot.inventory, 'updateSlot', { timeout: 2000 }).then(() => true, () => false)
+      if (!changed) break
+    }
+    return filled()
   }
 
   async function becomeCreative () {
