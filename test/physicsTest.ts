@@ -7,6 +7,7 @@ import prismarineBlock from 'prismarine-block'
 import { Vec3 } from 'vec3'
 import entitiesPlugin from '../lib/plugins/entities.ts'
 import physicsPlugin from '../lib/plugins/physics.ts'
+import abilitiesPlugin from '../lib/plugins/abilities.ts'
 import type { Block } from 'prismarine-block'
 import type { BotInternal } from '../lib/types/internal.ts'
 import type { BotOptions } from '../lib/types/mineflayer.ts'
@@ -52,6 +53,7 @@ function createFakeBot (version: string, options: Partial<BotOptions> = {}): Fak
     return block
   }
   entitiesPlugin(bot)
+  abilitiesPlugin(bot)
   physicsPlugin(bot, options as BotOptions)
   client.emit('login', { entityId: 1 })
   bot.emit('login')
@@ -120,6 +122,46 @@ describe('physics plugin', function () {
         const fastSpeed = await walkingSpeed(fast)
         end(fast)
         assert.ok(Math.abs(fastSpeed / speed - 1.4) < 0.01, `walked ${fastSpeed} with Speed II, ${speed} without`)
+      })
+    }
+  })
+
+  it('a changed bot.physics.gravity wins over the gravity attribute (creative.startFlying, 1.21.11)', async () => {
+    const bot = createFakeBot('1.21.11')
+    // 1.21.11's mapper and registry agree on gravity (id 14)
+    bot._client.emit('entity_update_attributes', { entityId: 1, properties: [{ key: 'generic.gravity', value: 0.08, modifiers: [] }] } as any)
+    bot.physics.gravity = 0
+    teleport(bot, new Vec3(0.5, GROUND + 6, 0.5))
+    await ticks(bot, 10)
+    end(bot)
+    assert.strictEqual(bot.entity.position.y, GROUND + 6)
+  })
+
+  describe('flying (abilities)', () => {
+    for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
+      it(`hovers while the server says it flies (${version})`, async () => {
+        const bot = createFakeBot(version)
+        teleport(bot, new Vec3(0.5, GROUND + 6, 0.5))
+        bot._client.emit('abilities', { flags: 2 | 4, flyingSpeed: 0.05, walkingSpeed: 0.1 } as any)
+        await ticks(bot, 20)
+        end(bot)
+        assert.strictEqual(bot.entity.position.y, GROUND + 6)
+        assert.strictEqual(bot.entity.flying, true)
+      })
+
+      it(`landing ends the flight and tells the server (${version})`, async () => {
+        const bot = createFakeBot(version)
+        teleport(bot, new Vec3(0.5, GROUND + 0.5, 0.5))
+        bot._client.emit('abilities', { flags: 2 | 4, flyingSpeed: 0.05, walkingSpeed: 0.1 } as any)
+        bot.setControlState('sneak', true) // flies down
+        await ticks(bot, 20)
+        end(bot)
+        assert.strictEqual(bot.entity.position.y, GROUND)
+        assert.strictEqual(bot.entity.flying, false)
+        assert.strictEqual(bot.abilities.flying, false)
+        const sent = bot.writes.filter(w => w.name === 'abilities').map(w => w.params)
+        const expected = version === '1.12.2' ? { flags: 4, flyingSpeed: 0.05, walkingSpeed: 0.1 } : { flags: 0 }
+        assert.deepStrictEqual(sent, [expected])
       })
     }
   })

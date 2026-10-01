@@ -104,7 +104,24 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     if (bot.physicsEnabled && shouldUsePhysics) {
       const state = new PlayerState(bot, controlState)
       state.attributes = engineAttributes(bot.entity.attributes)
+      // A changed bot.physics.gravity (creative.startFlying sets 0) wins over the gravity attribute (1.20.5+)
+      if (state.attributes && physics.gravity !== DEFAULT_GRAVITY) delete state.attributes[gravityResource]
+      // The abilities the server granted (abilities packet): flying holds the bot up, landing ends it
+      state.flying = !!bot.entity.flying
+      state.mayFly = bot.abilities.mayFly
+      state.flySpeed = bot.abilities.flyingSpeed
+      state.gameMode = bot.game.gameMode
+      // A bot never double-taps forward or jump: it sprints with the sprint control, and flies when the
+      // server (or creative.startFlying) says so
+      state.sprintTriggerTime = 0
+      state.jumpTriggerTime = 0
       physics.simulatePlayer(state, world).apply(bot)
+      if (state.flying !== !!bot.entity.flying) {
+        // the client ended (or started) the flight itself: it tells the server, like vanilla's onUpdateAbilities
+        bot.entity.flying = state.flying
+        bot.abilities.flying = state.flying
+        sendAbilities()
+      }
       bot.emit('physicsTick')
       bot.emit('physicTick') // Deprecated, only exists to support old plugins. May be removed in the future
     }
@@ -237,6 +254,19 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
   }
 
   bot.physics = physics
+  const DEFAULT_GRAVITY = physics.gravity
+  const gravityResource = bot.registry.attributesArray.find(attribute => attribute.name === 'gravity')?.resource ?? ''
+
+  // ServerboundPlayerAbilitiesPacket: since 1.16 only the flying bit, before every ability and both speeds
+  function sendAbilities () {
+    const abilities = bot.abilities
+    if (bot.registry.version['>=']('1.16')) {
+      bot._client.write('abilities', { flags: abilities.flying ? 2 : 0 })
+    } else {
+      const flags = (abilities.invulnerable ? 1 : 0) | (abilities.flying ? 2 : 0) | (abilities.mayFly ? 4 : 0) | (abilities.instantBuild ? 8 : 0)
+      bot._client.write('abilities', { flags, flyingSpeed: abilities.flyingSpeed, walkingSpeed: abilities.walkingSpeed })
+    }
+  }
 
   // The engine reads the attributes by minecraft-data's resource names. Before 1.20.5 the packet names the
   // attribute, with or without the minecraft: namespace; since, it carries the registry id, which

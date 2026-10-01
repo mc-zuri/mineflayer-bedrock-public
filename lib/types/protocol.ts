@@ -689,6 +689,12 @@ export interface ClientboundPackets {
 }
 
 export interface ServerboundPackets {
+  /** the client started or stopped flying: since 1.16 only the flying bit (2), before every flag and both speeds */
+  abilities: {
+    flags: number
+    flyingSpeed?: number // before 1.16
+    walkingSpeed?: number // before 1.16
+  }
   /** 1.8 – 26.2 (26.3+: punch) */
   arm_animation: {
     hand?: number // 1.9+
