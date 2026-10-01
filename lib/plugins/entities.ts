@@ -1050,11 +1050,7 @@ function parseMetadata (metadata: EntityMetadataEntry[] | undefined, entityMetad
   return entityMetadata
 }
 
-function extractSkinInformation (properties: GameProfileProperty[] | undefined): SkinData | undefined {
-  if (!properties) {
-    return undefined
-  }
-
+function extractSkinInformation (properties: GameProfileProperty[]): SkinData | undefined {
   const props = Object.fromEntries(properties.map((e) => [e.name, e]))
   if (!props['textures'] || !props['textures'].value) {
     return undefined
