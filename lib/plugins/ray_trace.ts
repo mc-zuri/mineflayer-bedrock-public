@@ -66,7 +66,8 @@ export default (bot: BotInternal): void => {
     if (!entity.position || !entity.height || entity.pitch == null || entity.yaw == null) return null
     const { position, height, pitch, yaw } = entity
 
-    const eyePosition = position.offset(0, height, 0)
+    // vanilla casts from the eyes; only players have an eyeHeight, the other entities keep the top of their box
+    const eyePosition = position.offset(0, entity.eyeHeight ?? height, 0)
     const viewDirection = getViewDirection(pitch, yaw)
 
     return bot.world.raycast(eyePosition, viewDirection, maxDistance, matcher)
