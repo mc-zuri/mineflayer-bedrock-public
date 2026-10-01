@@ -3,7 +3,7 @@
 import assert from 'assert'
 import { Vec3 } from 'vec3'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
-import type { TestFunction } from './plugins/testCommon.ts'
+import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 
 const TNT_POWER = 4
 
@@ -11,6 +11,10 @@ export default (): TestFunction => async (bot) => {
   const ground = bot.test.groundY
   await bot.test.becomeSurvival()
   bot.creative.stopFlying()
+  // on normal the difficulty leaves the damage as it is (1.19.3 does not scale explosions on easy; the scaling
+  // itself is checked by test/coreTest.ts). Servers tell the clients a new difficulty since 1.14.
+  const difficulty = bot.game.difficulty
+  if (bot.registry.version['>=']('1.14')) await setDifficulty(bot, 'normal')
   try {
     // a player who just joined is invulnerable for 60 ticks (ServerPlayer.spawnInvulnerableTime)
     await bot.waitForTicks(60)
@@ -54,6 +58,14 @@ export default (): TestFunction => async (bot) => {
     bot.off('forcedMove', onCorrection)
     assert.strictEqual(corrections, 0, 'the server pulled the bot back')
   } finally {
+    await setDifficulty(bot, difficulty)
     await bot.test.becomeCreative()
   }
+}
+
+async function setDifficulty (bot: TestBot, difficulty: string) {
+  if (bot.game.difficulty === difficulty) return
+  const set = onceWithCleanup(bot._client, 'difficulty', { timeout: 5000 })
+  bot.chat(`/difficulty ${difficulty}`)
+  await set
 }
