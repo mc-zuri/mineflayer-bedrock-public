@@ -362,6 +362,23 @@ describe('core', () => {
       assert.strictEqual(bot.getExplosionDamages(target(), source, 4), null)
       assert.strictEqual(typeof bot.getExplosionDamages(target(), source, 4, true), 'number')
     })
+
+    it('samples the bounding box of the target entity', () => {
+      const bot = explosionBot('1.20.6')
+      const chicken = { position: new Vec3(0, 0, 0), type: 'animal', width: 0.4, height: 0.7 }
+      const exposed = bot.getExplosionDamages(chicken, source, 4, true)
+      // a ceiling at y = 1: covers nothing of a 0.7 high chicken (but half of a 1.8 high player)
+      bot.world = { raycast: (from: Vec3, dir: Vec3, range: number) => from.plus(dir.scaled(range)).y >= 1 ? {} : null }
+      assert.strictEqual(bot.getExplosionDamages(chicken, source, 4, true), exposed)
+      // vanilla ServerExplosion.getSeenPercent: points at fractions 0, 1/2.2, 2/2.2 of the width
+      // (+ the centring offset on x and z) and 0, 1/4.6 ... 4/4.6 of the height
+      const samples: Vec3[] = []
+      bot.world = { raycast: (from: Vec3, dir: Vec3, range: number) => { samples.push(from.plus(dir.scaled(range))); return null } }
+      bot.getExplosionDamages({ position: new Vec3(0, 0, 0), type: 'player', width: 0.6, height: 1.8 }, source, 4, true)
+      assert.strictEqual(samples.length, 3 * 5 * 3)
+      assert.ok(Math.abs(Math.min(...samples.map(p => p.y))) < 1e-9)
+      assert.ok(Math.abs(Math.max(...samples.map(p => p.y)) - 4 / 4.6 * 1.8) < 1e-9)
+    })
   })
 
   describe('time', () => {
