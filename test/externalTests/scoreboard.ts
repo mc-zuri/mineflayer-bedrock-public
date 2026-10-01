@@ -65,7 +65,8 @@ export default (): TestFunction => async (bot) => {
   assert.strictEqual(bot.scoreboard.sidebar, sbB)
 
   // --- scores, in vanilla sidebar order (highest first)
-  const scored = waitFor('scoreUpdated', (sb, item) => sb === sbA && item.name === 'carl')
+  // some servers (1.16) first send a new player's score as 0, then the value set
+  const scored = waitFor('scoreUpdated', (sb, item) => sb === sbA && item.name === 'carl' && item.value === 1)
   bot.chat('/scoreboard players set alice sbA 5')
   bot.chat('/scoreboard players set bob sbA 10')
   bot.chat('/scoreboard players set carl sbA 1')
