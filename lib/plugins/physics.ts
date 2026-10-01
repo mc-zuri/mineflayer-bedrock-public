@@ -615,6 +615,12 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
       }
       sentInput = Object.values(inputs).join()
       bot._client.write('player_input', { inputs })
+      if (!bot.supportFeature('entityActionUsesStringMapper')) {
+        // before 1.21.6 the server takes the sneak key from the sneak actions: pressed now, released by the
+        // first tick off the vehicle
+        bot._client.write('entity_action', { entityId: bot.entity.id, actionId: 0, jumpBoost: 0 })
+        sentSneaking = true
+      }
     } else {
       bot._client.write('steer_vehicle', {
         sideways: 0.0,

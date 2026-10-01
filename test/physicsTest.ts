@@ -387,6 +387,9 @@ describe('physics plugin', function () {
         if (bot.supportFeature('newPlayerInputPacket')) {
           const none = { forward: false, backward: false, left: false, right: false, jump: false, shift: false, sprint: false }
           assert.deepStrictEqual(bot.writes.filter(w => w.name === 'player_input').map(w => w.params.inputs), [{ ...none, shift: true }, none])
+          // before 1.21.6 the server reads the sneak key from the sneak actions
+          const sneakActions = bot.writes.filter(w => w.name === 'entity_action').map(w => w.params.actionId)
+          assert.deepStrictEqual(sneakActions, bot.supportFeature('entityActionUsesStringMapper') ? [] : [0])
         } else {
           assert.deepStrictEqual(bot.writes[0], { name: 'steer_vehicle', params: { sideways: 0, forward: 0, jump: 2 } })
         }
