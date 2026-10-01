@@ -552,12 +552,10 @@ function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): 
   let dimension: unknown
   let worldName: string | undefined
   function dimensionToFolderName (dimension: unknown): string | undefined {
-    if (bot.supportFeature('dimensionIsAnInt')) {
+    if (bot.supportFeature('dimensionIsAnInt')) { // 1.8 – 1.15.2
       return dimensionNames[dimension as number]
-    } else if (bot.supportFeature('dimensionIsAString') || bot.supportFeature('dimensionIsAWorld')) {
-      return worldName
     }
-    return undefined
+    return worldName // dimensionIsAString (1.16 – 1.16.1) or dimensionIsAWorld (1.16.2+)
   }
   // only exposed for testing
   bot._getDimensionName = () => worldName

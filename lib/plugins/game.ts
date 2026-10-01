@@ -69,7 +69,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
       bot.game.dimension = dimensionNames[packet.dimension]!
     } else if (bot.supportFeature('dimensionIsAString')) {
       bot.game.dimension = packet.dimension.replace('minecraft:', '')
-    } else if (bot.supportFeature('dimensionIsAWorld')) {
+    } else { // dimensionIsAWorld, 1.16.2+
       if (bot.supportFeature('dimensionDataInCodec')) {
         // For 1.19+, we need the dimension TYPE name (not the world/level name) so
         // the codec lookup succeeds. In login packets the type is "worldType"; in
@@ -82,8 +82,6 @@ function inject (bot: BotInternal, options: BotOptions): void {
       } else {
         bot.game.dimension = packet.worldName!.replace('minecraft:', '')
       }
-    } else {
-      throw new Error('Unsupported dimension type in login packet')
     }
 
     if (packet.dimensionCodec) {
