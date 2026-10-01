@@ -49,6 +49,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | --- | --- |
 | `7fb3ea17` | combine checked the xp level against the wrong cost |
 | `2dc49508` | rename in creative waited for an experience event that never comes |
+| `ae1a584e` | names of 36 - 50 characters were rejected on 1.17+ (#3945) |
 
 ### bed
 
@@ -56,6 +57,8 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | --- | --- |
 | `da22f5bf` | sleep threw a TypeError when a bed neighbour was not loaded |
 | `80f3232a` | sleep did not see monsters nearby on 1.17 and 1.18 |
+| `42199923` | a failed bot.sleep() leaked a 'sleep' listener per call (#3349) |
+| `66288b19` | sleep() reach and monster checks did not match vanilla's ranges (#2615) |
 
 ### blocks
 
@@ -84,6 +87,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | --- | --- |
 | `05c04ed4` | tabComplete sent no transaction id on 1.13+ and no looked-at block on 1.8 |
 | `1f7b2f7a` | an unfinished pattern set stopped the other chat patterns from matching the message |
+| `33fcc075` | the leading dot of Geyser / Floodgate usernames was dropped (#3582) |
 
 ### craft
 
@@ -105,6 +109,9 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `44397b6c` | a dig overlapping the previous one's finish started with face null |
 | `f608485c` | stopDigging sent the dig's face instead of 0 (down) |
 | `844f9fd0` | a dig that interrupted another started with face null |
+| `2113a64f` | digTime threw or ignored Efficiency / Aqua Affinity on 1.20.5+ (#3589) |
+| `7a204442` | an instant break sent a finish action after the start (#2208) |
+| `493a2f12` | the dig time was computed before the bot looked at the block (#3910) |
 
 ### enchantment_table
 
@@ -128,6 +135,8 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `afd66c72` | apply the 1.21.3+ entity_teleport rotate-delta flag |
 | `4e169b3f` | bot.vehicle was undefined until the first mount/dismount |
 | `bfd58481` | damage_event for an unknown entity emitted entityHurt(undefined) |
+| `086ea9ea` | any entity's air_supply metadata set bot.oxygenLevel (#3985) |
+| `8732d4b7` | a new login cleared entities and players without entityGone / playerLeft (#3432) |
 
 ### esm
 
@@ -140,6 +149,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | commit | bug |
 | --- | --- |
 | `c503d8ff` | getExplosionDamages armor attribute lookup |
+| `74346f1e` | getExplosionDamages sampled a player's box for every entity (#4132) |
 
 ### fishing
 
@@ -158,6 +168,12 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `a6027b22` | a peaceful difficulty in login / respawn was ignored (1.8 - 1.13) |
 | `75608781` | a registry_data entry without a value crashed the registry load |
 | `f9f6cee7` | a 1.20.5+ dimension id missing from the registry left bot.game.dimension undefined |
+
+### health
+
+| commit | bug |
+| --- | --- |
+| `71fbc3e1` | every respawn packet marked the bot dead until the next update_health (#3905) |
 
 ### inventory
 
@@ -179,6 +195,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | commit | bug |
 | --- | --- |
 | `3bf5aef1` | an outdated minecraft-data crashed before the 'is it up to date?' error |
+| `63edc49c` | an unsupported server version found by the ping threw an uncaught error (#4038) |
 
 ### physics
 
@@ -247,6 +264,7 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | --- | --- |
 | `b364fda0` | 1.11 - 1.16 title actions |
 | `655bf01d` | styled titles on 1.20.3+ emitted the NBT value |
+| `85b2dfcb` | actionBar never fired for action bar text sent by /title (#3595) |
 
 ### villager
 
