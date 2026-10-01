@@ -15,16 +15,21 @@ function inject (bot: BotInternal): void {
   }
 
   let fishingTask = createDoneTask()
-  let lastBobber: Entity | null | undefined = null
+  // The bobber's entity id. The entity is looked up when needed: this spawn_entity listener can run
+  // before the entities plugin's one, which creates it (when that plugin is replaced through options.plugins
+  // or loaded later, it is injected after this one).
+  let lastBobberId: number | null | undefined = null
 
   bot._client.on('spawn_entity', (packet) => {
-    if (packet.type === bobberId && !fishingTask.done && !lastBobber) {
-      lastBobber = bot.entities[packet.entityId]
+    if (packet.type === bobberId && !fishingTask.done && lastBobberId == null) {
+      lastBobberId = packet.entityId
     }
   })
 
   bot._client.on('world_particles', (packet) => {
-    if (!lastBobber || fishingTask.done) return
+    if (lastBobberId == null || fishingTask.done) return
+    const lastBobber: Entity | undefined = bot.entities[lastBobberId]
+    if (!lastBobber) return
 
     const pos = lastBobber.position
 
@@ -35,14 +40,14 @@ function inject (bot: BotInternal): void {
 
     if (bobberCondition) {
       bot.activateItem()
-      lastBobber = undefined
+      lastBobberId = undefined
       fishingTask.finish()
     }
   })
   bot._client.on('entity_destroy', (packet) => {
-    if (!lastBobber) return
-    if (packet.entityIds.some(id => id === lastBobber!.id)) {
-      lastBobber = undefined
+    if (lastBobberId == null) return
+    if (packet.entityIds.some(id => id === lastBobberId)) {
+      lastBobberId = undefined
       fishingTask.cancel(new Error('Fishing cancelled'))
     }
   })

@@ -6,6 +6,7 @@ import prismarineRegistry from 'prismarine-registry'
 import { Vec3 } from 'vec3'
 import * as conv from '../lib/conversions.ts'
 import entitiesPlugin from '../lib/plugins/entities.ts'
+import fishingPlugin from '../lib/plugins/fishing.ts'
 import rayTracePlugin from '../lib/plugins/ray_trace.ts'
 import bedPlugin from '../lib/plugins/bed.ts'
 import creativePlugin from '../lib/plugins/creative.ts'
@@ -248,6 +249,36 @@ describe('ray_trace plugin', () => {
     assert.strictEqual(casts.length, 1)
     assert.deepStrictEqual(casts[0][0], new Vec3(0, 65.8, 0))
     assert.deepStrictEqual(casts[0][1].toArray().map((v: number) => Math.round(v * 1e6) / 1e6 + 0), [0, 0, -1])
+  })
+})
+
+describe('fishing plugin', () => {
+  it('finds its bobber when the entities plugin is injected after it', async () => {
+    // e.g. options.plugins: { entities: customEntities } loads the replacement after the internal plugins
+    const registry = prismarineRegistry('1.20.4')
+    const bot: any = new EventEmitter()
+    bot.version = '1.20.4'
+    bot.registry = registry
+    bot.supportFeature = registry.supportFeature.bind(registry)
+    bot.getControlState = () => false
+    const client: any = new EventEmitter()
+    client.username = 'bot'
+    client.write = () => {}
+    bot._client = client
+    let activations = 0
+    bot.activateItem = () => { activations++ }
+    fishingPlugin(bot)
+    entitiesPlugin(bot)
+    client.emit('login', { entityId: 1 })
+
+    const fishing = bot.fish()
+    assert.strictEqual(activations, 1) // cast
+    const type = registry.entitiesByName.fishing_bobber.id
+    client.emit('spawn_entity', { entityId: 50, objectUUID: '00000000-0000-0000-0000-000000000050', type, x: 10, y: 62, z: 10, pitch: 0, yaw: 0, headPitch: 0, objectData: 1 })
+    // a bite: 6 fishing particles next to the bobber
+    client.emit('world_particles', { particleId: registry.particlesByName.fishing.id, particles: 6, x: 10.2, y: 62, z: 10.1 })
+    await fishing
+    assert.strictEqual(activations, 2) // reeled in
   })
 })
 
