@@ -71,7 +71,7 @@ function inject (bot: BotInternal): void {
     } else {
       bot._client.write('entity_action', {
         entityId: bot.entity.id,
-        actionId: 2,
+        actionId: bot.supportFeature('entityActionUsesStringMapper') ? 'leave_bed' : 2,
         jumpBoost: 0
       })
     }
