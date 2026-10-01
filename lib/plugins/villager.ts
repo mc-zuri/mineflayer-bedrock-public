@@ -3,7 +3,7 @@ import { once } from '../promise_utils.ts'
 import prismarineItem from 'prismarine-item'
 import type { Entity } from 'prismarine-entity'
 import type { Window } from 'prismarine-windows'
-import type { ConditionalStorageEvents, TransferOptions, Villager, VillagerTrade } from '../types/mineflayer.ts'
+import type { BotOptions, ConditionalStorageEvents, TransferOptions, Villager, VillagerTrade } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ChannelName, ClientboundPackets } from '../types/protocol.ts'
 import type { ItemClass } from '../types/vendor/prismarine-item.ts'
@@ -19,7 +19,7 @@ type OpeningVillager = Window<ConditionalStorageEvents> & Partial<Pick<Villager,
 
 export default inject
 
-function inject (bot: BotInternal): void {
+function inject (bot: BotInternal, _options: BotOptions): void {
   const { entitiesByName } = bot.registry
   const Item = prismarineItem(bot.registry) as ItemClass
 

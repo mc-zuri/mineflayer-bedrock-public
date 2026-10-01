@@ -1,11 +1,11 @@
 import bossbarModule from '../bossbar.ts'
-import type { BossBar as BossBarInstance } from '../types/mineflayer.ts'
+import type { BossBar as BossBarInstance, BotOptions } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ClientboundPackets, TextComponent } from '../types/protocol.ts'
 
 export default inject
 
-function inject (bot: BotInternal): void {
+function inject (bot: BotInternal, _options: BotOptions): void {
   const BossBar = bossbarModule(bot.registry)
   const bars: { [uuid: string]: BossBarInstance } = {}
 

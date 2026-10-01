@@ -9,7 +9,7 @@ import type { Block } from 'prismarine-block'
 import type { Entity } from 'prismarine-entity'
 import type { Item as PrismarineItem } from 'prismarine-item'
 import type { Click, Window } from 'prismarine-windows'
-import type { StorageEvents, TransferOptions, VillagerTrade } from '../types/mineflayer.ts'
+import type { BotOptions, StorageEvents, TransferOptions, VillagerTrade } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ClientboundPackets, ServerboundPackets } from '../types/protocol.ts'
 import type { ItemClass } from '../types/vendor/prismarine-item.ts'
@@ -53,7 +53,7 @@ type OpenedWindow = Window<StorageEvents> & WindowMethods
 type MerchantWindow = Window & { selectedTrade?: VillagerTrade | null }
 type TradingWindow = Window & { selectedTrade: VillagerTrade }
 
-function inject (bot: BotInternal): void {
+function inject (bot: BotInternal, _options: BotOptions): void {
   const Item = prismarineItem(bot.registry) as ItemClass
   const windows = prismarineWindows(bot.version)
   const ChatMessage = (prismarineChat as unknown as ChatLoader)(bot.registry)
