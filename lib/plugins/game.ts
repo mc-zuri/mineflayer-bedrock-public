@@ -1,6 +1,7 @@
 import nbt from 'prismarine-nbt'
 import type { BotOptions, Difficulty, GameMode, GameState, LevelType } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
+import type { ClientboundPackets } from '../types/protocol.ts'
 
 export default inject
 
@@ -19,6 +20,9 @@ interface SpawnData {
   dimensionCodec?: any
   difficulty?: number
 }
+
+/** a 1.20.5+ registry_data packet's entries (also minecraft-data's static registries) */
+interface RegistryEntries { entries: NonNullable<ClientboundPackets['registry_data']['entries']> }
 
 const difficultyNames: Difficulty[] = ['peaceful', 'easy', 'normal', 'hard']
 const gameModes: GameMode[] = ['survival', 'creative', 'adventure', 'spectator']
@@ -113,6 +117,20 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
   // 1.20.2
   bot._client.on('registry_data', (packet) => {
+    // 1.20.5+: an entry without a value comes from a known pack. minecraft-protocol
+    // declares none, so a vanilla server always sends values, but others may not.
+    // Like the vanilla client with its built-in pack, take the vanilla value (from
+    // minecraft-data), else an empty one: prismarine-registry throws on a missing value.
+    if (packet.entries?.some(entry => entry.value === undefined)) {
+      const codec = bot.registry.loginPacket?.dimensionCodec as Record<string, RegistryEntries | undefined> | undefined
+      const known = codec?.[packet.id!]?.entries
+      packet = {
+        ...packet,
+        entries: packet.entries.map(entry => entry.value !== undefined
+          ? entry
+          : { key: entry.key, value: known?.find(e => e.key === entry.key)?.value ?? nbt.comp({}) })
+      }
+    }
     bot.registry.loadDimensionCodec(packet.codec || packet)
   })
 

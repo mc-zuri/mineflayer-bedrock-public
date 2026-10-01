@@ -205,6 +205,24 @@ describe('core', () => {
       }
     })
 
+    it('a registry_data entry without a value takes the vanilla value (1.20.5+ known packs)', () => {
+      for (const version of ['1.21.4', '26.1']) {
+        const bot = fakeBot(version)
+        gamePlugin(bot, { brand: 'vanilla' } as any)
+        bot._client.emit('registry_data', {
+          id: 'minecraft:dimension_type',
+          entries: [
+            { key: 'minecraft:overworld' },
+            { key: 'minecraft:the_nether', value: nbt.comp({ min_y: nbt.int(0), height: nbt.int(128) }) },
+            { key: 'example:unknown' }
+          ]
+        })
+        assert.deepStrictEqual([bot.registry.dimensionsById[0].minY, bot.registry.dimensionsById[0].height], [-64, 384], version)
+        assert.strictEqual(bot.registry.dimensionsById[1].height, 128, version)
+        assert.strictEqual(bot.registry.dimensionsById[2].name, 'example:unknown', version)
+      }
+    })
+
     it('reads the difficulty packet of each version', () => {
       for (const [version, difficulty] of [['1.20.4', 3], ['1.21.6', 'hard']]) {
         const bot = fakeBot(version as string)
