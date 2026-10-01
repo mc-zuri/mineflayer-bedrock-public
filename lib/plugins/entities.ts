@@ -1,5 +1,6 @@
 import { Vec3 } from 'vec3'
 import * as conv from '../conversions.ts'
+import * as math from '../math.ts'
 import mojangson from 'mojangson'
 import prismarineEntity from 'prismarine-entity'
 import prismarineItem from 'prismarine-item'
@@ -373,9 +374,15 @@ function inject (bot: BotInternal): void {
       const pos = entity.position
       const vel = entity.velocity
       pos.set(flags.x ? pos.x + packet.x : packet.x, flags.y ? pos.y + packet.y : packet.y, flags.z ? pos.z + packet.z : packet.z)
+      const oldYaw = conv.toNotchianYaw(entity.yaw)
+      const oldPitch = conv.toNotchianPitch(entity.pitch)
+      const newYaw = (flags.yaw ? oldYaw : 0) + packet.yaw
+      const newPitch = math.clamp(-90, (flags.pitch ? oldPitch : 0) + packet.pitch, 90)
+      // yawDelta (rotate delta): the kept velocity turns with the rotation change
+      if (flags.yawDelta) math.rotateDeltaMovement(vel, oldPitch - newPitch, oldYaw - newYaw)
       vel.set(flags.dx ? vel.x + packet.dx! : packet.dx!, flags.dy ? vel.y + packet.dy! : packet.dy!, flags.dz ? vel.z + packet.dz! : packet.dz!)
-      entity.yaw = conv.fromNotchianYaw((flags.yaw ? conv.toNotchianYaw(entity.yaw) : 0) + packet.yaw)
-      entity.pitch = conv.fromNotchianPitch((flags.pitch ? conv.toNotchianPitch(entity.pitch) : 0) + packet.pitch)
+      entity.yaw = conv.fromNotchianYaw(newYaw)
+      entity.pitch = conv.fromNotchianPitch(newPitch)
       bot.emit('entityMoved', entity)
       return
     }

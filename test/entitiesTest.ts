@@ -173,6 +173,26 @@ describe('entities plugin', () => {
         assert.strictEqual(Math.round(entity.yaw * 1e9), Math.round(conv.fromNotchianYaw(100) * 1e9))
         assert.strictEqual(Math.round(entity.pitch * 1e9), Math.round(conv.fromNotchianPitch(25) * 1e9))
       })
+
+      it(`yawDelta turns the kept velocity with the rotation (${version})`, () => {
+        const bot = createFakeBot(version)
+        const round = (v: any) => v.toArray().map((n: number) => Math.round(n * 1e6) / 1e6 + 0)
+        const teleport = (fields: object) => bot._client.emit('entity_teleport', {
+          entityId: 5, x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: 0, yaw: 0, pitch: 0, flags: {}, onGround: true, ...fields
+        })
+        teleport({ dx: 1, dz: 0.5 }) // yaw 0, velocity (1, 0, 0.5)
+        const entity = bot.entities[5]
+        // vanilla: from yaw 0 to 90 turns the velocity by -90 degrees around y: (x, z) -> (-z, x); dz is then added
+        teleport({ yaw: 90, dz: 0.25, flags: { dx: true, dy: true, dz: true, yawDelta: true } })
+        assert.deepStrictEqual(round(entity.velocity), [-0.5, 0, 1.25])
+        assert.strictEqual(entity.yaw, conv.fromNotchianYaw(90))
+        // pitch from 0 to -90 (absolute) turns (0, 0, z) up into y: (y, z) -> (y cos 90 + z sin 90, ...)
+        teleport({ yaw: 90, pitch: -90, flags: { dx: true, dy: true, dz: true, yawDelta: true } })
+        assert.deepStrictEqual(round(entity.velocity), [-0.5, 1.25, 0])
+        // without the flag the velocity is kept as is
+        teleport({ yaw: 0, pitch: 0, flags: { dx: true, dy: true, dz: true } })
+        assert.deepStrictEqual(round(entity.velocity), [-0.5, 1.25, 0])
+      })
     }
   })
 
