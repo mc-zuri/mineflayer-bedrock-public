@@ -28,12 +28,24 @@ async function onTheGround (bot: TestBot) {
   return { corrections, done: () => bot.off('forcedMove', onCorrection) }
 }
 
-/** the horizontal speed over the next ticks */
+/** the horizontal speed over the next ticks (read in the ticks themselves: a catch-up tick may run before an
+ * await resumes) */
 async function speed (bot: TestBot, ticks = 10) {
-  const start = bot.entity.position.clone()
-  await bot.waitForTicks(ticks)
-  const end = bot.entity.position
-  return Math.hypot(end.x - start.x, end.z - start.z) / ticks
+  return await new Promise<number>(resolve => {
+    let start: Vec3 | null = null
+    let counted = 0
+    const onTick = () => {
+      if (start === null) {
+        start = bot.entity.position.clone()
+        return
+      }
+      if (++counted < ticks) return
+      bot.off('physicsTick', onTick)
+      const end = bot.entity.position
+      resolve(Math.hypot(end.x - start.x, end.z - start.z) / ticks)
+    }
+    bot.on('physicsTick', onTick)
+  })
 }
 
 /** the server's view of the bot's shared flags (it sends a player its own entity data) */

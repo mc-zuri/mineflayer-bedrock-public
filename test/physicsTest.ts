@@ -107,10 +107,21 @@ async function walkingSpeed (bot: FakeBot) {
   bot.entity.yaw = Math.PI // facing +z
   bot.setControlState('forward', true)
   await ticks(bot, 40)
-  const start = bot.entity.position.clone()
-  await ticks(bot, 1)
+  // one tick's move, read in the ticks themselves (a catch-up tick may run before an await resumes)
+  const moved = await new Promise<number>(resolve => {
+    let start: Vec3 | null = null
+    const onTick = () => {
+      if (start === null) {
+        start = bot.entity.position.clone()
+        return
+      }
+      bot.off('physicsTick', onTick)
+      resolve(bot.entity.position.distanceTo(start))
+    }
+    bot.on('physicsTick', onTick)
+  })
   bot.setControlState('forward', false)
-  return bot.entity.position.distanceTo(start)
+  return moved
 }
 
 describe('physics plugin', function () {
