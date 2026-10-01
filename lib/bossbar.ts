@@ -39,14 +39,7 @@ function loader (registry: Registry) {
       if (title && typeof title === 'object' && title.type === 'string' && 'value' in title) {
         this._title = title.value
       } else {
-        const chatMsg = ChatMessage.fromNotch(title)
-        if (chatMsg !== undefined && chatMsg !== null) {
-          this._title = chatMsg
-        } else if (typeof title === 'string') {
-          this._title = title
-        } else {
-          this._title = ''
-        }
+        this._title = ChatMessage.fromNotch(title)
       }
     }
 
