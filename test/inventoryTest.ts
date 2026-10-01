@@ -10,6 +10,7 @@ import simpleInventoryPlugin from '../lib/plugins/simple_inventory.ts'
 import villagerPlugin from '../lib/plugins/villager.ts'
 import craftPlugin from '../lib/plugins/craft.ts'
 import furnacePlugin from '../lib/plugins/furnace.ts'
+import enchantmentTablePlugin from '../lib/plugins/enchantment_table.ts'
 import { Vec3 } from 'vec3'
 
 interface Write { name: string, params: any }
@@ -290,5 +291,25 @@ describe('craft plugin', () => {
       assert.match(err.stack!, /clickShape|nextIngredientsClick/)
       return true
     })
+  })
+})
+
+describe('enchantment_table plugin', () => {
+  it('enchant with a choice the table does not have rejects with an assertion and sends nothing', async () => {
+    const bot = createFakeBot('1.20.4')
+    const table: any = new EventEmitter()
+    table.id = 1
+    table.type = 'minecraft:enchantment'
+    table.slots = []
+    bot.openBlock = async () => table
+    enchantmentTablePlugin(bot)
+    const opened = await bot.openEnchantmentTable({ name: 'enchanting_table' })
+    for (let property = 0; property < 3; property++) {
+      bot._client.emit('craft_progress_bar', { windowId: 1, property, value: 5 })
+    }
+    for (const choice of [3, -1, 'x']) {
+      await assert.rejects(opened.enchant(choice), assert.AssertionError, String(choice))
+    }
+    assert.deepStrictEqual(bot._client.writes.filter((w: Write) => w.name === 'enchant_item'), [])
   })
 })

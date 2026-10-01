@@ -79,7 +79,9 @@ function inject (bot: BotInternal): void {
     async function enchant (choice: string | number): Promise<Item | null> {
       if (!ready) await once(enchantmentTable, 'ready')
       choice = parseInt(choice as string, 10) // allow string argument
-      assert.notStrictEqual(enchantmentTable.enchantments[choice]!.level, -1)
+      const option = enchantmentTable.enchantments[choice]
+      assert.ok(option !== undefined, `the enchantment table has no choice ${choice}`)
+      assert.notStrictEqual(option.level, -1)
       bot._client.write('enchant_item', {
         windowId: enchantmentTable.id,
         enchantment: choice
