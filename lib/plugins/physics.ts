@@ -424,6 +424,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
   let ridden: Ridden | null = null
   // the keys moveVehicle holds: left 1 / -1 (right), forward 1 / -1 (back); 0 releases
   const steering = { left: 0, forward: 0 }
+  // dismount holds the sneak key until the server got the bot off (it reads the key on its own tick)
+  let dismounting = false
   const movementSpeedResource = physics.movementSpeedAttribute
   const jumpStrengthResource = bot.registry.attributesArray.find(attribute => attribute.name === 'jumpStrength' || attribute.name === 'horseJumpStrength')?.resource ?? ''
 
@@ -434,10 +436,12 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
         ridden = null
         steering.left = 0
         steering.forward = 0
+        dismounting = false
       }
       return
     }
     if (ridden?.entity === vehicle) return
+    dismounting = false
     const name = vehicleType(vehicle.name)
     const known = bot.registry.version['>=']('1.9') && (isBoat(name) || isMinecart(name) || name in MOUNT_DEFAULTS)
     ridden = { entity: vehicle, state: known ? vehicleState(vehicle) : null, driven: false, paddles: { left: false, right: false, up: false, down: false } }
@@ -500,6 +504,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
   function ridingControls (): ControlStateStatus {
     return {
       ...controlState,
+      sneak: controlState.sneak || dismounting,
       forward: controlState.forward || steering.forward > 0,
       back: controlState.back || steering.forward < 0,
       left: controlState.left || steering.left > 0,
@@ -600,21 +605,11 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
       bot.emit('error', new Error('dismount: not mounted'))
       return
     }
+    // the sneak key gets a passenger off: held from now until the bot is off (1.21.2+: player_input's shift,
+    // before steer_vehicle's flag)
+    dismounting = true
     if (bot.supportFeature('newPlayerInputPacket')) {
-      // the sneak key gets a passenger off (1.21.2+: player_input's shift), the other keys as they are; the
-      // next tick sends the keys again
-      const keys = ridingControls()
-      const inputs = {
-        forward: keys.forward,
-        backward: keys.back,
-        left: keys.left,
-        right: keys.right,
-        jump: keys.jump,
-        shift: true,
-        sprint: keys.sprint
-      }
-      sentInput = Object.values(inputs).join()
-      bot._client.write('player_input', { inputs })
+      sendInputState()
       if (!bot.supportFeature('entityActionUsesStringMapper')) {
         // before 1.21.6 the server takes the sneak key from the sneak actions: pressed now, released by the
         // first tick off the vehicle
