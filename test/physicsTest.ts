@@ -240,8 +240,9 @@ describe('physics plugin', function () {
           { ...none, forward: true },
           none
         ])
-        // the shift key is no entity_action any more
-        assert.ok(!bot.writes.some(w => w.name === 'entity_action' && (w.params.actionId === 0 || w.params.actionId === 1)))
+        // before 1.21.6 (which dropped the sneak actions) only start / stop sneaking make the player sneak
+        const sneakActions = bot.writes.filter(w => w.name === 'entity_action' && (w.params.actionId === 0 || w.params.actionId === 1)).map(w => w.params.actionId)
+        assert.deepStrictEqual(sneakActions, bot.supportFeature('entityActionUsesStringMapper') ? [] : [0, 1])
       })
     }
   })

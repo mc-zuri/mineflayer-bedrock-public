@@ -719,7 +719,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
   // What the server hears of the keys, sent each tick before the movement packet like vanilla's
   // LocalPlayer.sendPosition: 1.21.2+ the keys themselves (player_input) when one changed; the sprint
   // state when it changed (the sprint the engine decided: it needs forward, food, no blindness...);
-  // before player_input, the sneak key when it changed.
+  // before 1.21.6, the sneak key when it changed.
   const NO_INPUT = 'false,false,false,false,false,false,false'
   let sentInput = NO_INPUT
   let sentSprinting = false
@@ -755,7 +755,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }
         jumpBoost: 0
       })
     }
-    if (!bot.supportFeature('newPlayerInputPacket') && !ridden && controlState.sneak !== sentSneaking) {
+    // player_input's shift only makes the player sneak since 1.21.6, which dropped the sneak actions
+    if (!bot.supportFeature('entityActionUsesStringMapper') && !ridden && controlState.sneak !== sentSneaking) {
       sentSneaking = controlState.sneak
       bot._client.write('entity_action', {
         entityId: bot.entity.id,
