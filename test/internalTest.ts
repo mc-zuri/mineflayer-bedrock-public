@@ -1449,17 +1449,25 @@ for (const supportedVersion of mineflayer.testedVersions) {
         bot.once('entitySpawn', (entity) => {
           if (bot.version !== '1.17') {
             serverClient.write('entity_destroy', {
-              entityIds: [8]
+              entityIds: [56]
             })
           } else {
             serverClient.write('destroy_entity', {
-              entityIds: 8
+              entityIds: 56
             })
           }
         })
         bot.once('entityGone', (entity) => {
-          assert.strictEqual(bot.players[entity.username], undefined)
-          done()
+          // entityGone is emitted before the player's entity is cleared
+          setImmediate(() => {
+            try {
+              assert.strictEqual(entity.username, 'bot5')
+              assert.strictEqual(bot.players[entity.username].entity, null)
+              done()
+            } catch (err) {
+              done(err)
+            }
+          })
         })
         server.on('playerJoin', (client) => {
           serverClient = client
@@ -1476,18 +1484,13 @@ for (const supportedVersion of mineflayer.testedVersions) {
             })
           } else {
             client.write('player_info', {
-              id: 56,
-              state: 'play',
               action: 'add_player',
-              length: 1,
               data: [{
                 uuid: '1-2-3-4',
                 name: 'bot5',
-                propertiesLength: 0,
                 properties: [],
                 gamemode: 0,
-                ping: 0,
-                hasDisplayName: false
+                ping: 0
               }]
             })
           }
