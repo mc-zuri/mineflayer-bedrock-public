@@ -13,6 +13,8 @@ export default inject
 function inject (bot: BotInternal): void {
   const Item = prismarineItem(bot.registry)
 
+  // vanilla AnvilMenu.MAX_NAME_LENGTH (the server ignores a longer rename_item)
+  const maxNameLength = bot.supportFeature('anvilNameLengthIsFifty') ? 50 : 35
   const matchWindowType = (window: Window): boolean => /minecraft:(?:chipped_|damaged_)?anvil/.test(window.type as string)
 
   async function openAnvil (anvilBlock: Block): Promise<Anvil> {
@@ -49,7 +51,7 @@ function inject (bot: BotInternal): void {
     }
 
     async function combine (itemOne: ItemInstance, itemTwo: ItemInstance, name?: string): Promise<void> {
-      if (name?.length! > 35) err('Name is too long.')
+      if (name?.length! > maxNameLength) err('Name is too long.')
       if (bot.supportFeature('useMCItemName')) {
         bot._client.registerChannel('MC|ItemName', 'string')
       }
@@ -78,7 +80,7 @@ function inject (bot: BotInternal): void {
     }
 
     async function rename (item: ItemInstance, name?: string): Promise<void> {
-      if (name?.length! > 35) err('Name is too long.')
+      if (name?.length! > maxNameLength) err('Name is too long.')
       if (bot.supportFeature('useMCItemName')) {
         bot._client.registerChannel('MC|ItemName', 'string')
       }

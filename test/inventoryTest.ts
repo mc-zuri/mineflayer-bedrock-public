@@ -11,6 +11,7 @@ import villagerPlugin from '../lib/plugins/villager.ts'
 import craftPlugin from '../lib/plugins/craft.ts'
 import furnacePlugin from '../lib/plugins/furnace.ts'
 import enchantmentTablePlugin from '../lib/plugins/enchantment_table.ts'
+import anvilPlugin from '../lib/plugins/anvil.ts'
 import { Vec3 } from 'vec3'
 
 interface Write { name: string, params: any }
@@ -312,4 +313,31 @@ describe('enchantment_table plugin', () => {
     }
     assert.deepStrictEqual(bot._client.writes.filter((w: Write) => w.name === 'enchant_item'), [])
   })
+})
+
+describe('anvil plugin', () => {
+  // vanilla accepts names up to 35 characters before 1.17 and up to 50 since
+  for (const [version, max] of [['1.16.5', 35], ['1.17.1', 50], ['1.20.4', 50], ['1.21.11', 50]] as const) {
+    it(`rename and combine accept names up to ${max} characters (${version})`, async () => {
+      const bot = createFakeBot(version)
+      bot.game = { gameMode: 'creative' }
+      bot._client.registerChannel = () => {}
+      bot._client.writeChannel = () => {}
+      const window: any = new EventEmitter()
+      window.type = 'minecraft:anvil'
+      window.close = () => {}
+      bot.openBlock = async () => window
+      bot.transfer = async () => { throw new Error('reached transfer') } // past the checks
+      anvilPlugin(bot)
+      const anvil = await bot.openAnvil({})
+      const Item = prismarineItem(bot.registry)
+      const sword = new Item(bot.registry.itemsByName.diamond_sword.id, 1)
+      const sword2 = new Item(bot.registry.itemsByName.diamond_sword.id, 1)
+      sword2.durabilityUsed = 100
+      await assert.rejects(anvil.rename(sword, 'a'.repeat(max)), { message: 'reached transfer' })
+      await assert.rejects(anvil.rename(sword, 'a'.repeat(max + 1)), { message: 'Name is too long.' })
+      await assert.rejects(anvil.combine(sword, sword2, 'a'.repeat(max)), { message: 'reached transfer' })
+      await assert.rejects(anvil.combine(sword, sword2, 'a'.repeat(max + 1)), { message: 'Name is too long.' })
+    })
+  }
 })
