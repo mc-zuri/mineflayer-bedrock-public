@@ -136,6 +136,19 @@ describe('entities plugin', () => {
     }
   })
 
+  describe('bot.vehicle', () => {
+    it('is null before any riding packet and after a new login', () => {
+      const bot = createFakeBot('1.20.4')
+      assert.strictEqual(bot.vehicle, null)
+      bot._client.emit('entity_head_rotation', { entityId: 7, headYaw: 0 }) // makes entity 7 known
+      bot._client.emit('set_passengers', { entityId: 7, passengers: [1] })
+      assert.strictEqual(bot.vehicle, bot.entities[7])
+      // a new login (e.g. a proxy server switch) forgets every entity, the vehicle too
+      bot._client.emit('login', { entityId: 1 })
+      assert.strictEqual(bot.vehicle, null)
+    })
+  })
+
   describe('entity velocity units', () => {
     // vec3i16 in 1/8000 block per tick before 1.21.9, lpVec3 in blocks per tick after
     for (const [version, wire] of [['1.20.4', { x: 4000, y: 3360, z: -800 }], ['1.21.11', { x: 0.5, y: 0.42, z: -0.1 }]] as const) {

@@ -96,6 +96,7 @@ function inject (bot: BotInternal): void {
   bot.players = {}
   bot.uuidToUsername = {}
   bot.entities = {}
+  bot.vehicle = null
 
   bot._playerFromUUID = (uuid) => Object.values(bot.players).find(player => player.uuid === uuid)
 
@@ -123,6 +124,7 @@ function inject (bot: BotInternal): void {
     bot.players = {}
     bot.uuidToUsername = {}
     bot.entities = {}
+    bot.vehicle = null
     // login
     bot.entity = fetchEntity(packet.entityId)
     bot.username = bot._client.username

@@ -93,6 +93,7 @@
         - [world "blockUpdate:(x, y, z)" (oldBlock, newBlock)](#world-blockupdatex-y-z-oldblock-newblock)
       - [bot.entity](#botentity)
       - [bot.entities](#botentities)
+      - [bot.vehicle](#botvehicle)
       - [bot.username](#botusername)
       - [bot.spawnPoint](#botspawnpoint)
       - [bot.heldItem](#bothelditem)
@@ -867,6 +868,10 @@ Your own entity. See `Entity`.
 #### bot.entities
 
 All nearby entities. This object is a map of entityId to entity.
+
+#### bot.vehicle
+
+The entity the bot is riding, or `null` when it is not riding anything.
 
 #### bot.username
 
