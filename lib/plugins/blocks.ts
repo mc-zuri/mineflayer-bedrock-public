@@ -618,17 +618,16 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
     if (bot.supportFeature('dimensionIsAnInt')) { // <=1.15.2
       if (dimension === packet.dimension) return
       dimension = packet.dimension
-    } else if (bot.supportFeature('spawnRespawnWorldDataField')) { // 1.20.5+
-      if (dimension === packet.worldState!.dimension) return
-      if (worldName === packet.worldState!.name && packet.copyMetadata === true) return // don't unload chunks if in same world and metaData is true
-      dimension = packet.worldState!.dimension
-      worldName = packet.worldState!.name
-    } else { // >= 1.15.2
-      if (dimension === packet.dimension) return
-      if (worldName === packet.worldName && packet.copyMetadata === true) return // don't unload chunks if in same world and metaData is true
-      // Metadata is true when switching dimensions however, then the world name is different
-      dimension = packet.dimension
-      worldName = packet.worldName
+    } else {
+      // 1.16+: like the vanilla client, the world changes when the world (level) name does. The
+      // dimension type is not compared: two worlds can share a type, and copyMetadata only
+      // concerns the player's data.
+      const newWorldName = bot.supportFeature('spawnRespawnWorldDataField') // 1.20.5+
+        ? packet.worldState!.name
+        : /^minecraft:.+/.test(packet.worldName!) ? packet.worldName! : `minecraft:${packet.worldName}`
+      if (worldName === newWorldName) return
+      dimension = bot.supportFeature('spawnRespawnWorldDataField') ? packet.worldState!.dimension : packet.dimension
+      worldName = newWorldName
     }
     switchWorld()
   })

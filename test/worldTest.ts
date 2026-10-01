@@ -2,6 +2,7 @@ import EventEmitter from 'events'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import prismarineItem from 'prismarine-item'
+import prismarineChunk from 'prismarine-chunk'
 import injectBlocks from '../lib/plugins/blocks.ts'
 import anvilPlugin from '../lib/plugins/anvil.ts'
 import type { BotInternal } from '../lib/types/internal.ts'
@@ -37,6 +38,44 @@ describe('blocks plugin', () => {
     assert.strictEqual(bot.world.listenerCount(event), 0)
     assert.strictEqual(bot.listenerCount('blockUpdate:(4, 5, 6)'), 0)
   })
+
+  // 1.16+: the vanilla client starts a new world when the world (level) name changes, whatever the
+  // dimension type and copyMetadata say
+  for (const version of ['1.16.5', '1.19.4', '1.20.4', '1.21.4']) {
+    it(`a respawn unloads the chunks only when the world name changes (${version})`, () => {
+      const bot = createFakeBot(version)
+      const Chunk = prismarineChunk(bot.registry)
+      const worldData = bot.supportFeature('spawnRespawnWorldDataField')
+      // the packets as each version has them; the 1.16 dimension NBT is a new object in every packet
+      const dimension = (type: string) => version === '1.16.5' ? { type: 'compound', name: '', value: { type } } : worldData ? 0 : `minecraft:${type}`
+      const login = (name: string) => worldData
+        ? { worldState: { dimension: dimension('overworld'), name } }
+        : version === '1.16.5' ? { dimension: dimension('overworld'), worldName: name } : { worldType: 'minecraft:overworld', worldName: name }
+      const respawn = (name: string, type: string, copyMetadata: boolean) => worldData
+        ? { worldState: { dimension: dimension(type), name }, copyMetadata }
+        : { dimension: dimension(type), worldName: name, copyMetadata }
+      const loaded = () => {
+        const had = bot.world.getColumn(0, 0) !== null && bot.world.getColumn(0, 0) !== undefined
+        bot.world.setColumn(0, 0, new Chunk({ minY: -64, worldHeight: 384 } as never))
+        return had
+      }
+
+      bot._client.emit('login', login('minecraft:overworld') as never)
+      loaded()
+      // death respawns in the same world (copyMetadata false) keep the chunks, the first one too
+      bot._client.emit('respawn', respawn('minecraft:overworld', 'overworld', false) as never)
+      assert.strictEqual(loaded(), true, 'first death respawn')
+      bot._client.emit('respawn', respawn('minecraft:overworld', 'overworld', false) as never)
+      assert.strictEqual(loaded(), true, 'second death respawn')
+      // another world of the same dimension type (Multiverse, proxies) is a new world
+      bot._client.emit('respawn', respawn('minecraft:other', 'overworld', true) as never)
+      assert.strictEqual(loaded(), false, 'other world, same dimension type')
+      bot._client.emit('respawn', respawn('minecraft:the_nether', 'the_nether', true) as never)
+      assert.strictEqual(loaded(), false, 'nether')
+      bot._client.emit('respawn', respawn('minecraft:the_nether', 'the_nether', true) as never)
+      assert.strictEqual(loaded(), true, 'same world')
+    })
+  }
 })
 
 describe('anvil plugin', () => {
