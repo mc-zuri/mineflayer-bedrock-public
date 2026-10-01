@@ -551,4 +551,37 @@ describe('bed plugin', () => {
     const bedBlock = { name: 'red_bed', stateId: redBed.minStateId! + 3, position: new Vec3(0, 64, 1) }
     await assert.rejects(bot.sleep(bedBlock), { message: "there's only half bed" })
   })
+
+  it('a sleep that times out removes its sleep listener', async () => {
+    const registry = prismarineRegistry('1.20.4')
+    const bot: any = new EventEmitter()
+    bot.registry = registry
+    bot.supportFeature = registry.supportFeature.bind(registry)
+    bot._client = new EventEmitter()
+    bot.isRaining = false
+    bot.thunderState = 0
+    bot.time = { timeOfDay: 13000 }
+    bot.game = { gameMode: 'survival' }
+    bot.entity = { position: new Vec3(0, 64, 0) }
+    bot.entities = {}
+    bot.canDigBlock = () => true
+    bot.activateBlock = async () => {} // the server never puts the bot to sleep
+    bedPlugin(bot)
+    const redBed = registry.blocksByName['red_bed']!
+    // state offset 2: facing north, not occupied, head
+    const bedBlock = { name: 'red_bed', stateId: redBed.minStateId! + 2, position: new Vec3(0, 64, 1) }
+    const realSetTimeout = global.setTimeout
+    let fireTimeout: (() => void) | undefined
+    global.setTimeout = ((callback: () => void) => { fireTimeout = callback; return 1 }) as any
+    let sleeping: Promise<void>
+    try {
+      sleeping = bot.sleep(bedBlock)
+    } finally {
+      global.setTimeout = realSetTimeout
+    }
+    assert.strictEqual(bot.listenerCount('sleep'), 1)
+    fireTimeout!()
+    await assert.rejects(sleeping, { message: 'bot is not sleeping' })
+    assert.strictEqual(bot.listenerCount('sleep'), 0)
+  })
 })
