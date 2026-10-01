@@ -598,8 +598,8 @@ export interface Player {
     publicKey: ChatSession['publicKey']
     sessionUuid: string
   }
-  /** 1.19.3+ */
-  listed?: number
+  /** 1.19.3+: a number (0 / 1) before 1.20.5, a boolean from 1.20.5 */
+  listed?: number | boolean
 }
 
 export interface SkinData {

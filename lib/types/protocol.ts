@@ -128,7 +128,7 @@ export interface PlayerInfoEntry {
   // 1.19.3+
   player?: { name: string, properties: GameProfileProperty[] }
   chatSession?: ChatSession
-  listed?: number
+  listed?: number | boolean // boolean 1.20.5+
   latency?: number
   listPriority?: number // 1.21.2+
   showHat?: boolean // 1.21.4+
@@ -359,7 +359,8 @@ export interface ClientboundPackets {
   open_horse_window: { windowId: number, nbSlots: number, entityId: number }
   open_sign_entity: {
     location: Position
-    isFrontText?: boolean // 1.20+
+    isFrontText?: boolean // 1.20 – 26.1
+    slot?: 'back' | 'front' // 26.3+
   }
   open_window: {
     windowId: number
