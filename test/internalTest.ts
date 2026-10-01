@@ -1530,7 +1530,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           bot.on('entitySpawn', (entity) => {
             assert.strictEqual(entity.displayName, 'Creeper')
 
-            const lastMeta = entity.metadata
+            const lastMeta = { ...entity.metadata } // entity_metadata updates entity.metadata in place
             bot.on('entityUpdate', (entity) => {
               assert.ok('0' in entity.metadata)
               assert.strictEqual(entity.metadata[0], 1)
@@ -1562,8 +1562,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
             headPitch: 14,
             velocity: { x: 15, y: 16, z: 17 },
             metadata: [
-              { type: 0, key: bot.registry.supportFeature('mcDataHasEntityMetadata') ? 'byte' : 0, value: 0 },
-              { type: 0, key: bot.registry.supportFeature('mcDataHasEntityMetadata') ? 'int' : 1, value: 1 }
+              { key: 0, type: bot.registry.supportFeature('mcDataHasEntityMetadata') ? 'byte' : 0, value: 0 },
+              { key: 1, type: bot.registry.supportFeature('mcDataHasEntityMetadata') ? 'int' : 0, value: 1 }
             ]
           })
         })
