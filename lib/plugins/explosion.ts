@@ -28,9 +28,10 @@ function calcExposure (entity: Entity, explosionPos: Vec3, world: world.WorldSyn
     for (let y = 0; y <= 1; y += dy) {
       for (let z = 0; z <= 1; z += dz) {
         pos.set(minX + x * width + d3, minY + y * height, minZ + z * width + d4)
-        const dir = pos.minus(explosionPos)
+        // (from the point to the explosion, like vanilla's clip: a point on a block's face is not behind it)
+        const dir = explosionPos.minus(pos)
         const range = dir.norm()
-        if (world.raycast(explosionPos, dir.normalize(), range) === null) {
+        if (world.raycast(pos, dir.normalize(), range) === null) {
           exposed++
         }
         sampled++

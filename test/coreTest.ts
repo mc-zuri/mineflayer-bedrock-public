@@ -416,17 +416,41 @@ describe('core', () => {
       const bot = explosionBot('1.20.6')
       const chicken = { position: new Vec3(0, 0, 0), type: 'animal', width: 0.4, height: 0.7 }
       const exposed = bot.getExplosionDamages(chicken, source, 4, true)
-      // a ceiling at y = 1: covers nothing of a 0.7 high chicken (but half of a 1.8 high player)
-      bot.world = { raycast: (from: Vec3, dir: Vec3, range: number) => from.plus(dir.scaled(range)).y >= 1 ? {} : null }
+      // a ceiling at y = 1: covers nothing of a 0.7 high chicken (but half of a 1.8 high player); each ray starts at
+      // its sample point
+      bot.world = { raycast: (from: Vec3) => from.y >= 1 ? {} : null }
       assert.strictEqual(bot.getExplosionDamages(chicken, source, 4, true), exposed)
       // vanilla ServerExplosion.getSeenPercent: points at fractions 0, 1/2.2, 2/2.2 of the width
       // (+ the centring offset on x and z) and 0, 1/4.6 ... 4/4.6 of the height
       const samples: Vec3[] = []
-      bot.world = { raycast: (from: Vec3, dir: Vec3, range: number) => { samples.push(from.plus(dir.scaled(range))); return null } }
+      bot.world = {
+        raycast: (from: Vec3, dir: Vec3, range: number) => {
+          samples.push(from.clone())
+          assert.ok(from.plus(dir.scaled(range)).distanceTo(source) < 1e-9, 'the ray goes to the explosion')
+          return null
+        }
+      }
       bot.getExplosionDamages({ position: new Vec3(0, 0, 0), type: 'player', width: 0.6, height: 1.8 }, source, 4, true)
       assert.strictEqual(samples.length, 3 * 5 * 3)
       assert.ok(Math.abs(Math.min(...samples.map(p => p.y))) < 1e-9)
       assert.ok(Math.abs(Math.max(...samples.map(p => p.y)) - 4 / 4.6 * 1.8) < 1e-9)
+    })
+
+    it('a point on the face of a block is not behind it (rays go from the point to the explosion)', () => {
+      const bot = explosionBot('1.20.6')
+      // the ground: every block below y = 0. The explosion just above it, the entity standing on it
+      const ground = (from: Vec3, dir: Vec3, range: number) => {
+        // (like prismarine-world, a ray that reaches the top face of the ground, even at its very end, hits it)
+        if (dir.y < 0 && from.y + dir.y * range <= 1e-12) return {}
+        return null
+      }
+      bot.world = { raycast: ground }
+      const standing = { position: new Vec3(0, 0, 0), type: 'player', width: 0.6, height: 1.8 }
+      const above = new Vec3(5, 0.06125, 0)
+      bot.world = { raycast: () => null }
+      const open = bot.getExplosionDamages(standing, above, 4, true)
+      bot.world = { raycast: ground }
+      assert.strictEqual(bot.getExplosionDamages(standing, above, 4, true), open)
     })
   })
 
