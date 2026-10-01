@@ -5,7 +5,7 @@ import type { Particle } from '../../lib/types/mineflayer.ts'
 export default (): TestFunction => async (bot) => {
   const particleData = bot.registry.particles[0]!
 
-  return new Promise<void>((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     function onParticleEvent (particle: Particle) {
       if (typeof particle.id === 'number') {
         assert.strictEqual(particle.id, particleData.id)
@@ -22,11 +22,18 @@ export default (): TestFunction => async (bot) => {
       assert.strictEqual(particle.count, 100)
       assert.strictEqual(particle.movementSpeed, 0.5)
       assert.strictEqual(particle.longDistanceRender, true)
-
-      resolve()
     }
 
-    bot.on('particle', onParticleEvent)
+    // once: a listener left behind asserts on every later particle, and its throw
+    // inside the packet handler breaks the connection in whatever test runs next
+    bot.once('particle', (particle) => {
+      try {
+        onParticleEvent(particle)
+        resolve()
+      } catch (err) {
+        reject(err)
+      }
+    })
 
     bot.chat(`/particle ${particleData.name} ~ ~ ~ 5 5 5 0.5 100 force`)
   })
