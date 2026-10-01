@@ -78,6 +78,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
   const teleportAnswer = registry.version['>=']('26.3') ? 'teleport_confirm' : 'position_look'
 
   const hasSignedChat = registry.supportFeature('signedChat')
+  // SpawnInfo previousGamemode "none": u8 255 before 1.20.5, i8 -1 in 1.20.5 – 26.2, optional var-int 0 from 26.3
+  const noPreviousGamemode = registry.version['>=']('26.3') ? 0 : registry.version['>=']('1.20.5') ? -1 : 255
   function chatText (text: string) {
     // TODO: move this to prismarine-chat in a new ChatMessage(text).toNotch(asNbt) method
     return registry.supportFeature('chatPacketsUseNbtComponents')
@@ -148,6 +150,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
         if (bot.supportFeature('usesLoginPacket')) {
           loginPacket = registry.loginPacket as unknown as LoginPacket // minecraft-data's d.ts has hashedSeed: number (an [hi, lo] pair) and no 1.20.5+ worldState
           loginPacket.entityId = 0 // Default login packet in minecraft-data 1.16.5 is 1, so set it to 0
+          // minecraft-data's sample says 255, which the 1.20.5+ field types cannot hold
+          if (loginPacket.worldState) loginPacket.worldState.previousGamemode = noPreviousGamemode
         } else {
           loginPacket = {
             entityId: 0,
@@ -811,7 +815,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             worldName: loginPacket.worldName,
             hashedSeed: loginPacket.hashedSeed,
             gamemode: 0,
-            previousGamemode: 255,
+            previousGamemode: noPreviousGamemode,
             isDebug: false,
             isFlat: false,
             copyMetadata: true,
@@ -2187,7 +2191,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           worldName: loginPacket.worldName,
           hashedSeed: loginPacket.hashedSeed,
           gamemode: 0,
-          previousGamemode: 255,
+          previousGamemode: noPreviousGamemode,
           isDebug: false,
           isFlat: false,
           copyMetadata: true,
