@@ -625,11 +625,6 @@ function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): 
   let listener: ListenerForwarder | undefined
   let listenerRemove: ListenerForwarder | undefined
   function startListenerProxy (): void {
-    if (listener) {
-      // custom forwarder for custom events
-      bot.off('newListener', listener)
-      bot.off('removeListener', listenerRemove!)
-    }
     // standardized forwarding
     const forwardedEvents = ['blockUpdate', 'chunkColumnLoad', 'chunkColumnUnload'] as const
     for (const event of forwardedEvents) {
