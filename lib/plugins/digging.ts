@@ -34,7 +34,7 @@ function inject (bot: BotInternal): void {
       digFace = 'auto'
     }
 
-    const waitTime = bot.digTime(block)
+    let waitTime = bot.digTime(block)
     if (waitTime === Infinity) {
       throw new Error(`dig time for ${block?.name ?? block} is Infinity`)
     }
@@ -132,6 +132,13 @@ function inject (bot: BotInternal): void {
       } else {
         await bot.lookAt(block.position.offset(0.5, 0.5, 0.5), forceLook)
       }
+    }
+
+    // the look can take ticks: the bot may have landed, jumped or entered water meanwhile, and the
+    // server times the break with the bot's state from now on
+    waitTime = bot.digTime(block)
+    if (waitTime === Infinity) {
+      throw new Error(`dig time for ${block?.name ?? block} is Infinity`)
     }
 
     bot.targetDigFace = targetDigFace

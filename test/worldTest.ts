@@ -251,6 +251,52 @@ describe('digging plugin', () => {
     })
   }
 
+  it('the dig time is the one of the bot\'s state once it has looked at the block', async () => {
+    const bot: any = new EventEmitter()
+    const statuses: number[] = []
+    bot._client = { write: (name: string, params: any) => { if (name === 'block_dig') statuses.push(params.status) } }
+    bot._nextSequence = () => 0
+    bot._updateBlockState = () => {}
+    bot.swingArm = () => {}
+    bot.heldItem = null
+    bot.inventory = { slots: [] }
+    bot.getEquipmentDestSlot = () => 5
+    bot.game = { gameMode: 'survival' }
+    // airborne when dig() is called, landed by the time the look is done
+    bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: false, effects: {} }
+    bot.blockAt = () => null
+    bot.lookAt = async () => { bot.entity.onGround = true }
+    bot.registry = prismarineRegistry('1.20.4')
+    diggingPlugin(bot)
+    const block = { name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: (_type: unknown, _creative: unknown, _inWater: unknown, notOnGround: boolean) => notOnGround ? 5000 : 10 }
+    bot.dig(block, true).catch(() => {})
+    await new Promise(resolve => setTimeout(resolve, 100))
+    assert.deepStrictEqual(statuses, [0, 2]) // finished after the on-ground dig time
+    bot.stopDigging()
+  })
+
+  it('a dig time that becomes Infinity during the look rejects before starting', async () => {
+    const bot: any = new EventEmitter()
+    const statuses: number[] = []
+    bot._client = { write: (name: string, params: any) => { if (name === 'block_dig') statuses.push(params.status) } }
+    bot._nextSequence = () => 0
+    bot._updateBlockState = () => {}
+    bot.swingArm = () => {}
+    bot.heldItem = null
+    bot.inventory = { slots: [] }
+    bot.getEquipmentDestSlot = () => 5
+    bot.game = { gameMode: 'survival' }
+    bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
+    bot.blockAt = () => null
+    let digTime = 10
+    bot.lookAt = async () => { digTime = Infinity }
+    bot.registry = prismarineRegistry('1.20.4')
+    diggingPlugin(bot)
+    const block = { name: 'bedrock', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => digTime }
+    await assert.rejects(bot.dig(block, true), /dig time for bedrock is Infinity/)
+    assert.deepStrictEqual(statuses, [])
+  })
+
   it('a dig started while the previous one finishes during its look keeps both faces', async () => {
     const bot: any = new EventEmitter()
     const writes: Array<{ status: number, location: Vec3, face: number | null }> = []
