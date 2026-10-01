@@ -57,10 +57,12 @@ export default (): TestFunction => async (bot) => {
     bot.chat('/give inventory stick 7')
     bot.chat('/give inventory iron_ore 64')
     bot.chat('/give inventory diamond_boots 1')
+    // a copy: the module (and tests) outlive this attempt, so retries and later versions see the whole list
+    const versionTests = [...tests]
     if (bot.registry.isOlderThan('1.9')) {
-      tests.splice(tests.indexOf(tests.find(t => t.command.includes('off-hand'))!), 2) // Delete off-hand command and the command after it as they don't work in 1.9
+      versionTests.splice(versionTests.indexOf(versionTests.find(t => t.command.includes('off-hand'))!), 2) // Delete off-hand command and the command after it as they don't work in 1.9
     }
-    for (const test of tests) {
+    for (const test of versionTests) {
       await makeTest(test.command, test.wantedMessage)()
     }
     // cleanup
