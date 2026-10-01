@@ -1,15 +1,16 @@
 import assert from 'assert'
 import { Vec3 } from 'vec3'
 import { once } from '../../lib/promise_utils.ts'
+import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 
-export default (version) => {
-  async function runTest (bot, testFunction) {
+export default (version: string): Record<string, TestFunction> => {
+  async function runTest (bot: TestBot, testFunction: (bot: TestBot) => Promise<void>) {
     await testFunction(bot)
   }
 
-  const tests = {}
+  const tests: Record<string, TestFunction> = {}
 
-  function addTest (name, f) {
+  function addTest (name: string, f: (bot: TestBot) => Promise<void>) {
     tests[name] = bot => runTest(bot, f)
   }
 
@@ -17,7 +18,7 @@ export default (version) => {
     if (!bot.registry.itemsByName.end_crystal) return // unsupported
     await bot.test.setBlock({ z: 1, relative: true, blockName: 'obsidian' })
     await bot.test.awaitItemReceived(`/give ${bot.username} end_crystal`)
-    const crystal = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, 0, 1)), new Vec3(0, 1, 0))
+    const crystal = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, 0, 1))!, new Vec3(0, 1, 0))
     assert(crystal !== null)
     let name = 'EnderCrystal'
     if (bot.supportFeature('enderCrystalNameEndsInErNoCaps')) {
@@ -35,7 +36,7 @@ export default (version) => {
   })
 
   addTest('place boat', async (bot) => {
-    async function placeBlocksForTest (blockName) {
+    async function placeBlocksForTest (blockName: string) {
       for (let z = -1; z >= -3; z--) {
         const y = -1
         for (let x = -1; x <= 1; x++) {
@@ -46,7 +47,7 @@ export default (version) => {
 
     await placeBlocksForTest('water')
     await bot.test.awaitItemReceived(`/give ${bot.username} ${bot.registry.oak_boat ? 'oak_boat' : 'boat'}`)
-    const boat = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, -1, -2)), new Vec3(0, -1, 0))
+    const boat = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, -1, -2))!, new Vec3(0, -1, 0))
     assert(boat !== null)
     const name = bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Boat' : 'boat'
     const entity = bot.nearestEntity(o => o.name === name)
@@ -57,7 +58,7 @@ export default (version) => {
   })
 
   addTest('place summon egg', async (bot) => {
-    let command
+    let command: string
     if (bot.registry.isOlderThan('1.9')) {
       command = '/give @p spawn_egg 1 54' // 1.8
     } else if (bot.registry.isOlderThan('1.11')) {
@@ -70,7 +71,7 @@ export default (version) => {
       command = '/give @p zombie_spawn_egg 1' // >1.12
     }
     await bot.test.awaitItemReceived(command)
-    const zombie = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, 0, 1)), new Vec3(0, 1, 0))
+    const zombie = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, 0, 1))!, new Vec3(0, 1, 0))
     assert(zombie !== null)
     const name = bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Zombie' : 'zombie'
     const entity = bot.nearestEntity(o => o.name === name)
@@ -80,9 +81,9 @@ export default (version) => {
 
   addTest('place armor stand', async (bot) => {
     await bot.test.awaitItemReceived(`/give ${bot.username} armor_stand`)
-    const armorStand = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, 0, 1)), new Vec3(0, 1, 0))
+    const armorStand = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, 0, 1))!, new Vec3(0, 1, 0))
     assert(armorStand !== null)
-    let name
+    let name: string
     if (bot.supportFeature('entityNameUpperCaseNoUnderscore')) {
       name = 'ArmorStand'
     } else if (bot.supportFeature('entityNameLowerCaseNoUnderscore')) {

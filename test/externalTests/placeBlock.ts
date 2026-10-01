@@ -2,23 +2,24 @@ import assert from 'assert'
 import { Vec3 } from 'vec3'
 import { once } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 
-export default () => {
-  const tests = {}
+export default (): Record<string, TestFunction> => {
+  const tests: Record<string, TestFunction> = {}
 
-  function addTest (name, f) {
+  function addTest (name: string, f: (bot: TestBot) => Promise<void>) {
     tests[name] = f
   }
 
   // the block the tests place, one block east of the bot's spawn point
-  const target = bot => new Vec3(1, bot.test.groundY, 0)
+  const target = (bot: TestBot) => new Vec3(1, bot.test.groundY, 0)
 
-  async function holdDirt (bot) {
+  async function holdDirt (bot: TestBot) {
     const Item = prismarineItem(bot.registry)
     await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.dirt.id, 1, 0))
   }
 
-  async function expectRefusal (bot, placement, item) {
+  async function expectRefusal (bot: TestBot, placement: Promise<void>, item: string) {
     const start = Date.now()
     await assert.rejects(placement, new RegExp(`^Error: Server refused to place ${item} at \\(\\d+, -?\\d+, \\d+\\): the block is still air$`))
     assert(Date.now() - start < 2000, `refused placement took ${Date.now() - start}ms to surface`)
@@ -46,13 +47,13 @@ export default () => {
     // only the server knows the block is occupied, so the client sends the
     // placement and the refusal has to come from the server's reply
     await expectRefusal(bot, bot.test.placeBlock(36, target(bot)), 'dirt')
-    assert.strictEqual(bot.blockAt(target(bot)).name, 'air')
+    assert.strictEqual(bot.blockAt(target(bot))!.name, 'air')
 
     const gone = once(bot, 'entityGone')
     bot.chat(`/kill @e[type=${name}]`)
     await gone
     await bot.test.placeBlock(36, target(bot))
-    assert.strictEqual(bot.blockAt(target(bot)).name, 'dirt')
+    assert.strictEqual(bot.blockAt(target(bot))!.name, 'dirt')
     await bot.test.setBlock({ ...target(bot), blockName: 'air' })
   })
 
@@ -60,7 +61,7 @@ export default () => {
     const Item = prismarineItem(bot.registry)
     await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.stick.id, 1, 0))
     await expectRefusal(bot, bot.test.placeBlock(36, target(bot)), 'stick')
-    assert.strictEqual(bot.blockAt(target(bot)).name, 'air')
+    assert.strictEqual(bot.blockAt(target(bot))!.name, 'air')
   })
 
   addTest('rejects each refused placement in a row', async (bot) => {
@@ -71,7 +72,7 @@ export default () => {
       await expectRefusal(bot, bot.test.placeBlock(36, bot.entity.position.floored()), 'dirt')
     }
     await bot.test.placeBlock(36, target(bot))
-    assert.strictEqual(bot.blockAt(target(bot)).name, 'dirt')
+    assert.strictEqual(bot.blockAt(target(bot))!.name, 'dirt')
     await bot.test.setBlock({ ...target(bot), blockName: 'air' })
   })
 

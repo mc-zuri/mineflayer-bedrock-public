@@ -1,8 +1,9 @@
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   const furnacePos = bot.entity.position.offset(2, 0, 0).floored()
@@ -18,13 +19,13 @@ export default () => async (bot) => {
   await bot.test.setInventorySlot(37, new Item(porkchopId, porkchopInputCount))
   await bot.test.setInventorySlot(38, new Item(coalId, coalInputCount)) // Get coal
   if (bot.supportFeature('itemsAreAlsoBlocks')) {
-    assert.strictEqual(bot.blockAt(furnacePos).type, bot.registry.itemsByName.furnace.id)
+    assert.strictEqual(bot.blockAt(furnacePos)!.type, bot.registry.itemsByName.furnace.id)
   } else {
-    assert.strictEqual(bot.blockAt(furnacePos).type, bot.registry.blocksByName.furnace.id)
+    assert.strictEqual(bot.blockAt(furnacePos)!.type, bot.registry.blocksByName.furnace.id)
   }
 
   // Put inputs
-  const furnace = await bot.openFurnace(bot.blockAt(furnacePos))
+  const furnace = await bot.openFurnace(bot.blockAt(furnacePos)!)
   assert.strictEqual(furnace.inputItem(), furnace.slots[0])
   assert.strictEqual(furnace.fuelItem(), furnace.slots[1])
   assert.strictEqual(furnace.outputItem(), furnace.slots[2])
@@ -35,23 +36,23 @@ export default () => async (bot) => {
   await furnace.putFuel(coalId, null, coalInputCount)
 
   assert.strictEqual(furnace.fuelItem(), furnace.slots[1])
-  assert.strictEqual(furnace.fuelItem().type, coalId)
-  assert.strictEqual(furnace.fuelItem().count, coalInputCount)
+  assert.strictEqual(furnace.fuelItem()!.type, coalId)
+  assert.strictEqual(furnace.fuelItem()!.count, coalInputCount)
 
   await furnace.putInput(porkchopId, null, porkchopInputCount)
 
   assert.strictEqual(furnace.inputItem(), furnace.slots[0])
-  assert.strictEqual(furnace.inputItem().type, porkchopId)
-  assert.strictEqual(furnace.inputItem().count, porkchopInputCount)
+  assert.strictEqual(furnace.inputItem()!.type, porkchopId)
+  assert.strictEqual(furnace.inputItem()!.count, porkchopInputCount)
 
   // Burning starts on the next server tick; the window properties carrying
   // fuel and progress arrive as furnace updates, not with the item packets.
   await onceWithCleanup(furnace, 'update', {
     timeout: 5000,
-    checkCondition: () => furnace.fuel > 0 && furnace.fuel < 1 && furnace.progress > 0 && furnace.progress < 1
+    checkCondition: () => furnace.fuel! > 0 && furnace.fuel! < 1 && furnace.progress! > 0 && furnace.progress! < 1
   })
-  assert(furnace.fuel > 0 && furnace.fuel < 1)
-  assert(furnace.progress > 0 && furnace.progress < 1)
+  assert(furnace.fuel! > 0 && furnace.fuel! < 1)
+  assert(furnace.progress! > 0 && furnace.progress! < 1)
 
   // The furnace only completes on cookTime == totalCookTime (not >=), so the
   // merged value must stay below 200.
@@ -66,14 +67,14 @@ export default () => async (bot) => {
   // timeout means the merge was silently ignored.
   await onceWithCleanup(furnace, 'update', { timeout: 500, checkCondition: () => furnace.outputItem() !== null })
   assert.strictEqual(furnace.outputItem(), furnace.slots[2])
-  assert.strictEqual(furnace.outputItem().type, cookedPorkchopId)
-  assert.strictEqual(furnace.outputItem().count, 1)
+  assert.strictEqual(furnace.outputItem()!.type, cookedPorkchopId)
+  assert.strictEqual(furnace.outputItem()!.count, 1)
 
-  assert.strictEqual(furnace.inputItem().type, porkchopId)
-  assert.strictEqual(furnace.inputItem().count, porkchopInputCount - 1)
+  assert.strictEqual(furnace.inputItem()!.type, porkchopId)
+  assert.strictEqual(furnace.inputItem()!.count, porkchopInputCount - 1)
 
-  assert.strictEqual(furnace.fuelItem().type, coalId)
-  assert.strictEqual(furnace.fuelItem().count, coalInputCount - 1)
+  assert.strictEqual(furnace.fuelItem()!.type, coalId)
+  assert.strictEqual(furnace.fuelItem()!.count, coalInputCount - 1)
 
   await furnace.takeOutput()
   await furnace.takeInput()

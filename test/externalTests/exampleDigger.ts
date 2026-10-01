@@ -1,7 +1,8 @@
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   await bot.test.runExample('examples/digger.js', async (name) => {
     assert.strictEqual(name, 'digger')
     // Both commands must be confirmed before digging: the op counteracts

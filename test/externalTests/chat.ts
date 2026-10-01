@@ -1,14 +1,15 @@
 import assert from 'assert'
 import { once, onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 
-export default () => {
-  async function runTest (bot, testFunction) {
+export default (): Record<string, TestFunction> => {
+  async function runTest (bot: TestBot, testFunction: (bot: TestBot) => Promise<void>) {
     await testFunction(bot)
   }
 
-  const tests = {}
+  const tests: Record<string, TestFunction> = {}
 
-  function addTest (name, f) {
+  function addTest (name: string, f: (bot: TestBot) => Promise<void>) {
     tests[name] = bot => runTest(bot, f)
   }
 
@@ -96,8 +97,8 @@ export default () => {
     bot.chat('hello')
     await once(bot, 'chat:hello')
     bot.removeChatPattern(patternIndex)
-    let listener
-    await new Promise((resolve, reject) => {
+    let listener: (msg: string[] | string[][]) => void
+    await new Promise<void>((resolve, reject) => {
       listener = (msg) => {
         console.log('reacting to msg: ')
         console.log(msg)
@@ -110,7 +111,7 @@ export default () => {
       })
       bot.chat('hello')
     })
-    bot.off('chat:hello', listener)
+    bot.off('chat:hello', listener!)
   })
 
   return tests

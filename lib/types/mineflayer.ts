@@ -302,13 +302,14 @@ export interface Bot extends TypedEmitter<BotEvents> {
     itemType: number,
     metadata: number | null,
     minResultCount: number | null,
-    craftingTable: Block | boolean | null
+    /** falsy: only recipes that need no crafting table */
+    craftingTable?: Block | boolean | null
   ) => Recipe[]
 
   recipesAll: (
     itemType: number,
     metadata: number | null,
-    craftingTable: Block | boolean | null
+    craftingTable?: Block | boolean | null
   ) => Recipe[]
 
   quit: (reason?: string) => void

@@ -1,11 +1,13 @@
 import assert from 'assert'
 import util_ from 'util'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
+import type { Item as ItemType } from 'prismarine-item'
 
 const wait = util_.promisify(setTimeout)
 const SLOT = 36
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   const item1 = new Item(1, 1, 0)
@@ -46,7 +48,7 @@ export default () => async (bot) => {
   assert.strictEqual(bot.inventory.slots[SLOT], null)
   // clear slot
   await bot.creative.setInventorySlot(SLOT, new Item(4, 1, 0))
-  assert.strictEqual(bot.inventory.slots[SLOT].type, 4)
+  assert.strictEqual((bot.inventory.slots[SLOT] as ItemType).type, 4) // the null check above narrowed it
   await bot.creative.clearSlot(SLOT)
   assert.strictEqual(bot.inventory.slots[SLOT], null)
   // clear inventory

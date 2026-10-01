@@ -1,12 +1,27 @@
 import assert from 'assert'
 import { once } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestBot, TestFunction } from './plugins/testCommon.ts'
+import type { Item } from 'prismarine-item'
+import type { Block } from 'prismarine-block'
 
-export default () => {
-  async function runTest (bot, testFunction) {
+type Enchants = Array<{ name: string, lvl: number }>
+interface ItemOptions { type: number, count?: number, enchants?: Enchants, repairCost?: number }
+type AnvilTest = (
+  b: Block,
+  renameCost: () => number,
+  renameName: (name: string) => string,
+  Item: ReturnType<typeof prismarineItem>,
+  bot: TestBot,
+  makeBook: (enchants: Enchants) => Item,
+  makeItem: (opts: ItemOptions) => Item
+) => Promise<void>
+
+export default (): Record<string, TestFunction> => {
+  async function runTest (bot: TestBot, testFunction: AnvilTest) {
     const Item = prismarineItem(bot.registry)
     const renameCost = () => bot.registry.isNewerOrEqualTo('1.8.9') ? 0 : 1 // weird quirk of anvils
-    const renameName = (name) => bot.registry.isOlderThan('1.13.2') ? name : JSON.stringify({ text: name }) // weird quirk of anvils
+    const renameName = (name: string) => bot.registry.isOlderThan('1.13.2') ? name : JSON.stringify({ text: name }) // weird quirk of anvils
     await bot.test.becomeCreative()
     await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.anvil.id, 1))
     await bot.test.becomeSurvival()
@@ -21,13 +36,13 @@ export default () => {
 
     await once(bot, 'experience')
 
-    const b = bot.findBlock({ matching: bot.registry.blocksByName.anvil.id }) // find anvil before tests so all tests can use it
+    const b = bot.findBlock({ matching: bot.registry.blocksByName.anvil.id })! // find anvil before tests so all tests can use it
 
-    function makeBook (enchants) {
+    function makeBook (enchants: Enchants) {
       return makeItem({ type: bot.registry.itemsByName.enchanted_book.id, count: 1, enchants })
     }
 
-    function makeItem (opts) {
+    function makeItem (opts: ItemOptions) {
       const { type, count = 1, enchants, repairCost } = opts
       const item = new Item(type, count)
       if (enchants) item.enchants = enchants
@@ -37,9 +52,9 @@ export default () => {
     await testFunction(b, renameCost, renameName, Item, bot, makeBook, makeItem)
   }
 
-  const tests = {}
+  const tests: Record<string, TestFunction> = {}
 
-  function addTest (name, f) {
+  function addTest (name: string, f: AnvilTest) {
     tests[name] = bot => runTest(bot, f)
   }
 
@@ -55,11 +70,11 @@ export default () => {
     const sword = anvil.findInventoryItem(bot.registry.itemsByName.diamond_sword.id)
     const book = anvil.findInventoryItem(bot.registry.itemsByName.enchanted_book.id)
 
-    await anvil.combine(sword, book)
+    await anvil.combine(sword!, book!)
     // test result
     assert.strictEqual(bot.experience.level, 994)
-    assert.strictEqual(anvil.slots[3].repairCost, 1)
-    assert.deepStrictEqual(anvil.slots[3].enchants, [{ name: 'sharpness', lvl: 5 }])
+    assert.strictEqual(anvil.slots[3]!.repairCost, 1)
+    assert.deepStrictEqual(anvil.slots[3]!.enchants, [{ name: 'sharpness', lvl: 5 }])
     await anvil.close()
     await bot.test.wait(1000)
   })
@@ -79,11 +94,11 @@ export default () => {
     const sword = bot.inventory.slots[37]
     const book = anvil.findInventoryItem(bot.registry.itemsByName.enchanted_book.id)
 
-    await anvil.combine(sword, book)
+    await anvil.combine(sword!, book!)
     // test result
     assert.strictEqual(bot.experience.level, 996)
-    assert.strictEqual(anvil.slots[3].repairCost, 1)
-    assert.deepStrictEqual(anvil.slots[3].enchants, [{ name: 'sharpness', lvl: 5 }, { name: 'unbreaking', lvl: 3 }])
+    assert.strictEqual(anvil.slots[3]!.repairCost, 1)
+    assert.deepStrictEqual(anvil.slots[3]!.enchants, [{ name: 'sharpness', lvl: 5 }, { name: 'unbreaking', lvl: 3 }])
     await anvil.close()
     await bot.test.wait(1000)
   })
@@ -99,11 +114,11 @@ export default () => {
     const anvil = await bot.openAnvil(b)
 
     const sword = anvil.findInventoryItem(bot.registry.itemsByName.diamond_sword.id)
-    await anvil.rename(sword, 'hello')
+    await anvil.rename(sword!, 'hello')
     // test result
     assert.strictEqual(bot.experience.level, 998)
-    assert.strictEqual(anvil.slots[3].repairCost, renameCost())
-    assert.deepStrictEqual(anvil.slots[3].customName, renameName('hello'))
+    assert.strictEqual(anvil.slots[3]!.repairCost, renameCost())
+    assert.deepStrictEqual(anvil.slots[3]!.customName, renameName('hello'))
     await anvil.close()
     await bot.test.wait(1000)
   })
@@ -123,12 +138,12 @@ export default () => {
     const sword = bot.inventory.slots[37]
     const book = anvil.findInventoryItem(bot.registry.itemsByName.enchanted_book.id)
 
-    await anvil.combine(sword, book, 'lol')
+    await anvil.combine(sword!, book!, 'lol')
     // test result
     assert.strictEqual(bot.experience.level, 995)
-    assert.strictEqual(anvil.slots[3].repairCost, 1)
-    assert.deepStrictEqual(anvil.slots[3].enchants, [{ name: 'sharpness', lvl: 5 }, { name: 'unbreaking', lvl: 3 }])
-    assert.strictEqual(anvil.slots[3].customName, renameName('lol'))
+    assert.strictEqual(anvil.slots[3]!.repairCost, 1)
+    assert.deepStrictEqual(anvil.slots[3]!.enchants, [{ name: 'sharpness', lvl: 5 }, { name: 'unbreaking', lvl: 3 }])
+    assert.strictEqual(anvil.slots[3]!.customName, renameName('lol'))
     await anvil.close()
     await bot.test.wait(1000)
   })

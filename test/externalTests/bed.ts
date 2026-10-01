@@ -1,7 +1,8 @@
 import assert from 'assert'
 import { once, onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // The bed is placed relative to the bot; blockAt cannot see it until the
   // surrounding chunks are loaded.
   await bot.waitForChunksToLoad()
@@ -25,21 +26,21 @@ export default () => async (bot) => {
   // Periodic time packets can carry the pre-set time, so wait for one that
   // reflects the change; the block updates are not ordered with it.
   await Promise.all([
-    onceWithCleanup(bot, 'time', { timeout: 5000, checkCondition: () => bot.time.timeOfDay >= midnight }),
+    onceWithCleanup(bot, 'time', { timeout: 5000, checkCondition: () => bot.time.timeOfDay! >= midnight }),
     ...bedUpdates
   ])
 
-  console.log(bot.time.timeOfDay, bot.blockAt(bedPos1).name, bot.blockAt(bedPos2).name)
+  console.log(bot.time.timeOfDay, bot.blockAt(bedPos1)!.name, bot.blockAt(bedPos2)!.name)
   const blockAtBed1 = bot.blockAt(bedPos1)
   const blockAtBed2 = bot.blockAt(bedPos2)
-  assert(bot.time.timeOfDay >= midnight)
+  assert(bot.time.timeOfDay! >= midnight)
   assert(blockAtBed1?.name?.endsWith('bed'), `Expected ${bedPos1} to be bed, got ${JSON.stringify(blockAtBed1)}`)
   assert(blockAtBed2?.name?.endsWith('bed'), `Expected ${bedPos2} to be bed, got ${JSON.stringify(blockAtBed2)}`)
 
   // Sleep
   assert(!bot.isSleeping)
   const wakePromise = once(bot, 'wake')
-  await bot.sleep(bot.blockAt(bedPos1))
+  await bot.sleep(bot.blockAt(bedPos1)!)
 
   // Wake
   assert(bot.isSleeping)

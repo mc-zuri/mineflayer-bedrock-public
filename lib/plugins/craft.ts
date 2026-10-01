@@ -212,7 +212,7 @@ function inject (bot: BotInternal): void {
     }
   }
 
-  function recipesFor (itemType: number, metadata: number | null, minResultCount: number | null, craftingTable: Block | boolean | null): RecipeT[] {
+  function recipesFor (itemType: number, metadata: number | null, minResultCount: number | null, craftingTable?: Block | boolean | null): RecipeT[] {
     minResultCount = minResultCount ?? 1
     const results: RecipeT[] = []
     Recipe.find(itemType, metadata).forEach((recipe) => {
@@ -223,7 +223,7 @@ function inject (bot: BotInternal): void {
     return results
   }
 
-  function recipesAll (itemType: number, metadata: number | null, craftingTable: Block | boolean | null): RecipeT[] {
+  function recipesAll (itemType: number, metadata: number | null, craftingTable?: Block | boolean | null): RecipeT[] {
     const results: RecipeT[] = []
     Recipe.find(itemType, metadata).forEach((recipe) => {
       if (!recipe.requiresTable || craftingTable) {
@@ -233,7 +233,7 @@ function inject (bot: BotInternal): void {
     return results
   }
 
-  function requirementsMetForRecipe (recipe: RecipeT, minResultCount: number, craftingTable: Block | boolean | null): boolean {
+  function requirementsMetForRecipe (recipe: RecipeT, minResultCount: number, craftingTable?: Block | boolean | null): boolean {
     if (recipe.requiresTable && !craftingTable) return false
 
     // how many times we have to perform the craft to achieve minResultCount

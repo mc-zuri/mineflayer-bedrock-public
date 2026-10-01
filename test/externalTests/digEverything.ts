@@ -2,6 +2,7 @@ import { Vec3 } from 'vec3'
 import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import prismarineItem from 'prismarine-item'
+import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 
 // this test takes about 20min
 
@@ -49,15 +50,15 @@ const excludedBlocks = [
   'obsidian'
 ]
 
-export default (version) => {
+export default (version: string): Record<string, TestFunction> => {
   const registry = prismarineRegistry(version)
 
-  const funcs = {}
+  const funcs: Record<string, TestFunction> = {}
   for (const id in registry.blocks) {
     if (registry.blocks[id] !== undefined) {
       const block = registry.blocks[id]
       if (block.diggable && excludedBlocks.indexOf(block.name) === -1) {
-        funcs[block.name] = (blockId => async (bot) => {
+        funcs[block.name] = ((blockId: number): TestFunction => async (bot) => {
           await digSomething(blockId, bot)
         })(block.id)
       }
@@ -67,7 +68,7 @@ export default (version) => {
   return funcs
 }
 
-async function digSomething (blockId, bot) {
+async function digSomething (blockId: number, bot: TestBot) {
   const Item = prismarineItem(bot.registry)
 
   await bot.test.setInventorySlot(36, new Item(blockId, 1, 0))
@@ -78,7 +79,7 @@ async function digSomething (blockId, bot) {
   await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.diamond_pickaxe.id, 1, 0))
   await bot.test.becomeSurvival()
   // we are bare handed
-  await bot.dig(bot.blockAt(bot.entity.position.plus(new Vec3(1, 0, 0))))
+  await bot.dig(bot.blockAt(bot.entity.position.plus(new Vec3(1, 0, 0)))!)
   // make sure that block is gone
-  assert.strictEqual(bot.blockAt(bot.entity.position.plus(new Vec3(1, 0, 0))).type, 0)
+  assert.strictEqual(bot.blockAt(bot.entity.position.plus(new Vec3(1, 0, 0)))!.type, 0)
 }

@@ -1,10 +1,12 @@
 import EventEmitter from 'events'
 import assert from 'assert'
 import inject from '../lib/plugins/digging.ts'
+import type { BotInternal } from '../lib/types/internal.ts'
+import type { BotEvents } from '../lib/types/mineflayer.ts'
 
 describe('digging plugin death handler', () => {
-  function createMockBot () {
-    const bot = new EventEmitter()
+  function createMockBot (): BotInternal {
+    const bot = new EventEmitter() as unknown as BotInternal
     // The digging plugin assigns these on the bot
     bot.targetDigBlock = null
     bot.targetDigFace = null
@@ -12,7 +14,7 @@ describe('digging plugin death handler', () => {
     // stopDigging is set by the plugin, but starts as the noop at bottom of digging.js
     // We don't pre-set it so the plugin can assign it
     // Provide minimal _client stub for stopDigging path (write is called during cancel)
-    bot._client = { write: () => {} }
+    bot._client = { write: () => {} } as unknown as BotInternal['_client']
     // entity stub needed if canDigBlock or digTime are called
     bot.entity = {
       position: { x: 0, y: 0, z: 0, offset: () => ({ x: 0, y: 0, z: 0, distanceTo: () => 0 }) },
@@ -20,13 +22,13 @@ describe('digging plugin death handler', () => {
       onGround: true,
       eyeHeight: 1.62,
       effects: {}
-    }
+    } as unknown as BotInternal['entity']
     bot.heldItem = null
-    bot.game = { gameMode: 'survival' }
-    bot.inventory = { slots: [] }
+    bot.game = { gameMode: 'survival' } as BotInternal['game']
+    bot.inventory = { slots: [] } as unknown as BotInternal['inventory']
     bot.getEquipmentDestSlot = () => 5
     bot.swingArm = () => {}
-    bot.world = { raycast: () => null }
+    bot.world = { raycast: () => null } as unknown as BotInternal['world']
     return bot
   }
 
@@ -60,7 +62,7 @@ describe('digging plugin death handler', () => {
     bot.on('diggingCompleted', () => {})
     // Override removeAllListeners to throw (simulating the crash scenario)
     const origRemoveAll = bot.removeAllListeners.bind(bot)
-    bot.removeAllListeners = (event) => {
+    bot.removeAllListeners = (event?: keyof BotEvents) => {
       if (event === 'diggingAborted') {
         throw new Error('Cannot read properties of undefined')
       }

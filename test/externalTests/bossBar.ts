@@ -1,7 +1,8 @@
 import assert from 'assert'
 import { once, onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default (version) => async (bot) => {
+export default (version: string): TestFunction => async (bot) => {
   // Skip test for versions older than 1.13 (bossbar command not available)
   if (bot.registry.isOlderThan('1.13')) return
 

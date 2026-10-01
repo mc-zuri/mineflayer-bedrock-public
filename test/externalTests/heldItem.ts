@@ -1,7 +1,8 @@
 import assert from 'assert'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   await bot.test.becomeCreative()

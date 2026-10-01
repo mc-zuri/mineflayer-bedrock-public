@@ -1,6 +1,7 @@
 import { once } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // Test title
   bot.chat('/title @a title {"text":"Test Title"}')
   const [title, type] = await once(bot, 'title', 2000)

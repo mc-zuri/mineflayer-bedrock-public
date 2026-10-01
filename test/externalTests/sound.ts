@@ -1,16 +1,18 @@
 import assert from 'assert'
 import { once } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
+import type { Vec3 } from 'vec3'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // Helper function to check if positions are close enough
-  const positionsAreClose = (pos1, pos2, tolerance = 1.0) => {
+  const positionsAreClose = (pos1: Vec3, pos2: Vec3, tolerance = 1.0) => {
     return Math.abs(pos1.x - pos2.x) <= tolerance &&
            Math.abs(pos1.y - pos2.y) <= tolerance &&
            Math.abs(pos1.z - pos2.z) <= tolerance
   }
 
   // Helper function to retry an operation
-  const retry = async (operation, maxAttempts = 1, delay = 2000) => {
+  const retry = async <T>(operation: () => Promise<T>, maxAttempts = 1, delay = 2000) => {
     let lastError
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {

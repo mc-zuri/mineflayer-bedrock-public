@@ -2,13 +2,14 @@ import assert from 'assert'
 import Vec3 from 'vec3'
 import { once, sleep, onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // Test spawn event on death
   const Item = prismarineItem(bot.registry)
   const portalName = bot.registry.blocksByName.nether_portal ? 'nether_portal' : 'portal'
 
-  let signItem = null
+  let signItem: { id: number } | null = null
   for (const name in bot.registry.itemsByName) {
     if (name.includes('sign') && !name.includes('hanging')) signItem = bot.registry.itemsByName[name]
   }
@@ -52,24 +53,24 @@ export default () => async (bot) => {
   }
 
   await bot.lookAt(lowerBlock.position, true)
-  await bot.test.setInventorySlot(36, new Item(signItem.id, 1, 0))
+  await bot.test.setInventorySlot(36, new Item(signItem!.id, 1, 0))
   const signOpen = onceWithCleanup(bot, 'signOpen', { timeout: 5000 })
   await bot.placeBlock(lowerBlock, new Vec3(0, 1, 0))
 
   // The server opens the sign editor once the sign is placed.
   const [sign] = await signOpen
-  bot.updateSign(sign, '1\n2\n3\n')
+  bot.updateSign(sign!, '1\n2\n3\n')
 
   // Wait for the server to echo the new text back rather than polling: it
   // usually lands within a tick, but can take longer on slow CI.
   await onceWithCleanup(bot, 'blockEntityData', {
     timeout: 5000,
-    checkCondition: (block) => block?.position?.equals(sign.position) && block.signText?.trimEnd() === '1\n2\n3'
+    checkCondition: (block) => block?.position?.equals(sign!.position) && block.signText?.trimEnd() === '1\n2\n3'
   })
-  const updated = bot.blockAt(sign.position)
+  const updated = bot.blockAt(sign!.position)! // the echo above proved it loaded
   console.log('Updated sign', updated)
 
-  assert.strictEqual(updated.signText.trimEnd(), '1\n2\n3')
+  assert.strictEqual(updated.signText!.trimEnd(), '1\n2\n3')
 
   if (updated.blockEntity) {
     // Check block update

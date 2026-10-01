@@ -1,7 +1,18 @@
 import assert from 'assert'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+/** the (writable / written) book item nbt before 1.20.5 */
+interface BookNbt {
+  type: 'compound'
+  value: {
+    pages: { type: 'list', value: { type: 'string', value: string[] } }
+    author: { type: 'string', value: string }
+    title: { type: 'string', value: string }
+  }
+}
+
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
   const usesComponents = bot.supportFeature('itemsWithComponents')
 
@@ -18,24 +29,24 @@ export default () => async (bot) => {
   await bot.test.setInventorySlot(30, new Item(bot.registry.itemsByName.writable_book.id, 1, 0))
 
   await bot.writeBook(30, pages)
-  let book = bot.inventory.slots[30]
+  let book = bot.inventory.slots[30]!
   if (usesComponents) {
-    const content = book.componentMap.get('writable_book_content').data
-    assert.deepStrictEqual(content.pages.map(page => page.content), pages)
+    const content = book.componentMap!.get('writable_book_content')!.data
+    assert.deepStrictEqual(content.pages.map((page: { content: string }) => page.content), pages)
   } else {
-    assert.deepStrictEqual(book.nbt.value.pages.value.value, pages)
+    assert.deepStrictEqual((book.nbt as BookNbt).value.pages.value.value, pages)
   }
 
   await bot.signBook(30, pages, bot.username, 'My Very First Book')
-  book = bot.inventory.slots[30]
+  book = bot.inventory.slots[30]!
   assert.strictEqual(book.type, bot.registry.itemsByName.written_book.id)
   if (usesComponents) {
-    const content = book.componentMap.get('written_book_content').data
+    const content = book.componentMap!.get('written_book_content')!.data
     assert.strictEqual(content.author, bot.username)
     assert.strictEqual(content.rawTitle, 'My Very First Book')
-    assert.deepStrictEqual(content.pages.map(page => page.content.value), pages)
+    assert.deepStrictEqual(content.pages.map((page: { content: { value: string } }) => page.content.value), pages)
   } else {
-    assert.strictEqual(book.nbt.value.author.value, bot.username)
-    assert.strictEqual(book.nbt.value.title.value, 'My Very First Book')
+    assert.strictEqual((book.nbt as BookNbt).value.author.value, bot.username)
+    assert.strictEqual((book.nbt as BookNbt).value.title.value, 'My Very First Book')
   }
 }

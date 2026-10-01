@@ -1,6 +1,8 @@
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
+import type { Entity } from 'prismarine-entity'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   bot.test.sayEverywhere('/fill ~-10 ~-1 ~-10 ~10 ~-1 ~10 water')
@@ -27,9 +29,9 @@ export default () => async (bot) => {
   await bot.lookAt(bot.entity.position) // dont force the position
   bot.fish()
 
-  await new Promise((resolve, reject) => {
-    function onPlayerCollect (collector, collected) {
-      if (collected.name.toLowerCase() === 'item' || collected.type === 'object') {
+  await new Promise<void>((resolve, reject) => {
+    function onPlayerCollect (collector: Entity, collected: Entity) {
+      if (collected.name!.toLowerCase() === 'item' || collected.type === 'object') {
         bot.test.sayEverywhere('I caught: ' + collected.displayName)
         bot.removeListener('playerCollect', onPlayerCollect)
         resolve()

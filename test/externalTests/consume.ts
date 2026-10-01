@@ -1,8 +1,9 @@
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.bread.id, 1, 0))
@@ -11,7 +12,7 @@ export default () => async (bot) => {
   await assert.rejects(bot.consume, (err) => {
     if (!err) {
       // log the conditions that made this not throw
-      console.log({ a: bot.game.gameMode !== 'creative', b: !['potion', 'milk_bucket', 'enchanted_golden_apple', 'golden_apple'].includes(bot.heldItem.name), c: bot.food === 20 })
+      console.log({ a: bot.game.gameMode !== 'creative', b: !['potion', 'milk_bucket', 'enchanted_golden_apple', 'golden_apple'].includes(bot.heldItem!.name), c: bot.food === 20 })
     }
     assert.notStrictEqual(err, undefined)
     return true

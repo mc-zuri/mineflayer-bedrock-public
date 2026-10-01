@@ -1,8 +1,9 @@
 import { Vec3 } from 'vec3'
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const groundY = bot.test.groundY
 
   const testX = 10
@@ -12,7 +13,7 @@ export default () => async (bot) => {
   // Command feedback is sent immediately while block changes flush at tick
   // end, so a chat echo does not prove the fill's updates arrived; the probe
   // block reaching its expected state does.
-  const untilBlockIs = async (pos, names) => {
+  const untilBlockIs = async (pos: Vec3, names: Array<string | undefined>) => {
     const reached = () => names.includes(bot.blockAt(pos)?.name)
     if (reached()) return
     await onceWithCleanup(bot.world, 'blockUpdate', { timeout: 5000, checkCondition: reached })
@@ -48,7 +49,7 @@ export default () => async (bot) => {
 
   const eyeBlock2 = bot._getBlockAtEyeLevel()
   bot.test.sayEverywhere(`Test 2 (submerged): eye-level block = ${eyeBlock2?.name ?? 'null'}`)
-  assert(['water', 'flowing_water'].includes(eyeBlock2?.name),
+  assert((['water', 'flowing_water'] as Array<string | undefined>).includes(eyeBlock2?.name),
     `Eye-level block should be water when submerged, got ${eyeBlock2?.name ?? 'null'}`)
 
   // === Test 3: Verify isInWater flag no longer affects digTime ===

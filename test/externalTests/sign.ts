@@ -1,27 +1,28 @@
 import assert from 'assert'
 import Vec3 from 'vec3'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
-  const lowerBlock = bot.blockAt(bot.entity.position.offset(0, -1, 0))
+  const lowerBlock = bot.blockAt(bot.entity.position.offset(0, -1, 0))! // under the bot: loaded
 
-  let signItem = null
+  let signItem: { id: number } | null = null
   for (const name in bot.registry.itemsByName) {
     if (name.includes('sign') && !name.includes('hanging')) signItem = bot.registry.itemsByName[name]
   }
   assert.notStrictEqual(signItem, null)
 
-  const p = new Promise((resolve) => {
+  const p = new Promise<void>((resolve) => {
     bot._client.once('open_sign_entity', (packet) => {
-      const sign = bot.blockAt(new Vec3(packet.location))
+      const sign = bot.blockAt(new Vec3(packet.location))!
       bot.updateSign(sign, '1\n2\n3\n')
 
       setTimeout(() => {
         // Get updated sign
-        const sign = bot.blockAt(bot.entity.position)
+        const sign = bot.blockAt(bot.entity.position)!
 
-        assert.strictEqual(sign.signText.trimEnd(), '1\n2\n3')
+        assert.strictEqual(sign.signText!.trimEnd(), '1\n2\n3')
 
         if (sign.blockEntity) {
           // Awaited so the interact is at least on the wire before the next
@@ -40,7 +41,7 @@ export default () => async (bot) => {
   })
 
   await bot.lookAt(lowerBlock.position, true)
-  await bot.test.setInventorySlot(36, new Item(signItem.id, 1, 0))
+  await bot.test.setInventorySlot(36, new Item(signItem!.id, 1, 0))
   await bot.placeBlock(lowerBlock, new Vec3(0, 1, 0))
   return p
 }

@@ -1,13 +1,15 @@
 import assert from 'assert'
 import prismarineWorld from 'prismarine-world'
+import type { TestFunction } from './plugins/testCommon.ts'
+import type { PrismarineWorldDefault, RaycastHitBlock } from '../../lib/types/vendor/prismarine-world.ts'
 
-const { BlockFace } = prismarineWorld.iterators
+const { BlockFace } = (prismarineWorld as PrismarineWorldDefault).iterators
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const { position } = bot.entity
   await bot.lookAt(position.offset(0, 3, 0), true)
 
-  let block = bot.blockAtCursor()
+  let block: RaycastHitBlock | null | undefined = bot.blockAtCursor()
   assert.strictEqual(block, null)
 
   block = bot.blockInSight()
@@ -16,13 +18,13 @@ export default () => async (bot) => {
   await bot.lookAt(position.offset(0, -3, 0), true)
 
   block = bot.blockAtCursor()
-  const relBlock = bot.blockAt(position.offset(0, -1, 0))
+  const relBlock: RaycastHitBlock = bot.blockAt(position.offset(0, -1, 0))! // under the bot: loaded
   relBlock.face = BlockFace.TOP
 
-  assert.deepStrictEqual(block.position, relBlock.position)
-  assert.deepStrictEqual(block.face, relBlock.face)
+  assert.deepStrictEqual(block!.position, relBlock.position)
+  assert.deepStrictEqual(block!.face, relBlock.face)
 
   block = bot.blockInSight()
-  assert.deepStrictEqual(block.position, relBlock.position)
-  assert.deepStrictEqual(block.face, relBlock.face)
+  assert.deepStrictEqual(block!.position, relBlock.position)
+  assert.deepStrictEqual(block!.face, relBlock.face)
 }

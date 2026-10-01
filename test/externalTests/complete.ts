@@ -1,6 +1,7 @@
 import assert from 'assert'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const matches = await bot.tabComplete('/weather ')
   if (bot.supportFeature('tabCompleteHasAToolTip')) {
     assert.deepStrictEqual(matches, [

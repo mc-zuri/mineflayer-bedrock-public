@@ -1,7 +1,8 @@
 import assert from 'assert'
 import { once } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const p = once(bot, 'teamMemberAdded')
   if (bot.supportFeature('teamUsesChatComponents')) {
     bot.test.sayEverywhere('/team add test "test"')

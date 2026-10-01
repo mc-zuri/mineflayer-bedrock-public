@@ -1,13 +1,14 @@
 import { once } from '../../lib/promise_utils.ts'
 import { Vec3 } from 'vec3'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const { blocksByName, itemsByName } = bot.registry
   const Item = prismarineItem(bot.registry)
 
-  let populateBlockInventory
-  let craftItem
+  let populateBlockInventory: { id: number } | undefined
+  let craftItem: string | undefined
   if (bot.supportFeature('oneBlockForSeveralVariations')) {
     populateBlockInventory = blocksByName.log
     craftItem = 'planks'
@@ -21,14 +22,14 @@ export default () => async (bot) => {
     for (cursor.x = bot.entity.position.x - 4; cursor.x < bot.entity.position.x + 4; cursor.x++) {
       for (cursor.y = bot.entity.position.y - 4; cursor.y < bot.entity.position.y + 4; cursor.y++) {
         for (cursor.z = bot.entity.position.z - 4; cursor.z < bot.entity.position.z + 4; cursor.z++) {
-          const block = bot.blockAt(cursor)
+          const block = bot.blockAt(cursor)! // around the bot: loaded
           if (block.type === blocksByName.crafting_table.id) return block
         }
       }
     }
   }
 
-  async function craft (amount, name) {
+  async function craft (amount: number, name: string) {
     const item = itemsByName[name]
     const craftingTable = findCraftingTable()
     const wbText = craftingTable ? 'with a crafting table, ' : 'without a crafting table, '
@@ -49,9 +50,9 @@ export default () => async (bot) => {
   }
 
   // Test 2x2 crafting (log → planks)
-  await bot.test.setInventorySlot(36, new Item(populateBlockInventory.id, 1, 0))
+  await bot.test.setInventorySlot(36, new Item(populateBlockInventory!.id, 1, 0))
   await bot.test.becomeSurvival()
-  await craft(1, craftItem)
+  await craft(1, craftItem!)
   await bot.test.setBlock({ x: 1, y: 0, z: 0, relative: true, blockName: 'crafting_table' })
   bot.chat('/give @p stick 7')
   await once(bot.inventory, 'updateSlot')

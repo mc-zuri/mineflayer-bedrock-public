@@ -1,8 +1,9 @@
 import assert from 'assert'
 import { Vec3 } from 'vec3'
 import { once, onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const command = `/say ${Math.floor(Math.random() * 1000)}`
   const commandBlockPos = new Vec3(1, 5, 1)
   const commandBlockPosText = commandBlockPos.toArray().join(' ')

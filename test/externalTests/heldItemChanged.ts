@@ -1,8 +1,9 @@
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   await bot.test.becomeCreative()
   await bot.test.clearInventory()
   await bot.test.wait(100)
@@ -14,7 +15,7 @@ export default () => async (bot) => {
   // Put stone in the current held slot
   await bot.test.setInventorySlot(bot.quickBarSlot + bot.inventory.hotbarStart, new (prismarineItem(bot.registry))(stoneId, 1))
   await bot.test.wait(100)
-  assert.strictEqual(bot.heldItem.type, stoneId, 'should be holding stone')
+  assert.strictEqual(bot.heldItem!.type, stoneId, 'should be holding stone')
 
   // Now change the held slot contents to diamond and verify heldItemChanged fires
   const heldItemPromise = onceWithCleanup(bot, 'heldItemChanged', {
@@ -25,5 +26,5 @@ export default () => async (bot) => {
   const [newItem] = await heldItemPromise
   assert(newItem, 'heldItemChanged should fire with the new item')
   assert.strictEqual(newItem.type, diamondId, 'new item should be diamond')
-  assert.strictEqual(bot.heldItem.type, diamondId, 'bot.heldItem should reflect diamond')
+  assert.strictEqual(bot.heldItem!.type, diamondId, 'bot.heldItem should reflect diamond')
 }

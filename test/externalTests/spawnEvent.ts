@@ -1,7 +1,8 @@
 import mineflayer from 'mineflayer'
 import { once } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // Test spawn event on login
   const spawnBot = mineflayer.createBot({
     username: 'spawnbot',

@@ -1,7 +1,8 @@
+import type { TestFunction } from './plugins/testCommon.ts'
 // import assert from 'assert'
 // import { once } from '../../lib/promise_utils.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // TODO: This is failing randomly, investigate and fix
   /* bot.test.sayEverywhere('/scoreboard objectives add test1 health')
   bot.test.sayEverywhere('/scoreboard objectives add test2 deathCount')

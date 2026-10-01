@@ -1,4 +1,5 @@
 import assert from 'assert'
+import type { TestFunction } from './plugins/testCommon.ts'
 
 const tests = [
   {
@@ -46,7 +47,7 @@ const tests = [
     wantedMessage: 'ladder x 3, diamond_boots x 1'
   }
 ]
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   await bot.test.runExample('examples/inventory.js', async (name) => {
     assert.strictEqual(name, 'inventory')
     bot.chat('/op inventory') // to counteract spawn protection
@@ -57,7 +58,7 @@ export default () => async (bot) => {
     bot.chat('/give inventory iron_ore 64')
     bot.chat('/give inventory diamond_boots 1')
     if (bot.registry.isOlderThan('1.9')) {
-      tests.splice(tests.indexOf(tests.find(t => t.command.includes('off-hand'))), 2) // Delete off-hand command and the command after it as they don't work in 1.9
+      tests.splice(tests.indexOf(tests.find(t => t.command.includes('off-hand'))!), 2) // Delete off-hand command and the command after it as they don't work in 1.9
     }
     for (const test of tests) {
       await makeTest(test.command, test.wantedMessage)()
@@ -65,14 +66,14 @@ export default () => async (bot) => {
     // cleanup
     bot.chat(`/setblock 52 ${bot.test.groundY} 0 air`)
 
-    function makeTest (inStr, outStr) {
+    function makeTest (inStr: string, outStr: string) {
       return () => bot.test.tellAndListen(name, inStr, makeListener(outStr))
     }
   })
 }
 
-function makeListener (wantedMessage) {
-  return (message) => {
+function makeListener (wantedMessage: string) {
+  return (message: string) => {
     if (!message.startsWith(wantedMessage)) {
       assert.fail(`Unexpected message: ${message}, wanted ${wantedMessage}`) // error
     }

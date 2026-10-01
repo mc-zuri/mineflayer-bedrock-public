@@ -2,8 +2,9 @@ import { Vec3 } from 'vec3'
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // Closing a container while holding an item on the cursor makes the server
   // return it through Inventory.placeItemBackInInventory, synced on 1.21.3+
   // via set_player_inventory. Its slotId counts the vanilla player inventory
@@ -21,7 +22,7 @@ export default () => async (bot) => {
   // Place a chest next to the bot and open it
   const chestPos = new Vec3(1, bot.test.groundY, 0)
   await bot.test.setBlock({ x: chestPos.x, y: chestPos.y, z: chestPos.z, blockName: 'chest' })
-  const chest = await bot.openContainer(bot.blockAt(chestPos))
+  const chest = await bot.openContainer(bot.blockAt(chestPos)!)
 
   // Pick the stone up onto the cursor (hotbar slot 0 = chest.hotbarStart)
   await bot.clickWindow(chest.hotbarStart, 0, 0)
@@ -35,6 +36,6 @@ export default () => async (bot) => {
   })
   await Promise.all([bot.closeWindow(chest), returned])
 
-  assert.strictEqual(bot.inventory.slots[bot.inventory.hotbarStart].type, stoneId, 'returned stone should be back in hotbar slot 0')
+  assert.strictEqual(bot.inventory.slots[bot.inventory.hotbarStart]!.type, stoneId, 'returned stone should be back in hotbar slot 0')
   assert.strictEqual(bot.inventory.slots[0], null, 'set_player_inventory slotId 0 must not write into the crafting result slot')
 }

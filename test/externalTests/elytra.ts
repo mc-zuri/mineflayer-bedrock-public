@@ -1,7 +1,8 @@
 import assert from 'assert'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   // don't continue unless this version supports elytra
   if (!bot.supportFeature('hasElytraFlying')) return
   const supportsFireworkRockets = bot.supportFeature('fireworkNamePlural') || bot.supportFeature('fireworkNameSingular')

@@ -2,9 +2,11 @@ import { Vec3 } from 'vec3'
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
+import type { ItemClass } from '../../lib/types/vendor/prismarine-item.ts'
 
-export default () => async (bot) => {
-  const Item = prismarineItem(bot.registry)
+export default (): TestFunction => async (bot) => {
+  const Item = prismarineItem(bot.registry) as ItemClass
 
   await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.dirt.id, 1, 0))
   await bot.test.fly(new Vec3(0, 2, 0))
@@ -14,7 +16,7 @@ export default () => async (bot) => {
   await waitForFall()
   await bot.test.becomeSurvival()
   // we are bare handed
-  await bot.dig(bot.blockAt(bot.entity.position.plus(new Vec3(0, -1, 0))))
+  await bot.dig(bot.blockAt(bot.entity.position.plus(new Vec3(0, -1, 0)))!)
   // make sure we collected das dirt; the drop sits through its pickup delay
   // before it can reach the inventory, so wait for the slot update
   const dirt = new Item(bot.registry.itemsByName.dirt.id, 1, 0)
@@ -28,7 +30,7 @@ export default () => async (bot) => {
   bot.test.sayEverywhere('dirt collect test: pass')
 
   async function waitForFall () {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       assert(!bot.entity.onGround, 'waitForFall called when we were already on the ground')
       const startingPosition = bot.entity.position.clone()
       bot.on('move', function onMove () {

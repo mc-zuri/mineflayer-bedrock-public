@@ -2,11 +2,12 @@
 
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 
-export default () => {
-  const tests = {}
+export default (): Record<string, TestFunction> => {
+  const tests: Record<string, TestFunction> = {}
 
-  function addTest (name, f) {
+  function addTest (name: string, f: (bot: TestBot) => Promise<void>) {
     tests[name] = (bot) => f(bot)
   }
 

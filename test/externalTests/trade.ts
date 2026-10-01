@@ -1,8 +1,11 @@
 import assert from 'assert'
 import { once } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
+import type { Item } from 'prismarine-item'
+import type { VillagerTrade } from '../../lib/types/mineflayer.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   const maxUses = 3
@@ -64,8 +67,8 @@ export default () => async (bot) => {
 
     await bot.trade(villager, 0, trades)
     shouldHaveEmeralds -= testFluctuations ? (2 * 2 * trades) : (2 * trades)
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.pumpkin_pie.id), 2 * trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.pumpkin_pie.id), 2 * trades)
   }
 
   // Handle trade #2 -- takes [2x emerald, 2x pumpkin_pie] and returns 2x wheat
@@ -86,9 +89,9 @@ export default () => async (bot) => {
 
     await bot.trade(villager, 1, trades)
     shouldHaveEmeralds -= trades * 2
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.pumpkin_pie.id), 0)
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.wheat.id), 2 * trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.pumpkin_pie.id), 0)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.wheat.id), 2 * trades)
   }
 
   // Handle trade #3 -- takes 1x emerald and returns 4x glass
@@ -107,8 +110,8 @@ export default () => async (bot) => {
 
     await bot.trade(villager, 2, trades)
     shouldHaveEmeralds -= trades
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.glass.id), 4 * trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.glass.id), 4 * trades)
   }
 
   // Handle trade #4 -- takes [36x emerald, 1x book] and returns 1x wooden sword
@@ -129,25 +132,25 @@ export default () => async (bot) => {
 
     await bot.trade(villager, 3, trades)
     shouldHaveEmeralds -= trades * 36
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.book.id), 0)
-    assert.strictEqual(bot.currentWindow.count(bot.registry.itemsByName.wooden_sword.id), trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.book.id), 0)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.wooden_sword.id), trades)
   }
 
-  function verifyTrade (trade) {
+  function verifyTrade (trade: VillagerTrade) {
     assert.strictEqual(trade.nbTradeUses, 1)
     assert.strictEqual(trade.maximumNbTradeUses, maxUses)
     assert.strictEqual(trade.tradeDisabled, false)
 
-    const printCountInv = function (item) {
-      return `${bot.currentWindow.count(bot.registry.itemsByName[item.name].id)}x ${item.displayName}`
+    const printCountInv = function (item: Item) {
+      return `${bot.currentWindow!.count(bot.registry.itemsByName[item.name].id)}x ${item.displayName}`
     }
-    const printCountTrade = function (item) {
+    const printCountTrade = function (item: Item) {
       return `${item.count}x ${item.displayName}`
     }
 
-    bot.test.sayEverywhere(`I have ${printCountInv(trade.inputItem1)} ${trade.hasItem2 ? 'and ' + printCountInv(trade.inputItem2) : ''}`)
-    bot.test.sayEverywhere(`I can trade ${printCountTrade(trade.inputItem1)} ${trade.hasItem2 ? 'and ' + printCountTrade(trade.inputItem2) : ''} for ${printCountTrade(trade.outputItem)}`)
+    bot.test.sayEverywhere(`I have ${printCountInv(trade.inputItem1)} ${trade.hasItem2 ? 'and ' + printCountInv(trade.inputItem2!) : ''}`)
+    bot.test.sayEverywhere(`I can trade ${printCountTrade(trade.inputItem1)} ${trade.hasItem2 ? 'and ' + printCountTrade(trade.inputItem2!) : ''} for ${printCountTrade(trade.outputItem)}`)
   }
 
   assert.rejects(bot.trade(villager, 1, 1)) // Shouldn't be able, the trade is blocked!

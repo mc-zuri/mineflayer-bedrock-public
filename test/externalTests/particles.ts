@@ -1,10 +1,12 @@
 import assert from 'assert'
+import type { TestFunction } from './plugins/testCommon.ts'
+import type { Particle } from '../../lib/types/mineflayer.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const particleData = bot.registry.particles[0]
 
-  return new Promise((resolve, reject) => {
-    function onParticleEvent (particle) {
+  return new Promise<void>((resolve, reject) => {
+    function onParticleEvent (particle: Particle) {
       if (typeof particle.id === 'number') {
         assert.strictEqual(particle.id, particleData.id)
       } else {

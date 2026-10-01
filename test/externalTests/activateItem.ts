@@ -1,8 +1,9 @@
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   await bot.test.becomeCreative()
@@ -12,10 +13,10 @@ export default () => async (bot) => {
   await bot.test.wait(250)
 
   // Throw a snowball and return the velocity the server spawned it with.
-  async function throwTowards (yaw) {
+  async function throwTowards (yaw: number) {
     await bot.look(yaw, 0, true)
     await bot.test.wait(250)
-    const spawned = onceWithCleanup(bot, 'entitySpawn', { checkCondition: e => /snowball/i.test(e.name), timeout: 5000 })
+    const spawned = onceWithCleanup(bot, 'entitySpawn', { checkCondition: e => /snowball/i.test(e.name!), timeout: 5000 })
     bot.activateItem()
     const [snowball] = await spawned
     // The velocity can arrive in its own packet right after the spawn.

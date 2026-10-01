@@ -1,14 +1,15 @@
 import assert from 'assert'
 import { onceWithCleanup } from '../../lib/promise_utils.ts'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   await bot.test.becomeSurvival()
 
   // Initial state
   const initialState = {
-    level: bot.experience.level,
-    points: bot.experience.points,
-    progress: bot.experience.progress
+    level: bot.experience.level!,
+    points: bot.experience.points!,
+    progress: bot.experience.progress!
   }
   assert(initialState.level >= 0, 'Initial experience level should be non-negative')
   assert(initialState.points >= 0, 'Initial experience points should be non-negative')
@@ -22,12 +23,12 @@ export default () => async (bot) => {
   await bot.chat(xpCommand)
   // A stale experience packet can arrive between the command and the event;
   // wait for the state the command produces, not for any event.
-  await onceWithCleanup(bot, 'experience', { timeout: 5000, checkCondition: () => bot.experience.points >= initialState.points + 10 })
+  await onceWithCleanup(bot, 'experience', { timeout: 5000, checkCondition: () => bot.experience.points! >= initialState.points + 10 })
 
   // Verify after points
-  assert(bot.experience.points >= 10, 'Experience points should be at least 10 after adding points')
-  assert(bot.experience.level >= initialState.level, 'Experience level should not decrease after adding points')
-  assert(bot.experience.progress >= 0 && bot.experience.progress <= 1, 'Experience progress should be between 0 and 1 after adding points')
+  assert(bot.experience.points! >= 10, 'Experience points should be at least 10 after adding points')
+  assert(bot.experience.level! >= initialState.level, 'Experience level should not decrease after adding points')
+  assert(bot.experience.progress! >= 0 && bot.experience.progress! <= 1, 'Experience progress should be between 0 and 1 after adding points')
 
   // Test experience levels
   const levelCommand = bot.registry.isOlderThan('1.13')
@@ -35,10 +36,10 @@ export default () => async (bot) => {
     : `/xp add ${bot.username} 100 levels`
 
   await bot.chat(levelCommand)
-  await onceWithCleanup(bot, 'experience', { timeout: 5000, checkCondition: () => bot.experience.level >= initialState.level + 100 })
+  await onceWithCleanup(bot, 'experience', { timeout: 5000, checkCondition: () => bot.experience.level! >= initialState.level + 100 })
 
   // Verify after levels
-  assert(bot.experience.level >= 100, 'Experience level should be at least 100 after adding levels')
-  assert(bot.experience.points > 0, 'Experience points should be positive after adding levels')
-  assert(bot.experience.progress >= 0 && bot.experience.progress <= 1, 'Experience progress should be between 0 and 1 after adding levels')
+  assert(bot.experience.level! >= 100, 'Experience level should be at least 100 after adding levels')
+  assert(bot.experience.points! > 0, 'Experience points should be positive after adding levels')
+  assert(bot.experience.progress! >= 0 && bot.experience.progress! <= 1, 'Experience progress should be between 0 and 1 after adding levels')
 }

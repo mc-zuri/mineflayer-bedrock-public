@@ -1,7 +1,8 @@
 import assert from 'assert'
 import prismarineItem from 'prismarine-item'
+import type { TestFunction } from './plugins/testCommon.ts'
 
-export default () => async (bot) => {
+export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
   const lapisId = bot.registry.itemsByName.lapis_lazuli ? bot.registry.itemsByName.lapis_lazuli.id : bot.registry.itemsByName.dye.id
@@ -42,16 +43,16 @@ export default () => async (bot) => {
   await bot.test.placeBlock(36, bot.entity.position.offset(2, 0, 2))
 
   const b = bot.findBlock({ matching: bot.registry.blocksByName.enchanting_table.id })
-  const enchantingTable = await bot.openEnchantmentTable(b)
+  const enchantingTable = await bot.openEnchantmentTable(b!)
 
   console.log('Opened enchanting table')
 
   const lapis = enchantingTable.findInventoryItem(lapisId)
-  await enchantingTable.putLapis(lapis)
+  await enchantingTable.putLapis(lapis!)
 
   const sword = enchantingTable.findInventoryItem(bot.registry.itemsByName.diamond_sword.id)
 
-  await enchantingTable.putTargetItem(sword)
+  await enchantingTable.putTargetItem(sword!)
 
   console.log('Table ready')
   await enchantingTable.enchant(enchantSlot)
