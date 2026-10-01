@@ -1321,9 +1321,17 @@ Emitted when the server sends a time update. See `bot.time`.
 #### "kicked" (reason, loggedIn)
 
 Emitted when the bot is kicked from the server. `reason`
-is a chat message explaining why you were kicked. `loggedIn`
-is `true` if the client was kicked after successfully logging in,
-or `false` if the kick occurred in the login phase.
+is the raw text component the server sent, explaining why you were kicked. `loggedIn`
+is `true` if the client was kicked after successfully logging in (play state),
+or `false` if the kick occurred in the login phase (or, from 1.20.2, in the configuration phase).
+
+The shape of `reason` depends on the version and the phase:
+ * a JSON string (e.g. `'{"text":"Kicked"}'`) in the login phase, and in every phase before 1.20.3;
+ * from 1.20.3 on, after login (play and configuration phases), an NBT tag as decoded by prismarine-nbt,
+   e.g. `{ type: 'compound', value: { text: { type: 'string', value: 'Kicked' } } }`
+   or `{ type: 'string', value: 'Kicked' }`.
+
+`ChatMessage.fromNotch(reason)` (prismarine-chat, loaded with `bot.registry`) turns either shape into a ChatMessage.
 
 #### "end" (reason)
 
