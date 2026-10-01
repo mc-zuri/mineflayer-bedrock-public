@@ -31,7 +31,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
     assert.ok(chatBits != null, `invalid chat setting: ${bot.settings.chat}`)
 
     // view distance
-    let viewDistanceBits: number | null = null
+    let viewDistanceBits: number | null | undefined = null
     if (typeof bot.settings.viewDistance === 'string') {
       viewDistanceBits = viewDistanceToBits[bot.settings.viewDistance]
     } else if (typeof bot.settings.viewDistance === 'number' && bot.settings.viewDistance > 0) { // Make sure view distance is a valid # || should be 2 or more

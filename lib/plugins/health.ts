@@ -6,7 +6,7 @@ export default inject
 function inject (bot: BotInternal, options: BotOptions): void {
   bot.isAlive = true
 
-  bot._client.on('respawn', (packet) => {
+  bot._client.on('respawn', () => {
     bot.isAlive = false
     bot.emit('respawn')
   })

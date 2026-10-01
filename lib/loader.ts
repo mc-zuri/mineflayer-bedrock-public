@@ -105,7 +105,7 @@ const plugins = {
   sequence: sequenceModule
 } as unknown as Record<string, Plugin>  // internal plugins take the BotInternal view
 
-const latestSupportedProtocolVersion = minecraftData.versionsByMinecraftVersion.pc[latestSupportedVersion].version
+const latestSupportedProtocolVersion = minecraftData.versionsByMinecraftVersion.pc[latestSupportedVersion]!.version
 if (!latestSupportedProtocolVersion) throw new Error(`Version '${latestSupportedVersion}' not supported by minecraft-data - is it up to date?`)
 
 const supportFeature = <T extends keyof SupportsFeature>(feature: T, version: string): SupportsFeature[T] => minecraftData(version).supportFeature(feature)
@@ -154,7 +154,7 @@ function createBot (options: Partial<BotOptions> = {}): Bot {
       if (typeof options.plugins![key] === 'function') return false
       if (options.plugins![key] === false) return false
       return options.plugins![key] || options.loadInternalPlugins
-    }).map(key => plugins[key])
+    }).map(key => plugins[key]!)
   const externalPlugins = Object.keys(options.plugins)
     .filter(key => {
       return typeof options.plugins![key] === 'function'

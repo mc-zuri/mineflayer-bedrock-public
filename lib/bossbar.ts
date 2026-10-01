@@ -24,8 +24,8 @@ function loader (registry: Registry) {
       this._entityUUID = uuid
       this.title = title
       this._health = health
-      this._dividers = divisions[dividers]
-      this._color = colors[color]
+      this._dividers = divisions[dividers]!
+      this._color = colors[color]!
       this._shouldDarkenSky = (flags & 0x1) !== 0
       this._isDragonBar = (flags & 0x2) !== 0
       this._createFog = (flags & 0x4) !== 0
@@ -55,11 +55,11 @@ function loader (registry: Registry) {
     }
 
     set dividers (dividers: number) {
-      this._dividers = divisions[dividers]
+      this._dividers = divisions[dividers]!
     }
 
     set color (color: number) {
-      this._color = colors[color]
+      this._color = colors[color]!
     }
 
     set flags (flags: number) {

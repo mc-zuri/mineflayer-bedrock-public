@@ -11,7 +11,7 @@ function inject (bot: BotInternal): void {
   // 1.14 changes the id, but hopefully we can stick with the name: fishing_bobber
   // the alternative would be to rename it in all version of mcData
   if (bot.supportFeature('fishingBobberCorrectlyNamed')) {
-    bobberId = bot.registry.entitiesByName.fishing_bobber.id
+    bobberId = bot.registry.entitiesByName['fishing_bobber']!.id
   }
 
   let fishingTask = createDoneTask()
@@ -38,7 +38,7 @@ function inject (bot: BotInternal): void {
     const bobberCondition = bot.registry.supportFeature('updatedParticlesPacket')
       ? ((packet.particle!.type === 'fishing' || packet.particle!.type === 'bubble') && packet.amount === 6 && pos.distanceTo(new Vec3(packet.x, pos.y, packet.z)) <= 1.23)
       // This "(particles.fishing ?? particles.bubble).id" condition doesn't make sense (these are both valid types)
-      : (packet.particleId === (bot.registry.particlesByName.fishing ?? bot.registry.particlesByName.bubble).id && packet.particles === 6 && pos.distanceTo(new Vec3(packet.x, pos.y, packet.z)) <= 1.23)
+      : (packet.particleId === (bot.registry.particlesByName['fishing'] ?? bot.registry.particlesByName['bubble'])!.id && packet.particles === 6 && pos.distanceTo(new Vec3(packet.x, pos.y, packet.z)) <= 1.23)
 
     if (bobberCondition) {
       bot.activateItem()

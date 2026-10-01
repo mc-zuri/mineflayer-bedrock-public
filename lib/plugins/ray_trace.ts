@@ -19,6 +19,7 @@ export default (bot: BotInternal): void => {
   bot.blockInSight = (maxSteps = 256, vectorLength = 5 / 16) => {
     const block = bot.blockAtCursor(maxSteps * vectorLength)
     if (block) return block
+    return undefined
   }
 
   bot.blockAtCursor = (maxDistance = 256, matcher: RaycastMatcher | null = null) => {
@@ -39,7 +40,7 @@ export default (bot: BotInternal): void => {
     let targetDist = maxDistance
 
     for (let i = 0; i < entities.length; i++) {
-      const entity = entities[i]
+      const entity = entities[i]!
       const w = entity.width / 2
 
       const shapes: Shape[] = [[-w, 0, -w, w, entity.height, w]]

@@ -31,7 +31,7 @@ function colorString (color: number | undefined): string {
     'reset'
   ]
   if (color === undefined || color > 21 || color === -1) return 'reset'
-  return formatting[color]
+  return formatting[color]!
 }
 
 function loader (registry: Registry) {

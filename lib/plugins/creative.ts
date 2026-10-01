@@ -76,7 +76,7 @@ function inject (bot: BotInternal): void {
       // processing our packet on its main thread, so a stats round trip on
       // the same ordered connection is proof the rejection window has passed.
       return new Promise<void>((resolve, reject) => {
-        function updateSlot (oldItem: ItemT | null, newItem: ItemT | null) {
+        function updateSlot (_oldItem: ItemT | null, newItem: ItemT | null) {
           // null is an empty slot (clearSlot, or the server emptied it)
           if (newItem?.type !== item?.type) {
             creativeSlotsUpdates[slot] = false
@@ -95,7 +95,7 @@ function inject (bot: BotInternal): void {
     try {
       await onceWithCleanup<[ItemT | null, ItemT | null]>(bot.inventory, `updateSlot:${slot}`, {
         timeout: 5000,
-        checkCondition: (oldItem, newItem) => item === null ? newItem === null : newItem?.name === item.name && newItem?.count === item.count && newItem?.metadata === item.metadata
+        checkCondition: (_oldItem, newItem) => item === null ? newItem === null : newItem?.name === item.name && newItem?.count === item.count && newItem?.metadata === item.metadata
       })
     } finally {
       creativeSlotsUpdates[slot] = false

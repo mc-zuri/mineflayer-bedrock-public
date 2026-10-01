@@ -67,7 +67,7 @@ export interface PositionUpdateRelatives {
 /** 1.21.2+ movement flags */
 export interface MovementFlags {
   onGround?: boolean
-  hasHorizontalCollision?: boolean
+  hasHorizontalCollision?: boolean | undefined // physics writes undefined
 }
 
 export interface GlobalPos { dimensionName: string, location: Position }
@@ -740,9 +740,9 @@ export interface ServerboundPackets {
   steer_vehicle: { sideways: number, forward: number, jump: number }
   tab_complete: {
     text: string
-    block?: Position // 1.8
+    block?: Position | undefined // 1.8, an option: undefined writes none
     assumeCommand?: boolean // 1.9 – 1.12
-    lookedAtBlock?: Position // 1.9 – 1.12
+    lookedAtBlock?: Position | undefined // 1.9 – 1.12, an option
     transactionId?: number // 1.13+
   }
   /** 1.9+ */
@@ -799,7 +799,7 @@ export interface ClientEvents {
   error: (err: Error) => void
   state: (newState: States, oldState: States) => void
   playerChat: (data: PlayerChatEvent) => void
-  systemChat: (data: { positionId: number, formattedMessage: string }) => void
+  systemChat: (data: { positionId: 1 | 2, formattedMessage: string }) => void // 2: action bar
   /** every clientbound packet (minecraft-protocol client.js), before its named event */
   packet: (data: unknown, meta: PacketMeta, buffer: Buffer, fullBuffer: Buffer) => void
 }

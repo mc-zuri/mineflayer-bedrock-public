@@ -38,7 +38,7 @@ const parseGameMode = (gameModeBits: number): GameMode => {
   if (gameModeBits < 0 || gameModeBits > 0b11) {
     return 'survival'
   }
-  return gameModes[(gameModeBits & 0b11)] // lower two bits
+  return gameModes[(gameModeBits & 0b11)]! // lower two bits
 }
 
 function inject (bot: BotInternal, options: BotOptions): void {
@@ -61,12 +61,12 @@ function inject (bot: BotInternal, options: BotOptions): void {
     }
     if (bot.supportFeature('segmentedRegistryCodecData')) { // 1.20.5
       if (typeof packet.dimension === 'number') {
-        bot.game.dimension = bot.registry.dimensionsArray![packet.dimension]?.name?.replace('minecraft:', '')
+        bot.game.dimension = bot.registry.dimensionsArray![packet.dimension]?.name?.replace('minecraft:', '')!
       } else if (typeof packet.dimension === 'string') { // iirc, in 1.21 it's back to a string
         bot.game.dimension = packet.dimension.replace('minecraft:', '')
       }
     } else if (bot.supportFeature('dimensionIsAnInt')) {
-      bot.game.dimension = dimensionNames[packet.dimension]
+      bot.game.dimension = dimensionNames[packet.dimension]!
     } else if (bot.supportFeature('dimensionIsAString')) {
       bot.game.dimension = packet.dimension.replace('minecraft:', '')
     } else if (bot.supportFeature('dimensionIsAWorld')) {
@@ -106,7 +106,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
     }
 
     if (packet.difficulty != null) { // 1.8 - 1.13; 0 is peaceful
-      bot.game.difficulty = difficultyNames[packet.difficulty]
+      bot.game.difficulty = difficultyNames[packet.difficulty]!
     }
   }
 
@@ -172,7 +172,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
   bot._client.on('difficulty', (packet) => {
     // a name from 1.21.6
-    bot.game.difficulty = typeof packet.difficulty === 'number' ? difficultyNames[packet.difficulty] : packet.difficulty
+    bot.game.difficulty = typeof packet.difficulty === 'number' ? difficultyNames[packet.difficulty]! : packet.difficulty
   })
 
   bot._client.on(brandChannel, (serverBrand: string) => {

@@ -4,7 +4,7 @@
 // Its Client listeners must return void | Promise<void>, but EventEmitter ignores what a listener returns, so a
 // listener such as `(data) => seen.push(data)` is fine (TypedClient, the bot's packet-typed view, has its own on/once).
 // Server lacks once('playerJoin').
-import type { PacketMeta, ServerClient, States } from 'minecraft-protocol'
+import type { States } from 'minecraft-protocol'
 
 interface LooseSerializerOptions {
   state?: States | `${States}`

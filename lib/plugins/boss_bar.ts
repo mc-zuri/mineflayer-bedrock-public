@@ -1,11 +1,11 @@
 import bossbarModule from '../bossbar.ts'
-import type { BossBar as BossBarInstance, BotOptions } from '../types/mineflayer.ts'
+import type { BossBar as BossBarInstance } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ClientboundPackets, TextComponent } from '../types/protocol.ts'
 
 export default inject
 
-function inject (bot: BotInternal, { version }: BotOptions): void {
+function inject (bot: BotInternal): void {
   const BossBar = bossbarModule(bot.registry)
   const bars: { [uuid: string]: BossBarInstance } = {}
 
@@ -27,32 +27,32 @@ function inject (bot: BotInternal, { version }: BotOptions): void {
         packet.color!,
         packet.flags!
       )
-      bot.emit('bossBarCreated', bars[packet.entityUUID])
+      bot.emit('bossBarCreated', bars[packet.entityUUID]!)
     } else if (packet.action === 1) {
-      bot.emit('bossBarDeleted', bars[packet.entityUUID])
+      bot.emit('bossBarDeleted', bars[packet.entityUUID]!)
       delete bars[packet.entityUUID]
     } else {
       if (!(packet.entityUUID in bars)) {
         return
       }
       if (packet.action === 2 && packet.health !== undefined) {
-        bars[packet.entityUUID].health = packet.health
+        bars[packet.entityUUID]!.health = packet.health
       }
       if (packet.action === 3 && packet.title !== undefined) {
-        bars[packet.entityUUID].title = extractTitle(packet.title)
+        bars[packet.entityUUID]!.title = extractTitle(packet.title)
       }
       if (packet.action === 4) {
         if (packet.dividers !== undefined) {
-          bars[packet.entityUUID].dividers = packet.dividers
+          bars[packet.entityUUID]!.dividers = packet.dividers
         }
         if (packet.color !== undefined) {
-          bars[packet.entityUUID].color = packet.color
+          bars[packet.entityUUID]!.color = packet.color
         }
       }
       if (packet.action === 5 && packet.flags !== undefined) {
-        bars[packet.entityUUID].flags = packet.flags
+        bars[packet.entityUUID]!.flags = packet.flags
       }
-      bot.emit('bossBarUpdated', bars[packet.entityUUID])
+      bot.emit('bossBarUpdated', bars[packet.entityUUID]!)
     }
   }
 

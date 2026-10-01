@@ -23,7 +23,7 @@ function inject (bot: BotInternal): void {
     enchantmentTable.takeTargetItem = takeTargetItem
     enchantmentTable.putTargetItem = putTargetItem
     enchantmentTable.putLapis = putLapis
-    enchantmentTable.targetItem = function (this: EnchantmentTable) { return this.slots[0] }
+    enchantmentTable.targetItem = function (this: EnchantmentTable) { return this.slots[0]! }
 
     bot._client.on('craft_progress_bar', onUpdateWindowProperty)
     enchantmentTable.once('close', () => {
@@ -39,19 +39,19 @@ function inject (bot: BotInternal): void {
       const slots = enchantmentTable.enchantments
 
       if (packet.property < 3) {
-        const slot = slots[packet.property]
+        const slot = slots[packet.property]!
         slot.level = packet.value
       } else if (packet.property === 3) {
         enchantmentTable.xpseed = packet.value
       } else if (packet.property < 7) {
-        const slot = slots[packet.property - 4]
+        const slot = slots[packet.property - 4]!
         slot.expected.enchant = packet.value
       } else if (packet.property < 10) {
-        const slot = slots[packet.property - 7]
+        const slot = slots[packet.property - 7]!
         slot.expected.level = packet.value
       }
 
-      if (slots[0].level >= 0 && slots[1].level >= 0 && slots[2].level >= 0) {
+      if (slots[0]!.level >= 0 && slots[1]!.level >= 0 && slots[2]!.level >= 0) {
         if (!ready) {
           ready = true
           enchantmentTable.emit('ready')
@@ -79,7 +79,7 @@ function inject (bot: BotInternal): void {
     async function enchant (choice: string | number): Promise<Item | null> {
       if (!ready) await once(enchantmentTable, 'ready')
       choice = parseInt(choice as string, 10) // allow string argument
-      assert.notStrictEqual(enchantmentTable.enchantments[choice].level, -1)
+      assert.notStrictEqual(enchantmentTable.enchantments[choice]!.level, -1)
       bot._client.write('enchant_item', {
         windowId: enchantmentTable.id,
         enchantment: choice

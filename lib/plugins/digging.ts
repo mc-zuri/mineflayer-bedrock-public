@@ -107,7 +107,7 @@ function inject (bot: BotInternal): void {
           let closest: { face: BlockFace, targetPos: Vec3 } | undefined
           let distSqrt = 999
           for (const i in validFaces) {
-            const tPos = validFaces[i].targetPos
+            const tPos = validFaces[i]!.targetPos
             const cDist = new Vec3(tPos.x, tPos.y, tPos.z).distanceSquared(
               bot.entity.position.offset(0, bot.entity.eyeHeight, 0)
             )
@@ -209,7 +209,7 @@ function inject (bot: BotInternal): void {
       diggingTask.cancel(new Error('Digging aborted'))
     }
 
-    function onBlockUpdate (oldBlock: Block | null, newBlock: Block | null): void {
+    function onBlockUpdate (_oldBlock: Block | null, newBlock: Block | null): void {
       // vanilla server never actually interrupt digging, but some server send block update when you start digging
       // so ignore block update if not air
       // All block update listeners receive (null, null) when the world is unloaded. So newBlock can be null.

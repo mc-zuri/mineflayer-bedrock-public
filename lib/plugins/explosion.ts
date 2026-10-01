@@ -2,6 +2,7 @@ import { Vec3 } from 'vec3'
 import type { Entity } from 'prismarine-entity'
 import type { world } from 'prismarine-world'
 import type { BotInternal } from '../types/internal.ts'
+import type { Difficulty } from '../types/mineflayer.ts'
 
 export default inject
 
@@ -73,7 +74,7 @@ function findAttribute (entity: Entity, keys: string[]) {
 function inject (bot: BotInternal): void {
   const damageMultiplier = 7 // for 1.12+ 8 for 1.8 TODO check when the change occur (likely 1.9)
 
-  const difficultyValues: Record<string, number> = {
+  const difficultyValues: Record<Difficulty, number> = {
     peaceful: 0,
     easy: 1,
     normal: 2,

@@ -18,7 +18,7 @@ function friendlyFireOf (packet: ClientboundPackets['teams']): number {
 }
 
 function ruleName (rule: string | number | undefined, names: string[]): string {
-  return typeof rule === 'number' ? names[rule] : rule!
+  return typeof rule === 'number' ? names[rule]! : rule!
 }
 
 function inject (bot: BotInternal): void {
@@ -72,7 +72,7 @@ function inject (bot: BotInternal): void {
           packet.prefix!,
           packet.suffix!
         )
-        bot.emit('teamUpdated', teams[teamName])
+        bot.emit('teamUpdated', teams[teamName]!)
         break
 
       case 'join':
@@ -81,7 +81,7 @@ function inject (bot: BotInternal): void {
           team.add(player)
           bot.teamMap[player] = team
         }
-        bot.emit('teamMemberAdded', teams[teamName])
+        bot.emit('teamMemberAdded', teams[teamName]!)
         break
 
       case 'leave':
@@ -90,7 +90,7 @@ function inject (bot: BotInternal): void {
           team.remove(player)
           delete bot.teamMap[player]
         }
-        bot.emit('teamMemberRemoved', teams[teamName])
+        bot.emit('teamMemberRemoved', teams[teamName]!)
         break
 
       default:

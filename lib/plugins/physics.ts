@@ -563,7 +563,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     // would turn physics back on before the server has placed the bot in the new one. Pongs stay
     // queued, as transaction-ordering anticheats expect every ping answered in order.
     for (let i = pendingReplies.length - 1; i >= 0; i--) {
-      if (pendingReplies[i].teleport) pendingReplies.splice(i, 1)
+      if (pendingReplies[i]!.teleport) pendingReplies.splice(i, 1)
     }
   })
   bot.on('login', () => {

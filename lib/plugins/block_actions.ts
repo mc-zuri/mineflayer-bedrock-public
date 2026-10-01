@@ -36,7 +36,7 @@ function inject (bot: BotInternal): void {
     delete openCountByPos[newBlock.position as unknown as string]
   })
 
-  function parseChestMetadata (chestBlock: Block): { facing: Cardinal | undefined, waterlogged?: boolean, type?: ChestType } {
+  function parseChestMetadata (chestBlock: Block): { facing: Cardinal | undefined, waterlogged?: boolean, type?: ChestType | undefined } {
     const chestTypes: ChestType[] = ['single', 'right', 'left']
 
     return bot.supportFeature('doesntHaveChestType')
@@ -76,7 +76,7 @@ function inject (bot: BotInternal): void {
     // Ignore on non-vanilla blocks
     if (block === null || !blocks[packet.blockId]) { return }
 
-    const blockName = blocks[packet.blockId].name
+    const blockName = blocks[packet.blockId]!.name
 
     if (blockName === 'noteblock') { // Pre 1.13
       bot.emit('noteHeard', block, instruments[packet.byte1], packet.byte2)
@@ -92,7 +92,7 @@ function inject (bot: BotInternal): void {
         if (chestType === 'right') {
           // a 'right' chest half always has a facing
           const index = Object.values(FACING_MAP[parseChestMetadata(block).facing!]).indexOf('left')
-          const cardinalBlock2 = (Object.keys(FACING_MAP[parseChestMetadata(block).facing!]) as Cardinal[])[index]
+          const cardinalBlock2 = (Object.keys(FACING_MAP[parseChestMetadata(block).facing!]) as Cardinal[])[index]!
           const block2Position = block.position.plus(CARDINALS[cardinalBlock2])
           block2 = bot.blockAt(block2Position)
         } else if (chestType === 'left') return // Omit left part of the chest so 'chestLidMove' doesn't emit twice when it's a double chest

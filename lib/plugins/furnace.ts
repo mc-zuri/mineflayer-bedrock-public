@@ -36,9 +36,9 @@ function inject (bot: BotInternal): void {
     furnace.takeOutput = takeOutput
     furnace.putInput = putInput
     furnace.putFuel = putFuel
-    furnace.inputItem = function (this: Furnace) { return this.slots[0] }
-    furnace.fuelItem = function (this: Furnace) { return this.slots[1] }
-    furnace.outputItem = function (this: Furnace) { return this.slots[2] }
+    furnace.inputItem = function (this: Furnace) { return this.slots[0]! }
+    furnace.fuelItem = function (this: Furnace) { return this.slots[1]! }
+    furnace.outputItem = function (this: Furnace) { return this.slots[2]! }
 
     bot._client.on('craft_progress_bar', onUpdateWindowProperty)
     furnace.once('close', () => {

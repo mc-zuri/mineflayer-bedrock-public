@@ -26,7 +26,7 @@ function inject (bot: BotInternal): void {
     }
 
     if (bot.supportFeature('blockStateId')) {
-      const state = bedBlock.stateId - bot.registry.blocksByStateId[bedBlock.stateId].minStateId
+      const state = bedBlock.stateId - bot.registry.blocksByStateId[bedBlock.stateId]!.minStateId
       const bitMetadata = state.toString(2).padStart(4, '0') // FACING (first 2 bits), PART (3rd bit), OCCUPIED (4th bit)
       metadata.part = bitMetadata[3] === '0'
       metadata.occupied = bitMetadata[2] === '0'
@@ -118,14 +118,14 @@ function inject (bot: BotInternal): void {
         throw new Error('cant click the bed')
       }
 
-      const clickRange = [2, -3, -3, 2] // [south, west, north, east]
-      const monsterRange = [7, -8, -8, 7]
+      const clickRange: [number, number, number, number] = [2, -3, -3, 2] // [south, west, north, east]
+      const monsterRange: [number, number, number, number] = [7, -8, -8, 7]
       const oppositeCardinal = (metadata.facing + 2) % CARDINAL_DIRECTIONS.length
 
-      if (clickRange[oppositeCardinal] < 0) {
-        clickRange[oppositeCardinal]--
+      if (clickRange[oppositeCardinal]! < 0) {
+        clickRange[oppositeCardinal]!--
       } else {
-        clickRange[oppositeCardinal]++
+        clickRange[oppositeCardinal]!++
       }
 
       const nwClickCorner = headPoint.offset(clickRange[1], -2, clickRange[2]) // North-West lower corner
@@ -139,7 +139,7 @@ function inject (bot: BotInternal): void {
         const seMonsterCorner = headPoint.offset(monsterRange[3], 4, monsterRange[0]) // South-East upper corner
 
         for (const key of Object.keys(bot.entities)) {
-          const entity = bot.entities[key]
+          const entity = bot.entities[key]!
           if (entity.kind === 'Hostile mobs' || entity.type === 'hostile') { // 1.17 / 1.18 data has no category, only the type
             const entityPos = entity.position.floored()
             if (entityPos.x <= seMonsterCorner.x && entityPos.x >= nwMonsterCorner.x && entityPos.y <= seMonsterCorner.y && entityPos.y >= nwMonsterCorner.y && entityPos.z <= seMonsterCorner.z && entityPos.z >= nwMonsterCorner.z) {

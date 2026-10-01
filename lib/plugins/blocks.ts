@@ -39,20 +39,20 @@ interface ColumnArgs {
   x: number
   z: number
   /** section mask before 1.17, i64 mask array in 1.17 */
-  bitMap?: number | Int64[]
+  bitMap?: number | Int64[] | undefined
   heightmaps?: unknown
-  biomes?: number[]
+  biomes?: number[] | undefined
   skyLightSent: boolean
-  groundUp?: boolean
+  groundUp?: boolean | undefined
   data: Buffer
-  trustEdges?: boolean
+  trustEdges?: boolean | undefined
   // 1.18+ light data
-  skyLightMask?: Int64[]
-  blockLightMask?: Int64[]
-  emptySkyLightMask?: Int64[]
-  emptyBlockLightMask?: Int64[]
-  skyLight?: number[][]
-  blockLight?: number[][]
+  skyLightMask?: Int64[] | undefined
+  blockLightMask?: Int64[] | undefined
+  emptySkyLightMask?: Int64[] | undefined
+  emptyBlockLightMask?: Int64[] | undefined
+  skyLight?: number[][] | undefined
+  blockLight?: number[][] | undefined
 }
 
 /** 1.8 – 1.15 multi_block_change record */
@@ -64,7 +64,7 @@ interface WorldAsyncInternals {
   storageProvider: world.StorageProvider | null | undefined
 }
 
-function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotOptions): void {
+function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): void {
   const Block = prismarineBlock(bot.registry)
   // mineflayer only speaks the Java protocol
   const Chunk = prismarineChunk(bot.registry) as typeof PCChunk
@@ -256,7 +256,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
   function findBlock (options: FindBlockOptions): BlockInstance | null {
     const blocks = bot.findBlocks(options)
     if (blocks.length === 0) return null
-    return bot.blockAt(blocks[0])
+    return bot.blockAt(blocks[0]!)
   }
 
   function blockAt (absolutePoint: Vec3, extraInfos = true): BlockInstance | null {
@@ -266,7 +266,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
 
     if (extraInfos) {
       // prismarine-block types the painting's name as a string only
-      block.painting = paintingsByPos[block.position as unknown as string] as BlockInstance['painting']
+      (block as { painting?: BlockInstance['painting'] }).painting = paintingsByPos[block.position as unknown as string] as BlockInstance['painting']
     }
 
     return block
@@ -330,7 +330,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
   // This is used for keeping track of the weight of the old average when updating it.
   let oldSampleWeight = 1
 
-  bot._client.on('chunk_batch_start', (packet) => {
+  bot._client.on('chunk_batch_start', () => {
     // Get the time the chunk batch is starting.
     chunkBatchStartTime = Date.now()
   })
@@ -389,7 +389,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
     let i
     let size: number
     for (i = 0; i < packet.meta.length; ++i) {
-      meta = packet.meta[i]
+      meta = packet.meta[i]!
       size = (8192 + (packet.skyLightSent ? 2048 : 0)) *
         onesInShort(meta.bitMap) + // block ids
         2048 * onesInShort(meta.bitMap) + // (two bytes per block id)
@@ -462,7 +462,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
   bot._client.on('spawn_entity_painting', (packet) => {
     const pos = new Vec3(packet.location.x, packet.location.y, packet.location.z)
     const painting = new Painting(packet.entityId,
-      pos, packet.title, paintingFaceToVec[packet.direction])
+      pos, packet.title, paintingFaceToVec[packet.direction]!)
     addPainting(painting)
   })
 
@@ -526,7 +526,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
     }
 
     for (let i = 0; i < lines.length; ++i) {
-      if (lines[i].length > 45) {
+      if (lines[i]!.length > 45) {
         bot.emit('error', new Error('Signs have a maximum of 45 characters per line'))
         return
       }
@@ -567,6 +567,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
     } else if (bot.supportFeature('dimensionIsAString') || bot.supportFeature('dimensionIsAWorld')) {
       return worldName
     }
+    return undefined
   }
   // only exposed for testing
   bot._getDimensionName = () => worldName
@@ -588,7 +589,7 @@ function inject (bot: BotInternal, { version, storageBuilder, hideErrors }: BotO
       }
 
       for (const [x, z] of Object.keys((bot.world.async as unknown as WorldAsyncInternals).columns).map(key => key.split(',').map(x => parseInt(x, 10)))) {
-        bot.world.unloadColumn(x, z)
+        bot.world.unloadColumn(x!, z!)
       }
 
       if (storageBuilder) {

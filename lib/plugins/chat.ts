@@ -84,7 +84,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
     for (const [indexString, pattern] of Object.entries(_patterns)) {
       if (!pattern) continue
       const { position, patterns } = pattern
-      if (patterns[position].test(msg)) {
+      if (patterns[position]!.test(msg)) {
         found.push(+indexString)
       }
     }
@@ -101,15 +101,15 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
       if (_patterns[ix]!.deprecated) {
         // the pattern just matched this message
-        const [, ...matches] = _patterns[ix]!.matches[0].match(_patterns[ix]!.patterns[0])!
+        const [, ...matches] = _patterns[ix]!.matches[0]!.match(_patterns[ix]!.patterns[0]!)!
         // deprecated patterns emit under the user's chat type name
-        ;(bot.emit as (event: string, ...args: unknown[]) => boolean)(_patterns[ix]!.name, ...matches, _patterns[ix]!.messages[0].translate, ..._patterns[ix]!.messages)
+        ;(bot.emit as (event: string, ...args: unknown[]) => boolean)(_patterns[ix]!.name, ...matches, _patterns[ix]!.messages[0]!.translate, ..._patterns[ix]!.messages)
         _patterns[ix]!.messages = [] // clear out old messages
       } else { // regular parsing
         if (_patterns[ix]!.patterns.length > _patterns[ix]!.matches.length) return // we have all the matches, so we can emit the done event
         if (_patterns[ix]!.parse) {
           const matches = _patterns[ix]!.patterns.map((pattern, i) => {
-            const [, ...matches] = _patterns[ix]!.matches[i].match(pattern)! // delete full message match
+            const [, ...matches] = _patterns[ix]!.matches[i]!.match(pattern)! // delete full message match
             return matches
           })
           bot.emit(`chat:${_patterns[ix]!.name}`, matches)
@@ -154,7 +154,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
   bot._client.on('systemChat', (data) => {
     const msg = ChatMessage.fromNotch(data.formattedMessage)
-    const chatPositions: { [positionId: number]: string } = {
+    const chatPositions: Record<1 | 2, string> = {
       1: 'system',
       2: 'game_info'
     }

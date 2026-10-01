@@ -8,7 +8,16 @@ import type { ItemClass } from '../types/vendor/prismarine-item.ts'
 export default inject
 
 /** the book's NBT as modifyBook builds it */
-type BookNbt = { type: string, name?: string, value: { [tag: string]: any } }
+type BookNbt = {
+  type: string
+  name?: string
+  value: {
+    author?: { type: 'string', value: string | null }
+    title?: { type: 'string', value: string | null }
+    pages?: { type: 'list', value: { type: 'string', value: string[] } }
+    [tag: string]: unknown
+  }
+}
 
 type EditBook = (book: ItemInstance, pages: string[], title: string | null, slot: number, signing?: boolean, hand?: number) => void
 
@@ -19,13 +28,13 @@ function inject (bot: BotInternal): void {
   if (bot.supportFeature('editBookIsPluginChannel')) {
     bot._client.registerChannel('MC|BEdit', 'slot')
     bot._client.registerChannel('MC|BSign', 'slot')
-    editBook = (book: ItemInstance, pages: string[], title: string | null, slot: number, signing = false) => {
+    editBook = (book: ItemInstance, _pages: string[], _title: string | null, _slot: number, signing = false) => {
       if (signing) bot._client.writeChannel('MC|BSign', Item.toNotch(book))
       else bot._client.writeChannel('MC|BEdit', Item.toNotch(book))
     }
   } else if (bot.supportFeature('hasEditBookPacket')) {
     if (bot.supportFeature('editBookPacketUsesNbt')) {
-      editBook = (book: ItemInstance, pages: string[], title: string | null, slot: number, signing = false, hand = 0) => {
+      editBook = (book: ItemInstance, _pages: string[], _title: string | null, _slot: number, signing = false, hand = 0) => {
         bot._client.write('edit_book', {
           new_book: Item.toNotch(book),
           signing,
@@ -33,7 +42,7 @@ function inject (bot: BotInternal): void {
         })
       }
     } else {
-      editBook = (book: ItemInstance, pages: string[], title: string | null, slot: number, signing = false, hand = 0) => {
+      editBook = (_book: ItemInstance, pages: string[], title: string | null, slot: number) => {
         bot._client.write('edit_book', {
           hand: slot,
           pages,
@@ -46,7 +55,7 @@ function inject (bot: BotInternal): void {
   async function write (slot: number, pages: string[], author: string | null, title: string | null, signing: boolean) {
     assert.ok(slot >= 0 && slot <= 44, 'slot out of inventory range')
     const book = bot.inventory.slots[slot]
-    assert.ok(book && book.type === bot.registry.itemsByName.writable_book.id, `no book found in slot ${slot}`)
+    assert.ok(book && book.type === bot.registry.itemsByName['writable_book']!.id, `no book found in slot ${slot}`)
     const quickBarSlot = bot.quickBarSlot
     const moveToQuickBar = slot < 36
 
@@ -67,7 +76,7 @@ function inject (bot: BotInternal): void {
     // already reflects it counts as the acknowledgement.
     await onceWithCleanup(bot.inventory, `updateSlot:${bookSlot}`, {
       timeout: 20000,
-      checkCondition: (oldItem: ItemInstance | null, newItem: ItemInstance | null) => newItem && (signing ? newItem.type === bot.registry.itemsByName.written_book.id : hasPages(newItem))
+      checkCondition: (_oldItem: ItemInstance | null, newItem: ItemInstance | null) => newItem && (signing ? newItem.type === bot.registry.itemsByName['written_book']!.id : hasPages(newItem))
     })
 
     bot.setQuickBarSlot(quickBarSlot)
@@ -94,7 +103,7 @@ function inject (bot: BotInternal): void {
     }
     if (signing) {
       if (bot.supportFeature('clientUpdateBookIdWhenSign')) {
-        book.type = bot.registry.itemsByName.written_book.id
+        book.type = bot.registry.itemsByName['written_book']!.id
       }
       book.nbt.value.author = {
         type: 'string',

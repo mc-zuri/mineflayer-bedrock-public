@@ -47,7 +47,7 @@ export default (bot: BotInternal) => {
         value,
         get displayName () {
           if (name in bot.teamMap) {
-            return bot.teamMap[name].displayName(name)
+            return bot.teamMap[name]!.displayName(name)
           }
           return new ChatMessage(name)
         }

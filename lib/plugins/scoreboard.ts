@@ -18,7 +18,7 @@ function inject (bot: BotInternal): void {
     }
 
     if (packet.action === 1) {
-      bot.emit('scoreboardDeleted', scoreboards[packet.name])
+      bot.emit('scoreboardDeleted', scoreboards[packet.name]!)
       delete scoreboards[packet.name]
 
       for (const position in ScoreBoard.positions) {
@@ -37,8 +37,8 @@ function inject (bot: BotInternal): void {
         bot.emit('error', new Error(`Received update for unknown objective ${packet.name}`))
         return
       }
-      scoreboards[packet.name].setTitle(packet.displayText)
-      bot.emit('scoreboardTitleChanged', scoreboards[packet.name])
+      scoreboards[packet.name]!.setTitle(packet.displayText)
+      bot.emit('scoreboardTitleChanged', scoreboards[packet.name]!)
     }
   })
 
@@ -54,6 +54,7 @@ function inject (bot: BotInternal): void {
         return bot.emit('scoreRemoved', sb, removed)
       }
     }
+    return undefined
   }
 
   bot._client.on('scoreboard_score', (packet) => {
@@ -73,6 +74,7 @@ function inject (bot: BotInternal): void {
     if (packet.objective_name === undefined) return removeScore(packet.entity_name, undefined)
     const scoreboard = scoreboards[packet.objective_name]
     if (scoreboard !== undefined) removeScore(packet.entity_name, scoreboard)
+    return undefined
   })
 
   bot._client.on('scoreboard_display_objective', (packet) => {

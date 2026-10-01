@@ -50,19 +50,19 @@ function inject (bot: BotInternal): void {
     if (bot.supportFeature('resourcePackUsesHash')) {
       bot._client.write('resource_pack_receive', {
         result: TEXTURE_PACK_RESULTS.ACCEPTED,
-        hash: latestHash
+        hash: latestHash!
       })
       bot._client.write('resource_pack_receive', {
         result: TEXTURE_PACK_RESULTS.SUCCESSFULLY_LOADED,
-        hash: latestHash
+        hash: latestHash!
       })
     } else if (bot.supportFeature('resourcePackUsesUUID')) {
       bot._client.write('resource_pack_receive', {
-        uuid: latestUUID,
+        uuid: latestUUID!,
         result: TEXTURE_PACK_RESULTS.ACCEPTED
       })
       bot._client.write('resource_pack_receive', {
-        uuid: latestUUID,
+        uuid: latestUUID!,
         result: TEXTURE_PACK_RESULTS.SUCCESSFULLY_LOADED
       })
     } else {
@@ -78,7 +78,7 @@ function inject (bot: BotInternal): void {
   function denyResourcePack () {
     if (bot.supportFeature('resourcePackUsesUUID')) {
       bot._client.write('resource_pack_receive', {
-        uuid: latestUUID,
+        uuid: latestUUID!,
         result: TEXTURE_PACK_RESULTS.DECLINED
       })
     } else {
