@@ -12,8 +12,8 @@ export default (): TestFunction => async (bot) => {
 
   const stoneId = bot.registry.itemsByName.stone.id
   await bot.test.setInventorySlot(36, new Item(stoneId, 1))
-  assert.strictEqual(bot.heldItem.id, bot.stoneId)
+  assert.strictEqual(bot.heldItem!.type, stoneId)
 
-  await bot.tossStack(bot.heldItem)
+  await bot.tossStack(bot.heldItem!)
   assert.equal(bot.heldItem, null)
 }
