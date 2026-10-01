@@ -646,6 +646,14 @@ function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): 
     bot.on('removeListener', listenerRemove)
   }
 
+  bot.on('end', () => {
+    if (!storageBuilder || !bot.world) return
+    // the world's saving interval would keep the process running after the bot ended: save what is queued
+    // once more and stop it
+    bot.world.async.stopSaving()
+    bot.world.async.saveNow().catch((err: Error) => bot._warn(`saving the world failed: ${err.message}`))
+  })
+
   bot.findBlock = findBlock
   bot.canSeeBlock = canSeeBlock
   bot.blockAt = blockAt

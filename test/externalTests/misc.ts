@@ -248,7 +248,6 @@ export default (): Record<string, TestFunction> => {
         const { x, z } = storageBot.entity.position
         assert.ok(saved.has(`${Math.floor(x / 16)},${Math.floor(z / 16)}`), `the bot's column was saved (${[...saved]})`)
       } finally {
-        storageBot.world?.async.stopSaving()
         const left = onceWithCleanup(bot, 'playerLeft', { timeout: 10000, checkCondition: (player) => player.username === 'storagebot' })
         storageBot.end()
         await left.catch(() => {})
