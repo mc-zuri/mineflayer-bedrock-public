@@ -10,10 +10,10 @@ export default (): TestFunction => async (bot) => {
   let populateBlockInventory: { id: number } | undefined
   let craftItem: string | undefined
   if (bot.supportFeature('oneBlockForSeveralVariations')) {
-    populateBlockInventory = blocksByName.log
+    populateBlockInventory = blocksByName['log']
     craftItem = 'planks'
   } else if (bot.supportFeature('blockSchemeIsFlat')) {
-    populateBlockInventory = itemsByName.birch_log
+    populateBlockInventory = itemsByName['birch_log']
     craftItem = 'birch_planks'
   }
 
@@ -23,10 +23,11 @@ export default (): TestFunction => async (bot) => {
       for (cursor.y = bot.entity.position.y - 4; cursor.y < bot.entity.position.y + 4; cursor.y++) {
         for (cursor.z = bot.entity.position.z - 4; cursor.z < bot.entity.position.z + 4; cursor.z++) {
           const block = bot.blockAt(cursor)! // around the bot: loaded
-          if (block.type === blocksByName.crafting_table.id) return block
+          if (block.type === blocksByName['crafting_table']!.id) return block
         }
       }
     }
+    return undefined
   }
 
   async function craft (amount: number, name: string) {
@@ -40,7 +41,7 @@ export default (): TestFunction => async (bot) => {
       const recipes = bot.recipesFor(item.id, null, 1, craftingTable) // doesn't check if it's possible to do it amount times
       if (recipes.length) {
         bot.test.sayEverywhere(`${wbText}I can make ${item.name}`)
-        await bot.craft(recipes[0], amount, craftingTable)
+        await bot.craft(recipes[0]!, amount, craftingTable)
         bot.test.sayEverywhere(`did the recipe for ${item.name} ${amount} times`)
       } else {
         bot.test.sayEverywhere(`${wbText}I can't make ${item.name}`)
@@ -57,6 +58,6 @@ export default (): TestFunction => async (bot) => {
   bot.chat('/give @p stick 7')
   await once(bot.inventory, 'updateSlot')
   await bot.test.wait(500)
-  const craftingTable = bot.findBlock({ matching: blocksByName.crafting_table.id })
-  await bot.craft(bot.recipesFor(itemsByName.ladder.id, null, null, true)[0], 1, craftingTable)
+  const craftingTable = bot.findBlock({ matching: blocksByName['crafting_table']!.id })
+  await bot.craft(bot.recipesFor(itemsByName['ladder']!.id, null, null, true)[0]!, 1, craftingTable)
 }

@@ -9,8 +9,8 @@ export default (): TestFunction => async (bot) => {
   await bot.test.wait(100)
 
   // Give the bot a stone in the held slot (slot 36 = first hotbar slot)
-  const stoneId = bot.registry.itemsByName.stone.id
-  const diamondId = bot.registry.itemsByName.diamond.id
+  const stoneId = bot.registry.itemsByName['stone']!.id
+  const diamondId = bot.registry.itemsByName['diamond']!.id
 
   // Put stone in the current held slot
   await bot.test.setInventorySlot(bot.quickBarSlot + bot.inventory.hotbarStart, new (prismarineItem(bot.registry))(stoneId, 1))

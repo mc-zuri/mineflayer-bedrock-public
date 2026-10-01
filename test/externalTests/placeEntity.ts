@@ -3,7 +3,7 @@ import { Vec3 } from 'vec3'
 import { once } from '../../lib/promise_utils.ts'
 import type { TestBot, TestFunction } from './plugins/testCommon.ts'
 
-export default (version: string): Record<string, TestFunction> => {
+export default (): Record<string, TestFunction> => {
   async function runTest (bot: TestBot, testFunction: (bot: TestBot) => Promise<void>) {
     await testFunction(bot)
   }
@@ -15,7 +15,7 @@ export default (version: string): Record<string, TestFunction> => {
   }
 
   addTest('place crystal', async (bot) => {
-    if (!bot.registry.itemsByName.end_crystal) return // unsupported
+    if (!bot.registry.itemsByName['end_crystal']) return // unsupported
     await bot.test.setBlock({ z: 1, relative: true, blockName: 'obsidian' })
     await bot.test.awaitItemReceived(`/give ${bot.username} end_crystal`)
     const crystal = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, 0, 1))!, new Vec3(0, 1, 0))
@@ -46,11 +46,11 @@ export default (version: string): Record<string, TestFunction> => {
     }
 
     await placeBlocksForTest('water')
-    await bot.test.awaitItemReceived(`/give ${bot.username} ${bot.registry.itemsByName.oak_boat ? 'oak_boat' : 'boat'}`)
+    await bot.test.awaitItemReceived(`/give ${bot.username} ${bot.registry.itemsByName['oak_boat'] ? 'oak_boat' : 'boat'}`)
     const boat = await bot.placeEntity(bot.blockAt(bot.entity.position.offset(0, -1, -2))!, new Vec3(0, -1, 0))
     assert(boat !== null)
     // 1.21.2+: one boat entity per wood, named like the item
-    const name = bot.registry.entitiesByName.oak_boat ? 'oak_boat' : bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Boat' : 'boat'
+    const name = bot.registry.entitiesByName['oak_boat'] ? 'oak_boat' : bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Boat' : 'boat'
     assert.strictEqual(boat.name, name)
     const entity = bot.nearestEntity(o => o.name === name)
     assert(entity?.name === name)

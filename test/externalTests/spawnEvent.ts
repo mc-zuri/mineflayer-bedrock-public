@@ -7,7 +7,7 @@ export default (): TestFunction => async (bot) => {
   const spawnBot = mineflayer.createBot({
     username: 'spawnbot',
     viewDistance: 'tiny',
-    port: bot.test.port,
+    port: bot.test.port!,
     host: '127.0.0.1',
     version: bot.version
   })

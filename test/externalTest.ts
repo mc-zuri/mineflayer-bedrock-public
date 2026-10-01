@@ -67,7 +67,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
   let PORT = 25565
   const registry = prismarineRegistry(supportedVersion)
   const version = registry.version
-  const MC_SERVER_JAR_DIR = process.env.MC_SERVER_JAR_DIR || `${process.cwd()}/server_jars`
+  const MC_SERVER_JAR_DIR = process.env['MC_SERVER_JAR_DIR'] || `${process.cwd()}/server_jars`
   const MC_SERVER_JAR = `${MC_SERVER_JAR_DIR}/minecraft_server.${version.minecraftVersion}.jar`
   const wrap = new Wrap(MC_SERVER_JAR, `${MC_SERVER_PATH}_${supportedVersion}`)
   wrap.on('line', (line: string) => {
@@ -135,7 +135,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           }
           trace.log('server jar downloaded, starting server')
           propOverrides['server-port'] = PORT
-          if (process.env.LEVEL_SEED) propOverrides['level-seed'] = process.env.LEVEL_SEED
+          if (process.env['LEVEL_SEED']) propOverrides['level-seed'] = process.env['LEVEL_SEED']
           wrap.startServer(propOverrides, (err: Error | null) => {
             if (err) return done(err)
             // The seed is otherwise unrecoverable from a failed run: the log never
@@ -235,7 +235,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
                 bot.test.sayEverywhere(`### Starting ${testName}`)
                 return testFunction(bot, done)
               })
-              .then(res => done())
+              .then(() => done())
               .catch(e => {
                 if ((this.test as unknown as RetriedTest)._currentRetry === 0) {
                   distinctFailures++
@@ -248,7 +248,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           if (typeof testFunctions === 'object') {
             for (const testFunctionName in testFunctions) {
               if (testFunctions[testFunctionName] !== undefined) {
-                it(`${test} ${testFunctionName}`, (testFunctionName => runTest(`${test} ${testFunctionName}`, testFunctions[testFunctionName]))(testFunctionName))
+                it(`${test} ${testFunctionName}`, (testFunctionName => runTest(`${test} ${testFunctionName}`, testFunctions[testFunctionName]!))(testFunctionName))
               }
             }
           } else {

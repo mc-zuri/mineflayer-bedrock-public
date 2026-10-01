@@ -23,7 +23,7 @@ export default (): Record<string, TestFunction> => {
     const renameCost = () => bot.registry.isNewerOrEqualTo('1.8.9') ? 0 : 1 // weird quirk of anvils
     const renameName = (name: string) => bot.registry.isOlderThan('1.13.2') ? name : JSON.stringify({ text: name }) // weird quirk of anvils
     await bot.test.becomeCreative()
-    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.anvil.id, 1))
+    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['anvil']!.id, 1))
     await bot.test.becomeSurvival()
     await bot.test.placeBlock(36, bot.entity.position.offset(1, 0, 0))
 
@@ -36,10 +36,10 @@ export default (): Record<string, TestFunction> => {
 
     await once(bot, 'experience')
 
-    const b = bot.findBlock({ matching: bot.registry.blocksByName.anvil.id })! // find anvil before tests so all tests can use it
+    const b = bot.findBlock({ matching: bot.registry.blocksByName['anvil']!.id })! // find anvil before tests so all tests can use it
 
     function makeBook (enchants: Enchants) {
-      return makeItem({ type: bot.registry.itemsByName.enchanted_book.id, count: 1, enchants })
+      return makeItem({ type: bot.registry.itemsByName['enchanted_book']!.id, count: 1, enchants })
     }
 
     function makeItem (opts: ItemOptions) {
@@ -58,17 +58,17 @@ export default (): Record<string, TestFunction> => {
     tests[name] = bot => runTest(bot, f)
   }
 
-  addTest('combine two items', async (b, renameCost, renameName, Item, bot, makeBook, makeItem) => { // combine two items
+  addTest('combine two items', async (b, _renameCost, _renameName, Item, bot, makeBook) => { // combine two items
     await bot.test.becomeCreative()
     // get items
-    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.diamond_sword.id, 1))
+    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['diamond_sword']!.id, 1))
     await bot.test.setInventorySlot(37, makeBook([{ name: 'sharpness', lvl: 5 }]))
     await bot.test.becomeSurvival()
 
     const anvil = await bot.openAnvil(b)
 
-    const sword = anvil.findInventoryItem(bot.registry.itemsByName.diamond_sword.id)
-    const book = anvil.findInventoryItem(bot.registry.itemsByName.enchanted_book.id)
+    const sword = anvil.findInventoryItem(bot.registry.itemsByName['diamond_sword']!.id)
+    const book = anvil.findInventoryItem(bot.registry.itemsByName['enchanted_book']!.id)
 
     await anvil.combine(sword!, book!)
     // test result
@@ -79,12 +79,12 @@ export default (): Record<string, TestFunction> => {
     await bot.test.wait(1000)
   })
 
-  addTest('combine with nbt selection two items', async (b, renameCost, renameName, Item, bot, makeBook, makeItem) => { // combining two items in inventory, but there are three items, so this is more a test of using nbt when picking the item in inventory
+  addTest('combine with nbt selection two items', async (b, _renameCost, _renameName, Item, bot, makeBook, makeItem) => { // combining two items in inventory, but there are three items, so this is more a test of using nbt when picking the item in inventory
     bot.chat(`/clear ${bot.username}`)
     await bot.test.becomeCreative()
 
-    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.diamond_sword.id, 1))
-    await bot.test.setInventorySlot(37, makeItem({ type: bot.registry.itemsByName.diamond_sword.id, enchants: [{ name: 'sharpness', lvl: 5 }] }))
+    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['diamond_sword']!.id, 1))
+    await bot.test.setInventorySlot(37, makeItem({ type: bot.registry.itemsByName['diamond_sword']!.id, enchants: [{ name: 'sharpness', lvl: 5 }] }))
     await bot.test.setInventorySlot(38, makeBook([{ name: 'unbreaking', lvl: 3 }]))
 
     await bot.test.becomeSurvival()
@@ -92,7 +92,7 @@ export default (): Record<string, TestFunction> => {
     const anvil = await bot.openAnvil(b)
 
     const sword = bot.inventory.slots[37]
-    const book = anvil.findInventoryItem(bot.registry.itemsByName.enchanted_book.id)
+    const book = anvil.findInventoryItem(bot.registry.itemsByName['enchanted_book']!.id)
 
     await anvil.combine(sword!, book!)
     // test result
@@ -103,17 +103,17 @@ export default (): Record<string, TestFunction> => {
     await bot.test.wait(1000)
   })
 
-  addTest('using anvil.rename', async (b, renameCost, renameName, Item, bot, makeBook, makeItem) => { // using anvil.rename
+  addTest('using anvil.rename', async (b, renameCost, renameName, _Item, bot, _makeBook, makeItem) => { // using anvil.rename
     bot.chat(`/clear ${bot.username}`)
     await bot.test.becomeCreative()
 
-    await bot.test.setInventorySlot(36, makeItem({ type: bot.registry.itemsByName.diamond_sword.id }))
+    await bot.test.setInventorySlot(36, makeItem({ type: bot.registry.itemsByName['diamond_sword']!.id }))
 
     await bot.test.becomeSurvival()
 
     const anvil = await bot.openAnvil(b)
 
-    const sword = anvil.findInventoryItem(bot.registry.itemsByName.diamond_sword.id)
+    const sword = anvil.findInventoryItem(bot.registry.itemsByName['diamond_sword']!.id)
     await anvil.rename(sword!, 'hello')
     // test result
     assert.strictEqual(bot.experience.level, 998)
@@ -123,12 +123,12 @@ export default (): Record<string, TestFunction> => {
     await bot.test.wait(1000)
   })
 
-  addTest('two item + rename', async (b, renameCost, renameName, Item, bot, makeBook, makeItem) => { // test 2 + a rename
+  addTest('two item + rename', async (b, _renameCost, renameName, Item, bot, makeBook, makeItem) => { // test 2 + a rename
     bot.chat(`/clear ${bot.username}`)
     await bot.test.becomeCreative()
 
-    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.diamond_sword.id, 1))
-    await bot.test.setInventorySlot(37, makeItem({ type: bot.registry.itemsByName.diamond_sword.id, enchants: [{ name: 'sharpness', lvl: 5 }] }))
+    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['diamond_sword']!.id, 1))
+    await bot.test.setInventorySlot(37, makeItem({ type: bot.registry.itemsByName['diamond_sword']!.id, enchants: [{ name: 'sharpness', lvl: 5 }] }))
     await bot.test.setInventorySlot(38, makeBook([{ name: 'unbreaking', lvl: 3 }]))
 
     await bot.test.becomeSurvival()
@@ -136,7 +136,7 @@ export default (): Record<string, TestFunction> => {
     const anvil = await bot.openAnvil(b)
 
     const sword = bot.inventory.slots[37]
-    const book = anvil.findInventoryItem(bot.registry.itemsByName.enchanted_book.id)
+    const book = anvil.findInventoryItem(bot.registry.itemsByName['enchanted_book']!.id)
 
     await anvil.combine(sword!, book!, 'lol')
     // test result

@@ -16,10 +16,10 @@ export default (): Record<string, TestFunction> => {
 
   async function holdDirt (bot: TestBot) {
     const Item = prismarineItem(bot.registry)
-    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.dirt.id, 1, 0))
+    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['dirt']!.id, 1, 0))
   }
 
-  async function expectRefusal (bot: TestBot, placement: Promise<void>, item: string) {
+  async function expectRefusal (_bot: TestBot, placement: Promise<void>, item: string) {
     const start = Date.now()
     await assert.rejects(placement, new RegExp(`^Error: Server refused to place ${item} at \\(\\d+, -?\\d+, \\d+\\): the block is still air$`))
     assert(Date.now() - start < 2000, `refused placement took ${Date.now() - start}ms to surface`)
@@ -59,7 +59,7 @@ export default (): Record<string, TestFunction> => {
 
   addTest('rejects when the held item cannot be placed', async (bot) => {
     const Item = prismarineItem(bot.registry)
-    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.stick.id, 1, 0))
+    await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['stick']!.id, 1, 0))
     await expectRefusal(bot, bot.test.placeBlock(36, target(bot)), 'stick')
     assert.strictEqual(bot.blockAt(target(bot))!.name, 'air')
   })

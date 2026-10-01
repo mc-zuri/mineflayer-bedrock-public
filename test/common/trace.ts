@@ -13,12 +13,12 @@ import path from 'path'
 import { Worker, isMainThread, parentPort, workerData } from 'worker_threads'
 
 // pid keeps concurrent mocha processes (one per version in CI) from sharing a file
-const file = process.env.TRACE ?? path.join(os.tmpdir(), `mineflayer-trace-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}.jsonl`)
+const file = process.env['TRACE'] ?? path.join(os.tmpdir(), `mineflayer-trace-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}.jsonl`)
 
 if (!isMainThread) {
   const { file, pending } = workerData
   const stream = fs.createWriteStream(file, { flags: 'w' })
-  const bigintSafe = (k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v
+  const bigintSafe = (_k: string, v: unknown) => typeof v === 'bigint' ? v.toString() : v
   // Buffers arrive as plain Uint8Arrays and must still serialize in Buffer's {type,data} form.
   const rewrap = (o: any): any => {
     if (o instanceof Uint8Array) return Buffer.from(o.buffer, o.byteOffset, o.byteLength)

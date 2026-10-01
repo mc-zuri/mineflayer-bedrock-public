@@ -15,9 +15,9 @@ export default (): TestFunction => async (bot) => {
   bot.test.groundY = bot.supportFeature('tallWorld') ? -60 : 4
 
   const smallChestLocation = new Vec3(0, bot.test.groundY, -1)
-  const largeChestLocations = [new Vec3(0, bot.test.groundY, 1), new Vec3(1, bot.test.groundY, 1)]
+  const largeChestLocations: [Vec3, Vec3] = [new Vec3(0, bot.test.groundY, 1), new Vec3(1, bot.test.groundY, 1)]
   const smallTrappedChestLocation = new Vec3(1, bot.test.groundY, 0)
-  const largeTrappedChestLocations = [
+  const largeTrappedChestLocations: [Vec3, Vec3] = [
     new Vec3(-1, bot.test.groundY, 1),
     new Vec3(-1, bot.test.groundY, 0)
   ]
@@ -32,8 +32,8 @@ export default (): TestFunction => async (bot) => {
     blockItemsByName = 'blocksByName'
   }
 
-  const chestBlockId = bot.registry.blocksByName.chest.id
-  const trappedChestBlockId = bot.registry.blocksByName.trapped_chest.id
+  const chestBlockId = bot.registry.blocksByName['chest']!.id
+  const trappedChestBlockId = bot.registry.blocksByName['trapped_chest']!.id
 
   function itemByName (items: Array<ItemType | null>, name: string) {
     for (let i = 0; i < items.length; ++i) {
@@ -71,9 +71,9 @@ export default (): TestFunction => async (bot) => {
     await chest.close()
   }
 
-  await bot.test.setInventorySlot(chestSlot, new Item(bot.registry[blockItemsByName!].chest.id, 3, 0))
-  await bot.test.setInventorySlot(trappedChestSlot, new Item(bot.registry[blockItemsByName!].trapped_chest.id, 3, 0))
-  await bot.test.setInventorySlot(boneSlot, new Item(bot.registry.itemsByName.bone.id, 3, 0))
+  await bot.test.setInventorySlot(chestSlot, new Item(bot.registry[blockItemsByName!]['chest']!.id, 3, 0))
+  await bot.test.setInventorySlot(trappedChestSlot, new Item(bot.registry[blockItemsByName!]['trapped_chest']!.id, 3, 0))
+  await bot.test.setInventorySlot(boneSlot, new Item(bot.registry.itemsByName['bone']!.id, 3, 0))
 
   await bot.test.becomeSurvival()
 
@@ -137,19 +137,19 @@ export default (): TestFunction => async (bot) => {
   // Deposit part of a stack: the halving path must leave the same counts as one-by-one
   const boneCount = (items: ItemType[]) => items.filter(item => item.name === 'bone').reduce((sum, item) => sum + item.count, 0)
   await bot.test.becomeCreative()
-  await bot.test.setInventorySlot(itemByName(bot.inventory.slots, 'bone')!.slot, new Item(bot.registry.itemsByName.bone.id, 64, 0))
+  await bot.test.setInventorySlot(itemByName(bot.inventory.slots, 'bone')!.slot, new Item(bot.registry.itemsByName['bone']!.id, 64, 0))
   await bot.test.becomeSurvival()
   assert.strictEqual(boneCount(bot.inventory.items()), 64)
   const partialChest = await bot.openContainer(bot.blockAt(smallChestLocation)!)
-  await partialChest.deposit(bot.registry.itemsByName.bone.id, null, 36)
+  await partialChest.deposit(bot.registry.itemsByName['bone']!.id, null, 36)
   assert.strictEqual(itemByName(partialChest.containerItems(), 'bone')!.count, 36)
   assert.strictEqual(boneCount(partialChest.items()), 28)
-  await partialChest.withdraw(bot.registry.itemsByName.bone.id, null, 36)
+  await partialChest.withdraw(bot.registry.itemsByName['bone']!.id, null, 36)
   assert.strictEqual(partialChest.containerItems().length, 0)
   assert.strictEqual(boneCount(partialChest.items()), 64)
   partialChest.close()
 
-  const itemsWithStackSize: Record<number, string[]> = {
+  const itemsWithStackSize: { 64: [string, string], 16: [string, string], 1: [string, string] } = {
     64: ['stone', 'mycelium'],
     16: ['ender_pearl', 'egg'],
     1: ['fishing_rod', 'bow']
@@ -189,7 +189,7 @@ export default (): TestFunction => async (bot) => {
     const held = () => window.selectedItem
     const find = (pred: (slot: ItemType | null, index: number) => boolean) => {
       for (let i = 0; i < window.inventoryStart; i++) {
-        if (pred(window.slots[i], i)) return i
+        if (pred(window.slots[i] as ItemType | null, i)) return i
       }
       return -1
     }

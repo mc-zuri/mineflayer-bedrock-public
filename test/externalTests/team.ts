@@ -16,10 +16,10 @@ export default (): TestFunction => async (bot) => {
 
   await p
 
-  assert.notStrictEqual(bot.teams.test, undefined)
+  assert.notStrictEqual(bot.teams['test'], undefined)
   assert.notStrictEqual(bot.teamMap[bot.username], undefined, 'teamMap is not undefined')
 
   const { test } = bot.teams
 
-  assert.strictEqual(test.name.toString(), 'test')
+  assert.strictEqual(test!.name.toString(), 'test')
 }

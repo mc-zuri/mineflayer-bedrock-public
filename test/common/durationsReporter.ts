@@ -12,7 +12,7 @@ class DurationsReporter extends reporters.Spec {
       durations[test.fullTitle()] = test.duration
     })
     runner.once(Runner.constants.EVENT_RUN_END, () => {
-      if (process.env.DURATIONS) fs.writeFileSync(process.env.DURATIONS, JSON.stringify(durations, null, 2))
+      if (process.env['DURATIONS']) fs.writeFileSync(process.env['DURATIONS'], JSON.stringify(durations, null, 2))
     })
   }
 }

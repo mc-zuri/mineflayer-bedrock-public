@@ -298,7 +298,7 @@ function inject (bot: TestBot, wrap: WrapServer): void {
       bot.chat('/give @a stone 1')
       const got = await onceWithCleanup(bot.inventory, 'updateSlot', {
         timeout: 3000,
-        checkCondition: (slot, oldItem, newItem) => newItem?.name === 'stone'
+        checkCondition: (_slot, _oldItem, newItem) => newItem?.name === 'stone'
       }).then(() => true, () => false)
       if (got) break
       if (attempt === 2) throw new Error('stone never reached the inventory after 3 /give attempts')
@@ -377,7 +377,7 @@ function inject (bot: TestBot, wrap: WrapServer): void {
       // confirming the server has processed the TP
       const targetPos = new Vec3(50, bot.test.groundY, 0)
       while (!bot.players[childBotName]?.entity ||
-             bot.players[childBotName].entity!.position.distanceTo(targetPos) > 5) {
+             bot.players[childBotName]!.entity!.position.distanceTo(targetPos) > 5) {
         await sleep(100)
       }
       bot.chat('loaded')
@@ -386,7 +386,7 @@ function inject (bot: TestBot, wrap: WrapServer): void {
     const runExampleOnReady = async () => {
       await onceWithCleanup(bot, 'chat', {
         signal: abort.signal,
-        checkCondition: (username, message) => message === 'Ready!'
+        checkCondition: (_username, message) => message === 'Ready!'
       })
       return run(childBotName)
     }
@@ -454,7 +454,7 @@ function inject (bot: TestBot, wrap: WrapServer): void {
   }
 
   // Debug packet IO when tests are re-run with "Enable debug logging" - https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
-  if (process.env.RUNNER_DEBUG) {
+  if (process.env['RUNNER_DEBUG']) {
     bot._client.on('packet', function (data, meta) {
       if (['chunk', 'time', 'light', 'alive'].some(e => meta.name.includes(e))) return
       console.log('->', meta.name, JSON.stringify(data)?.slice(0, 250))

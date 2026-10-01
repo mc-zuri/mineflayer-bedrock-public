@@ -11,7 +11,7 @@ export default (): TestFunction => async (bot) => {
   const maxUses = 3
   const trades = maxUses - 1 // each trade starts with one use spent
 
-  const villagerType = bot.registry.entitiesByName.villager ? 'villager' : 'Villager'
+  const villagerType = bot.registry.entitiesByName['villager'] ? 'villager' : 'Villager'
   const testFluctuations = bot.supportFeature('selectingTradeMovesItems')
   // Item stacks are components on 1.20.5+; the NBT-era key is silently ignored.
   const countKey = bot.registry.version['>=']('1.20.5') ? 'count' : 'Count'
@@ -32,8 +32,8 @@ export default (): TestFunction => async (bot) => {
   let shouldHaveEmeralds = emeraldStacks.reduce((a, b) => a + b, 0)
   // Set the slots concurrently: on versions without a creative slot ack each set waits 400ms for a rejection.
   await Promise.all([
-    ...emeraldStacks.map((count, i) => bot.test.setInventorySlot(9 + i, new Item(bot.registry.itemsByName.emerald.id, count, 0))),
-    ...bookStacks.map((count, i) => bot.test.setInventorySlot(9 + emeraldStacks.length + i, new Item(bot.registry.itemsByName.book.id, count, 0)))
+    ...emeraldStacks.map((count, i) => bot.test.setInventorySlot(9 + i, new Item(bot.registry.itemsByName['emerald']!.id, count, 0))),
+    ...bookStacks.map((count, i) => bot.test.setInventorySlot(9 + emeraldStacks.length + i, new Item(bot.registry.itemsByName['book']!.id, count, 0)))
   ])
 
   // A command block is needed to spawn the villager due to the chat's character limit in some versions
@@ -53,88 +53,88 @@ export default (): TestFunction => async (bot) => {
 
   // Handle trade #1 -- takes 2x emerald and returns 2x pumpkin_pie
   {
-    const trade = villager.trades[0]
+    const trade = villager.trades[0]!
     assert.strictEqual(trade.inputs.length, 1, 'Expected single input from villager on first trade')
     verifyTrade(trade)
 
-    const [input] = trade.inputs
+    const [input] = trade.inputs as [Item]
     assert.strictEqual(input.name, 'emerald')
     assert.strictEqual(input.count, 2)
 
-    const [output] = trade.outputs
+    const [output] = trade.outputs as [Item]
     assert.strictEqual(output.name, 'pumpkin_pie')
     assert.strictEqual(output.count, 2)
 
     await bot.trade(villager, 0, trades)
     shouldHaveEmeralds -= testFluctuations ? (2 * 2 * trades) : (2 * trades)
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.pumpkin_pie.id), 2 * trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['emerald']!.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['pumpkin_pie']!.id), 2 * trades)
   }
 
   // Handle trade #2 -- takes [2x emerald, 2x pumpkin_pie] and returns 2x wheat
   {
-    const trade = villager.trades[1]
+    const trade = villager.trades[1]!
     assert.strictEqual(trade.inputs.length, 2, 'Expected two inputs from villager on second trade')
     verifyTrade(trade)
 
-    const [input1, input2] = trade.inputs
+    const [input1, input2] = trade.inputs as [Item, Item]
     assert.strictEqual(input1.name, 'emerald')
     assert.strictEqual(input1.count, 2)
     assert.strictEqual(input2.name, 'pumpkin_pie')
     assert.strictEqual(input2.count, 2)
 
-    const [output] = trade.outputs
+    const [output] = trade.outputs as [Item]
     assert.strictEqual(output.name, 'wheat')
     assert.strictEqual(output.count, 2)
 
     await bot.trade(villager, 1, trades)
     shouldHaveEmeralds -= trades * 2
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.pumpkin_pie.id), 0)
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.wheat.id), 2 * trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['emerald']!.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['pumpkin_pie']!.id), 0)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['wheat']!.id), 2 * trades)
   }
 
   // Handle trade #3 -- takes 1x emerald and returns 4x glass
   {
-    const trade = villager.trades[2]
+    const trade = villager.trades[2]!
     assert.strictEqual(trade.inputs.length, 1, 'Expected single input from villager on first trade')
     verifyTrade(trade)
 
-    const [input] = trade.inputs
+    const [input] = trade.inputs as [Item]
     assert.strictEqual(input.name, 'emerald')
     assert.strictEqual(input.count, 1)
 
-    const [output] = trade.outputs
+    const [output] = trade.outputs as [Item]
     assert.strictEqual(output.name, 'glass')
     assert.strictEqual(output.count, 4)
 
     await bot.trade(villager, 2, trades)
     shouldHaveEmeralds -= trades
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.glass.id), 4 * trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['emerald']!.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['glass']!.id), 4 * trades)
   }
 
   // Handle trade #4 -- takes [36x emerald, 1x book] and returns 1x wooden sword
   {
-    const trade = villager.trades[3]
+    const trade = villager.trades[3]!
     assert.strictEqual(trade.inputs.length, 2, 'Expected two inputs from villager on second trade')
     verifyTrade(trade)
 
-    const [input1, input2] = trade.inputs
+    const [input1, input2] = trade.inputs as [Item, Item]
     assert.strictEqual(input1.name, 'emerald')
     assert.strictEqual(input1.count, 36)
     assert.strictEqual(input2.name, 'book')
     assert.strictEqual(input2.count, 1)
 
-    const [output] = trade.outputs
+    const [output] = trade.outputs as [Item]
     assert.strictEqual(output.name, 'wooden_sword')
     assert.strictEqual(output.count, 1)
 
     await bot.trade(villager, 3, trades)
     shouldHaveEmeralds -= trades * 36
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.emerald.id), shouldHaveEmeralds)
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.book.id), 0)
-    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName.wooden_sword.id), trades)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['emerald']!.id), shouldHaveEmeralds)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['book']!.id), 0)
+    assert.strictEqual(bot.currentWindow!.count(bot.registry.itemsByName['wooden_sword']!.id), trades)
   }
 
   function verifyTrade (trade: VillagerTrade) {
@@ -143,7 +143,7 @@ export default (): TestFunction => async (bot) => {
     assert.strictEqual(trade.tradeDisabled, false)
 
     const printCountInv = function (item: Item) {
-      return `${bot.currentWindow!.count(bot.registry.itemsByName[item.name].id)}x ${item.displayName}`
+      return `${bot.currentWindow!.count(bot.registry.itemsByName[item.name]!.id)}x ${item.displayName}`
     }
     const printCountTrade = function (item: Item) {
       return `${item.count}x ${item.displayName}`

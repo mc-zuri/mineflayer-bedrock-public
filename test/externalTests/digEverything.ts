@@ -76,7 +76,7 @@ async function digSomething (blockId: number, bot: TestBot) {
   // TODO: find a better way than this bot.test.wait(200)
   await bot.test.wait(200)
   await bot.test.clearInventory()
-  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.diamond_pickaxe.id, 1, 0))
+  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['diamond_pickaxe']!.id, 1, 0))
   await bot.test.becomeSurvival()
   // we are bare handed
   await bot.dig(bot.blockAt(bot.entity.position.plus(new Vec3(1, 0, 0)))!)

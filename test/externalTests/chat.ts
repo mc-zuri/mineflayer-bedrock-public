@@ -51,7 +51,7 @@ export default (): Record<string, TestFunction> => {
     bot.addChatPattern('theTest', /<.+> Hello World(!!!!)/, { repeat: false, parse: true })
     bot.chat('/tellraw @p {"translate":"chat.type.text", "with":["U9G", "Hello World!!!!"]}')
     const [[matches]] = await once(bot, 'chat:theTest')
-    assert.strictEqual(matches[0], '!!!!')
+    assert.strictEqual(matches![0], '!!!!')
   })
 
   addTest('test addChatPatterns', async (bot) => {

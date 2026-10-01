@@ -6,7 +6,7 @@ import type { TestFunction } from './plugins/testCommon.ts'
 export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
-  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.bread.id, 1, 0))
+  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['bread']!.id, 1, 0))
   await bot.test.becomeSurvival()
   // Cannot consume if bot.food === 20
   await assert.rejects(bot.consume, (err) => {

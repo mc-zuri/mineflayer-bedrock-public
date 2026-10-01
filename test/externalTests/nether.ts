@@ -7,11 +7,11 @@ import type { TestFunction } from './plugins/testCommon.ts'
 export default (): TestFunction => async (bot) => {
   // Test spawn event on death
   const Item = prismarineItem(bot.registry)
-  const portalName = bot.registry.blocksByName.nether_portal ? 'nether_portal' : 'portal'
+  const portalName = bot.registry.blocksByName['nether_portal'] ? 'nether_portal' : 'portal'
 
   let signItem: { id: number } | null = null
   for (const name in bot.registry.itemsByName) {
-    if (name.includes('sign') && !name.includes('hanging')) signItem = bot.registry.itemsByName[name]
+    if (name.includes('sign') && !name.includes('hanging')) signItem = bot.registry.itemsByName[name]!
   }
   assert.notStrictEqual(signItem, null)
 
@@ -32,7 +32,7 @@ export default (): TestFunction => async (bot) => {
   // reset removes them.
   const spots = [new Vec3(4, 0, 0), new Vec3(-4, 0, 0), new Vec3(0, 0, 4), new Vec3(0, 0, -4)]
   bot.test.netherAttempts ??= 0
-  const spot = spots[bot.test.netherAttempts++ % spots.length]
+  const spot = spots[bot.test.netherAttempts++ % spots.length]!
   await bot.test.teleport(new Vec3(spot.x, bot.test.groundY, spot.z))
   await cooldown
   bot.chat(`/setblock ~ ~ ~ ${portalName}`)

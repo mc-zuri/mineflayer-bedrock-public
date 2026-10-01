@@ -9,7 +9,7 @@ export default (): TestFunction => async (bot) => {
 
   const Item = prismarineItem(bot.registry)
 
-  await bot.test.setInventorySlot(6, new Item(bot.registry.itemsByName.elytra.id, 1))
+  await bot.test.setInventorySlot(6, new Item(bot.registry.itemsByName['elytra']!.id, 1))
   if (supportsFireworkRockets) {
     const fireworkItem = bot.registry.itemsArray.find(item => item.displayName === 'Firework Rocket')
     assert.ok(fireworkItem !== undefined)

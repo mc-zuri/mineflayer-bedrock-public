@@ -5,8 +5,8 @@ import type { TestFunction } from './plugins/testCommon.ts'
 export default (): TestFunction => async (bot) => {
   const Item = prismarineItem(bot.registry)
 
-  const lapisId = bot.registry.itemsByName.lapis_lazuli ? bot.registry.itemsByName.lapis_lazuli.id : bot.registry.itemsByName.dye.id
-  const lapisData = bot.registry.itemsByName.lapis_lazuli ? 0 : 4
+  const lapisId = bot.registry.itemsByName['lapis_lazuli'] ? bot.registry.itemsByName['lapis_lazuli'].id : bot.registry.itemsByName['dye']!.id
+  const lapisData = bot.registry.itemsByName['lapis_lazuli'] ? 0 : 4
 
   const enchantSlot = 2
 
@@ -15,9 +15,9 @@ export default (): TestFunction => async (bot) => {
   } else {
     bot.chat(`/xp 999L ${bot.username}`)
   }
-  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.bookshelf.id, 15))
-  await bot.test.setInventorySlot(37, new Item(bot.registry.itemsByName.enchanting_table.id, 1))
-  await bot.test.setInventorySlot(38, new Item(bot.registry.itemsByName.diamond_sword.id, 1))
+  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['bookshelf']!.id, 15))
+  await bot.test.setInventorySlot(37, new Item(bot.registry.itemsByName['enchanting_table']!.id, 1))
+  await bot.test.setInventorySlot(38, new Item(bot.registry.itemsByName['diamond_sword']!.id, 1))
   await bot.test.setInventorySlot(39, new Item(lapisId, enchantSlot + 1, lapisData))
 
   await bot.test.becomeSurvival()
@@ -42,7 +42,7 @@ export default (): TestFunction => async (bot) => {
   await bot.test.placeBlock(36, bot.entity.position.offset(1, 0, 2))
   await bot.test.placeBlock(36, bot.entity.position.offset(2, 0, 2))
 
-  const b = bot.findBlock({ matching: bot.registry.blocksByName.enchanting_table.id })
+  const b = bot.findBlock({ matching: bot.registry.blocksByName['enchanting_table']!.id })
   const enchantingTable = await bot.openEnchantmentTable(b!)
 
   console.log('Opened enchanting table')
@@ -50,7 +50,7 @@ export default (): TestFunction => async (bot) => {
   const lapis = enchantingTable.findInventoryItem(lapisId)
   await enchantingTable.putLapis(lapis!)
 
-  const sword = enchantingTable.findInventoryItem(bot.registry.itemsByName.diamond_sword.id)
+  const sword = enchantingTable.findInventoryItem(bot.registry.itemsByName['diamond_sword']!.id)
 
   await enchantingTable.putTargetItem(sword!)
 

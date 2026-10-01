@@ -73,7 +73,7 @@ export default (): TestFunction => async (bot) => {
   const origIsInWater = bot.entity.isInWater
   bot.entity.isInWater = true
   const digTimeWithFlag = bot.digTime(block)
-  bot.entity.isInWater = origIsInWater
+  bot.entity.isInWater = origIsInWater!
 
   bot.test.sayEverywhere(`Test 3: baseline=${baselineDigTime}ms, isInWater=true: ${digTimeWithFlag}ms`)
   assert.strictEqual(digTimeWithFlag, baselineDigTime,

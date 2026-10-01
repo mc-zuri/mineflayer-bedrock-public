@@ -22,15 +22,15 @@ export default (): TestFunction => async (bot) => {
     await bot.test.clearInventory()
     await bot.test.awaitItemReceived(`/give @a minecraft:fishing_rod[minecraft:enchantments={levels:{"minecraft:lure":${lure}}}] 1`)
   } else {
-    const rod = new Item(bot.registry.itemsByName.fishing_rod.id, 1, 0)
+    const rod = new Item(bot.registry.itemsByName['fishing_rod']!.id, 1, 0)
     rod.enchants = [{ name: 'lure', lvl: lure }]
     await bot.test.setInventorySlot(36, rod)
   }
   await bot.lookAt(bot.entity.position) // dont force the position
   bot.fish()
 
-  await new Promise<void>((resolve, reject) => {
-    function onPlayerCollect (collector: Entity, collected: Entity) {
+  await new Promise<void>((resolve) => {
+    function onPlayerCollect (_collector: Entity, collected: Entity) {
       if (collected.name!.toLowerCase() === 'item' || collected.type === 'object') {
         bot.test.sayEverywhere('I caught: ' + collected.displayName)
         bot.removeListener('playerCollect', onPlayerCollect)

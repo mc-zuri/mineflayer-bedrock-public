@@ -4,7 +4,7 @@
 import fs from 'fs'
 import path from 'path'
 
-const [baselineDir, currentDir, slowerFile] = process.argv.slice(2)
+const [baselineDir, currentDir, slowerFile] = process.argv.slice(2) as [string, string, string]
 const FACTOR = 2
 // Ignore jumps under 10s: master's own run-to-run spread on the world-event tests
 // (nether, fishing) is 5-10s, so anything smaller is server/network jitter.

@@ -8,7 +8,7 @@ export default (): TestFunction => async (bot) => {
 
   await bot.test.becomeCreative()
   await bot.test.clearInventory()
-  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName.snowball.id, 16, 0))
+  await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['snowball']!.id, 16, 0))
   await bot.test.becomeSurvival()
   await bot.test.wait(250)
 

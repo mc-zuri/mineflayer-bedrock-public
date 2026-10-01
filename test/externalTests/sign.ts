@@ -9,7 +9,7 @@ export default (): TestFunction => async (bot) => {
 
   let signItem: { id: number } | null = null
   for (const name in bot.registry.itemsByName) {
-    if (name.includes('sign') && !name.includes('hanging')) signItem = bot.registry.itemsByName[name]
+    if (name.includes('sign') && !name.includes('hanging')) signItem = bot.registry.itemsByName[name]!
   }
   assert.notStrictEqual(signItem, null)
 

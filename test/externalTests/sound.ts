@@ -95,7 +95,7 @@ export default (): TestFunction => async (bot) => {
     return retry(async () => {
       const soundPromise = Promise.race([
         once(bot, 'hardcodedSoundEffectHeard', 5000),
-        once(bot, 'soundEffectHeard', 5000).then(([soundName, position, volume, pitch]) => {
+        once(bot, 'soundEffectHeard', 5000).then(([, position, volume, pitch]) => {
           return [0, 'master', position, volume, pitch]
         })
       ])

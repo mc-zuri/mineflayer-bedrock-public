@@ -16,7 +16,7 @@ export default (): TestFunction => async (bot) => {
   await bot.test.wait(100)
 
   // A stone in hotbar slot 0 to pick up on the cursor
-  const stoneId = bot.registry.itemsByName.stone.id
+  const stoneId = bot.registry.itemsByName['stone']!.id
   await bot.test.setInventorySlot(bot.inventory.hotbarStart, new (prismarineItem(bot.registry))(stoneId, 1))
 
   // Place a chest next to the bot and open it
@@ -32,7 +32,7 @@ export default (): TestFunction => async (bot) => {
   // set_player_inventory into hotbar slot 0 -> inventory slot 36
   const returned = onceWithCleanup(bot.inventory, 'updateSlot:36', {
     timeout: 5000,
-    checkCondition: (oldItem, newItem) => newItem?.type === stoneId
+    checkCondition: (_oldItem, newItem) => newItem?.type === stoneId
   })
   await Promise.all([bot.closeWindow(chest), returned])
 
