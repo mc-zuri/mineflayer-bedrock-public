@@ -29,6 +29,7 @@ function inject (bot: BotInternal): void {
       )
       bot.emit('bossBarCreated', bars[packet.entityUUID]!)
     } else if (packet.action === 1) {
+      if (!(packet.entityUUID in bars)) return // nothing to remove
       bot.emit('bossBarDeleted', bars[packet.entityUUID]!)
       delete bars[packet.entityUUID]
     } else {

@@ -6,6 +6,7 @@ import prismarineRegistry from 'prismarine-registry'
 import nbt from 'prismarine-nbt'
 import { Vec3 } from 'vec3'
 import bossbarLoader from '../lib/bossbar.ts'
+import bossBarPlugin from '../lib/plugins/boss_bar.ts'
 import teamPlugin from '../lib/plugins/team.ts'
 import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
 import titlePlugin from '../lib/plugins/title.ts'
@@ -50,6 +51,15 @@ describe('core', () => {
         bar.flags = 7 - flags
         assert.strictEqual(bar.flags, 7 - flags)
       }
+    })
+
+    it('removing an unknown boss bar emits no bossBarDeleted', () => {
+      const bot = fakeBot('1.16.5')
+      bossBarPlugin(bot)
+      const deleted: unknown[] = []
+      bot.on('bossBarDeleted', (bar: unknown) => deleted.push(bar))
+      bot._client.emit('boss_bar', { entityUUID: '00000000-0000-0000-0000-000000000000', action: 1 })
+      assert.deepStrictEqual(deleted, [])
     })
   })
 
