@@ -1,7 +1,7 @@
 import bossbarModule from '../bossbar.ts'
 import type { BossBar as BossBarInstance, BotOptions } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
-import type { ClientboundPackets, TextComponent } from '../types/protocol.ts'
+import type { ClientboundPackets } from '../types/protocol.ts'
 
 export default inject
 
@@ -9,19 +9,12 @@ function inject (bot: BotInternal, _options: BotOptions): void {
   const BossBar = bossbarModule(bot.registry)
   const bars: { [uuid: string]: BossBarInstance } = {}
 
-  function extractTitle (title: TextComponent | undefined): TextComponent {
-    if (!title) return ''
-    if (typeof title === 'string') return title
-    // Return the original object for BossBar to handle
-    return title
-  }
-
   function handleBossBarPacket (packet: ClientboundPackets['boss_bar']) {
     if (packet.action === 0) {
       bars[packet.entityUUID] = new BossBar(
         packet.entityUUID,
-        extractTitle(packet.title),
         // action 0 (add) carries every field
+        packet.title!,
         packet.health!,
         packet.dividers!,
         packet.color!,
@@ -40,7 +33,7 @@ function inject (bot: BotInternal, _options: BotOptions): void {
         bars[packet.entityUUID]!.health = packet.health
       }
       if (packet.action === 3 && packet.title !== undefined) {
-        bars[packet.entityUUID]!.title = extractTitle(packet.title)
+        bars[packet.entityUUID]!.title = packet.title
       }
       if (packet.action === 4) {
         if (packet.dividers !== undefined) {
