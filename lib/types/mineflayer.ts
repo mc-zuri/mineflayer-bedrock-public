@@ -1033,7 +1033,7 @@ export interface ScoreBoard {
   name: string
   title: string
   itemsMap: { [name: string]: ScoreBoardItem }
-  /** sorted by value, highest first */
+  /** sorted like the vanilla sidebar: by value, highest first, then by name ignoring case */
   readonly items: ScoreBoardItem[]
 
   setTitle (title: TextComponent | undefined): void

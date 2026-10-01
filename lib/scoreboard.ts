@@ -5,10 +5,15 @@ import type { ScoreBoard as ScoreBoardInstance, ScoreBoardItem, ScoreBoardPositi
 import type { TextComponent } from './types/protocol.ts'
 import type { ChatLoader } from './types/vendor/prismarine-chat.ts'
 
+// the vanilla sidebar order: higher score first, then the owner name ignoring case
 const sortItems = (a: ScoreBoardItem, b: ScoreBoardItem) => {
   if (a.value > b.value) return -1
   if (a.value < b.value) return 1
-  return 1
+  const aName = a.name.toLowerCase()
+  const bName = b.name.toLowerCase()
+  if (aName < bName) return -1
+  if (aName > bName) return 1
+  return 0
 }
 
 export default (bot: BotInternal) => {

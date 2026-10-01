@@ -695,7 +695,7 @@ An object with all items in the scoreboard in it
 
 #### ScoreBoard.items
 
-An array with all sorted items in the scoreboard in it
+An array with all items in the scoreboard in it, sorted like the vanilla sidebar: highest value first, equal values by name ignoring case
 ```js
 [
   { name: 'dzikoysk', value: 6 },
