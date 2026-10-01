@@ -27,10 +27,13 @@ export default (version: string): Record<string, TestFunction> => {
   async function runTest (bot: TestBot, testFunction: AnvilTest) {
     const Item = prismarineItem(bot.registry)
     const renameCost = () => bot.registry.isNewerOrEqualTo('1.8.9') ? 0 : 1 // weird quirk of anvils
-    // weird quirk of anvils; 1.20.5+: the custom_name component, a plain text being a bare NBT string
+    // weird quirk of anvils; 1.20.3+ serializes a plain text component as a bare JSON string;
+    // 1.20.5+: the custom_name component, a plain text being a bare NBT string
     const renameName = (name: string) => bot.registry.isOlderThan('1.13.2')
       ? name
-      : bot.registry.isNewerOrEqualTo('1.20.5') ? { type: 'string', value: name } : JSON.stringify({ text: name })
+      : bot.registry.isNewerOrEqualTo('1.20.5')
+        ? { type: 'string', value: name }
+        : bot.registry.isNewerOrEqualTo('1.20.3') ? JSON.stringify(name) : JSON.stringify({ text: name })
     await bot.test.becomeCreative()
     await bot.test.setInventorySlot(36, new Item(bot.registry.itemsByName['anvil']!.id, 1))
     await bot.test.becomeSurvival()
