@@ -1013,9 +1013,9 @@ export interface VillagerTrade {
   outputItem: Item
   inputItem2: Item | null
   /** [inputItem1] or [inputItem1, inputItem2] */
-  inputs: Item[]
+  inputs: [Item] | [Item, Item]
   /** [outputItem] */
-  outputs: Item[]
+  outputs: [Item]
   hasItem2: boolean
   tradeDisabled: boolean
   nbTradeUses: number
