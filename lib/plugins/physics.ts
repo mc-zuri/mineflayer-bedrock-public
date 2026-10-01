@@ -7,7 +7,8 @@ import { createDoneTask, createTask } from '../promise_utils.ts'
 import { Physics, PlayerState } from 'prismarine-physics'
 import minecraftData from 'minecraft-data'
 import type { IndexedData } from 'minecraft-data'
-import type { Effect } from 'prismarine-entity'
+import type { Effect, Entity } from 'prismarine-entity'
+import type { PhysicsAttribute } from 'prismarine-physics'
 import type { BotInternal } from '../types/internal.ts'
 import type { BotOptions, ControlState, ControlStateStatus } from '../types/mineflayer.ts'
 import type { MovementFlags } from '../types/protocol.ts'
@@ -20,6 +21,9 @@ const PI = Math.PI
 const PI_2 = Math.PI * 2
 const PHYSICS_INTERVAL_MS = 50
 const PHYSICS_TIMESTEP = PHYSICS_INTERVAL_MS / 1000 // 0.05
+
+// the sprint modifier's id: a UUID before 1.21, a resource location since
+const SPRINT_MODIFIER_UUID = '662a6b8d-da3e-4c1c-8813-96ea6097278d'
 
 function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptions): void {
   const PHYSICS_CATCHUP_TICKS = maxCatchupTicks ?? 4
@@ -98,7 +102,9 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     if (!bot.entity?.position || !Number.isFinite(bot.entity.position.x)) return // entity not ready
     if (bot.blockAt(bot.entity.position) == null) return // check if chunk is unloaded
     if (bot.physicsEnabled && shouldUsePhysics) {
-      physics.simulatePlayer(new PlayerState(bot, controlState), world).apply(bot)
+      const state = new PlayerState(bot, controlState)
+      state.attributes = engineAttributes(bot.entity.attributes)
+      physics.simulatePlayer(state, world).apply(bot)
       bot.emit('physicsTick')
       bot.emit('physicTick') // Deprecated, only exists to support old plugins. May be removed in the future
     }
@@ -231,6 +237,42 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
   }
 
   bot.physics = physics
+
+  // The engine reads the attributes by minecraft-data's resource names. Before 1.20.5 the packet names the
+  // attribute, with or without the minecraft: namespace; since, it carries the registry id, which
+  // minecraft-protocol decodes with a mapper that lags the registry on 1.21+ (1.21.11 decodes movement_speed
+  // as generic.scale): a decoded name goes back to its id, then to the registry's attribute.
+  const attributeResources = new Map<string, string>()
+  const bareName = (name: string) => name.replace(/^minecraft:/, '')
+  {
+    const protocol = bot.registry.protocol as { play?: { toClient?: { types?: { [name: string]: unknown } } } }
+    const packetType = JSON.stringify(protocol.play?.toClient?.types?.['packet_entity_update_attributes'] ?? null)
+    const mappings = packetType.match(/"mappings":(\{[^}]*\})/)
+    if (mappings) {
+      for (const [id, name] of Object.entries(JSON.parse(mappings[1]!) as { [id: string]: string })) {
+        const attribute = bot.registry.attributesArray[Number(id)]
+        if (attribute) attributeResources.set(bareName(name), attribute.resource)
+      }
+    } else {
+      for (const attribute of bot.registry.attributesArray) attributeResources.set(bareName(attribute.resource), attribute.resource)
+    }
+  }
+
+  // An entity's attributes as the engine reads them. The server's copy of the sprint modifier is left out: the
+  // engine adds the client's own while it sprints (vanilla replaces one with the other, they share an id).
+  function engineAttributes (attributes: Entity['attributes']): { [resource: string]: PhysicsAttribute } | undefined {
+    if (!attributes) return undefined
+    const result: { [resource: string]: PhysicsAttribute } = {}
+    for (const [key, attribute] of Object.entries(attributes)) {
+      const resource = attributeResources.get(bareName(key))
+      if (resource === undefined) continue
+      result[resource] = {
+        value: attribute.value,
+        modifiers: attribute.modifiers.filter(m => m.uuid !== SPRINT_MODIFIER_UUID && !String(m.uuid).endsWith('sprinting'))
+      }
+    }
+    return result
+  }
 
   function getEffectLevel (mcData: IndexedData, effectName: string, effects: Effect[]) {
     const effectDescriptor = mcData.effectsByName[effectName]

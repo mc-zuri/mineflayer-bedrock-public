@@ -1,0 +1,126 @@
+// The physics plugin on a fake bot: the real entities and physics plugins, a fake client that records
+// what the bot writes, and a flat world (stone below y = 64). Ticks run on the plugin's own timer.
+import EventEmitter from 'events'
+import assert from 'assert'
+import prismarineRegistry from 'prismarine-registry'
+import prismarineBlock from 'prismarine-block'
+import { Vec3 } from 'vec3'
+import entitiesPlugin from '../lib/plugins/entities.ts'
+import physicsPlugin from '../lib/plugins/physics.ts'
+import type { Block } from 'prismarine-block'
+import type { BotInternal } from '../lib/types/internal.ts'
+import type { BotOptions } from '../lib/types/mineflayer.ts'
+
+const GROUND = 64
+
+interface Written { name: string, params: any }
+
+interface FakeBot extends BotInternal {
+  writes: Written[]
+  /** the blocks the test placed, by "x,y,z" (else stone below GROUND, air above) */
+  blocks: Map<string, string>
+}
+
+function createFakeBot (version: string, options: Partial<BotOptions> = {}): FakeBot {
+  const registry = prismarineRegistry(version)
+  const Block = prismarineBlock(registry)
+  const bot = new EventEmitter() as unknown as FakeBot
+  bot.version = version
+  bot.registry = registry as BotInternal['registry']
+  bot.supportFeature = registry.supportFeature.bind(registry) as BotInternal['supportFeature']
+  bot.writes = []
+  bot.blocks = new Map()
+  const client = new EventEmitter() as any
+  client.username = 'bot'
+  client.state = 'play'
+  client.write = (name: string, params: unknown) => { bot.writes.push({ name, params }) }
+  bot._client = client
+  bot.game = { gameMode: 'survival' } as BotInternal['game']
+  bot.abilities = { invulnerable: false, flying: false, mayFly: false, instantBuild: false, flyingSpeed: 0.05, walkingSpeed: 0.1 }
+  bot.isAlive = true
+  bot.food = 20
+  bot.health = 20
+  bot.usingHeldItem = false
+  bot.heldItem = null
+  bot.inventory = { slots: new Array(46).fill(null) } as unknown as BotInternal['inventory']
+  bot.getEquipmentDestSlot = () => 6
+  bot.blockAt = (pos: Vec3) => {
+    const p = pos.floored()
+    const name = bot.blocks.get(`${p.x},${p.y},${p.z}`) ?? (p.y < GROUND ? 'stone' : 'air')
+    const block = Block.fromStateId(registry.blocksByName[name]!.defaultState!, 0) as Block
+    block.position = p
+    return block
+  }
+  entitiesPlugin(bot)
+  physicsPlugin(bot, options as BotOptions)
+  client.emit('login', { entityId: 1 })
+  bot.emit('login')
+  return bot
+}
+
+/** a teleport the bot answers on its next tick, which starts the physics */
+function teleport (bot: FakeBot, pos: Vec3) {
+  const bitflags = bot.supportFeature('positionPacketHasBitflags')
+  bot._client.emit('position', {
+    x: pos.x,
+    y: pos.y,
+    z: pos.z,
+    dx: 0,
+    dy: 0,
+    dz: 0,
+    yaw: 0,
+    pitch: 0,
+    flags: bitflags ? { x: false, y: false, z: false, yaw: false, pitch: false } : 0,
+    teleportId: 1
+  } as any)
+}
+
+async function ticks (bot: FakeBot, n: number) {
+  for (let i = 0; i < n; i++) await new Promise<void>(resolve => bot.once('physicsTick', () => resolve()))
+}
+
+function end (bot: FakeBot) {
+  bot.emit('end', 'test')
+}
+
+/** the speed (blocks per tick) after walking forward for 40 ticks on flat ground, facing +z */
+async function walkingSpeed (bot: FakeBot) {
+  teleport(bot, new Vec3(0.5, GROUND, 0.5))
+  await ticks(bot, 3)
+  bot.entity.yaw = Math.PI // facing +z
+  bot.setControlState('forward', true)
+  await ticks(bot, 40)
+  const start = bot.entity.position.clone()
+  await ticks(bot, 1)
+  bot.setControlState('forward', false)
+  return bot.entity.position.distanceTo(start)
+}
+
+describe('physics plugin', function () {
+  this.timeout(20000)
+
+  describe('the server\'s movement_speed attribute', () => {
+    // How each version names movement_speed in the packet: the key minecraft-protocol decodes it to
+    const cases: Array<[string, string, string]> = [
+      // version, the attribute's key as decoded, a movement modifier's id
+      ['1.12.2', 'generic.movementSpeed', '91aeaa56-376b-4498-935b-2f7f68070635'],
+      ['1.16.5', 'minecraft:generic.movement_speed', '91aeaa56-376b-4498-935b-2f7f68070635'],
+      ['1.20.4', 'minecraft:generic.movement_speed', '91aeaa56-376b-4498-935b-2f7f68070635'],
+      // 1.21.11's mapper is older than its registry: the registry id of movement_speed (22) decodes as generic.scale
+      ['1.21.11', 'generic.scale', 'minecraft:effect.speed']
+    ]
+    for (const [version, key, modifierId] of cases) {
+      it(`a Speed II modifier makes the bot walk 40% faster (${version})`, async () => {
+        const plain = createFakeBot(version)
+        const speed = await walkingSpeed(plain)
+        end(plain)
+        const fast = createFakeBot(version)
+        const property = { key, name: key, value: 0.1, modifiers: [{ uuid: modifierId, amount: 0.4, operation: 2 }] }
+        fast._client.emit('entity_update_attributes', { entityId: 1, properties: [property] } as any)
+        const fastSpeed = await walkingSpeed(fast)
+        end(fast)
+        assert.ok(Math.abs(fastSpeed / speed - 1.4) < 0.01, `walked ${fastSpeed} with Speed II, ${speed} without`)
+      })
+    }
+  })
+})
