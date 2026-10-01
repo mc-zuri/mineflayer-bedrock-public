@@ -100,6 +100,7 @@ describe('anvil plugin', () => {
     bot.openBlock = async () => window
     bot.transfer = async () => {}
     bot.putAway = async () => {}
+    bot._syncWindow = async () => {}
     anvilPlugin(bot)
     const anvil = await bot.openAnvil({})
     return { bot, anvil }
