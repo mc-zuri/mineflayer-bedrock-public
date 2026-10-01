@@ -83,11 +83,12 @@ function inject (bot: BotInternal): void {
   // Explosion.doExplosionA: (impact² + impact) / 2 * 8 * the diameter before 1.9, * 7 since
   const damageMultiplier = bot.registry.version['>=']('1.9') ? 7 : 8
 
-  const difficultyValues: Record<Difficulty, number> = {
-    peaceful: 0,
-    easy: 1,
-    normal: 2,
-    hard: 3
+  // Player.hurt: a damage that scales with the difficulty (an explosion's), before the armor absorbs it
+  const scaleWithDifficulty = (damages: number, difficulty: Difficulty) => {
+    if (difficulty === 'peaceful') return 0
+    if (difficulty === 'easy') return Math.min(damages / 2 + 1, damages)
+    if (difficulty === 'hard') return damages * 3 / 2
+    return damages
   }
 
   bot.getExplosionDamages = (targetEntity, sourcePos, power, rawDamages = false) => {
@@ -106,11 +107,10 @@ function inject (bot: BotInternal): void {
       const armor = getAttributeValue(armorAttribute)
       const armorToughnessAttribute = findAttribute(targetEntity, ARMOR_TOUGHNESS_KEYS)
       const armorToughness = armorToughnessAttribute ? getAttributeValue(armorToughnessAttribute) : 0
+      if (targetEntity.type === 'player') damages = scaleWithDifficulty(damages, bot.game.difficulty)
       damages = getDamageAfterAbsorb(damages, armor, armorToughness)
 
       // TODO: protection enchantment and resistance effects
-
-      if (targetEntity.type === 'player') damages *= difficultyValues[bot.game.difficulty] * 0.5
     } else if (!rawDamages && !armorAttribute) {
       return null
     }

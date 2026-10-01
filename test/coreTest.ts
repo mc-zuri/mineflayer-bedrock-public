@@ -436,6 +436,17 @@ describe('core', () => {
       assert.ok(Math.abs(Math.max(...samples.map(p => p.y)) - 4 / 4.6 * 1.8) < 1e-9)
     })
 
+    it('scales a player\'s damage with the difficulty like vanilla, before the armor', () => {
+      // TNT 5 blocks away, fully exposed: 15 damage
+      const player = { position: new Vec3(7, 0, 0), type: 'player', width: 0.6, height: 1.8, attributes: { 'minecraft:generic.armor': attribute(0) } }
+      const expected: Array<[string, number]> = [['peaceful', 0], ['easy', 8], ['normal', 15], ['hard', 22]]
+      for (const [difficulty, damages] of expected) {
+        const bot = explosionBot('1.20.4')
+        bot.game.difficulty = difficulty
+        assert.strictEqual(bot.getExplosionDamages(player, source, 4), damages, difficulty)
+      }
+    })
+
     it('deals 8 * the diameter at full impact before 1.9, 7 * it since', () => {
       // at the explosion, fully exposed: impact 1, (1 + 1) / 2 * k * 8 + 1
       const at = { position: new Vec3(2, 0, 0), type: 'player', width: 0.6, height: 1.8 }
