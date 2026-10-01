@@ -173,7 +173,17 @@ function createBot (options: Partial<BotOptions> = {}): Bot {
     bot.emit('end', reason)
   })
   if (!bot._client.wait_connect) next()
-  else bot._client.once('connect_allowed', next)
+  else {
+    bot._client.once('connect_allowed', () => {
+      // the version comes from the server ping: report an unsupported one on 'error', a throw here would be uncaught
+      try {
+        next()
+      } catch (err) {
+        bot._client.end((err as Error).message)
+        bot.emit('error', err as Error)
+      }
+    })
+  }
   function next () {
     const serverPingVersion = bot._client.version
     // a pc version string: the pc registry

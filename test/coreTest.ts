@@ -18,6 +18,7 @@ import timePlugin from '../lib/plugins/time.ts'
 import chatPlugin from '../lib/plugins/chat.ts'
 import minecraftData from 'minecraft-data'
 import { latestSupportedVersion } from '../lib/version.ts'
+import { createBot } from '../lib/loader.ts'
 
 interface Write { name: string, params: any }
 
@@ -474,6 +475,31 @@ describe('core', () => {
       } finally {
         versions[latestSupportedVersion] = saved!
       }
+    })
+
+    function versionClient (waitConnect: boolean, version: string) {
+      const client: any = new EventEmitter()
+      client.wait_connect = waitConnect
+      client.version = version
+      client.ended = []
+      client.end = (reason: string) => client.ended.push(reason)
+      return client
+    }
+
+    it('an unsupported server version found by the ping emits error and ends the client', () => {
+      const client = versionClient(true, '1.7.10')
+      const bot = createBot({ client, loadInternalPlugins: false, logErrors: false })
+      const errors: Error[] = []
+      bot.on('error', (err) => { errors.push(err) })
+      assert.doesNotThrow(() => client.emit('connect_allowed'))
+      assert.strictEqual(errors.length, 1)
+      assert.match(errors[0]!.message, /Server version '1.7.10' is not supported. Oldest supported version is/)
+      assert.strictEqual(client.ended.length, 1)
+    })
+
+    it('an unsupported version given in the options still throws from createBot', () => {
+      assert.throws(() => createBot({ client: versionClient(false, '1.7.10'), loadInternalPlugins: false, logErrors: false }),
+        /Server version '1.7.10' is not supported/)
     })
   })
 })
