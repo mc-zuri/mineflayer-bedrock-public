@@ -80,7 +80,8 @@ function findAttribute (entity: Entity, keys: string[]) {
 }
 
 function inject (bot: BotInternal): void {
-  const damageMultiplier = 7 // for 1.12+ 8 for 1.8 TODO check when the change occur (likely 1.9)
+  // Explosion.doExplosionA: (impact² + impact) / 2 * 8 * the diameter before 1.9, * 7 since
+  const damageMultiplier = bot.registry.version['>=']('1.9') ? 7 : 8
 
   const difficultyValues: Record<Difficulty, number> = {
     peaceful: 0,

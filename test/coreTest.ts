@@ -436,6 +436,14 @@ describe('core', () => {
       assert.ok(Math.abs(Math.max(...samples.map(p => p.y)) - 4 / 4.6 * 1.8) < 1e-9)
     })
 
+    it('deals 8 * the diameter at full impact before 1.9, 7 * it since', () => {
+      // at the explosion, fully exposed: impact 1, (1 + 1) / 2 * k * 8 + 1
+      const at = { position: new Vec3(2, 0, 0), type: 'player', width: 0.6, height: 1.8 }
+      assert.strictEqual(explosionBot('1.8.8').getExplosionDamages(at, source, 4, true), 65)
+      assert.strictEqual(explosionBot('1.9.4').getExplosionDamages(at, source, 4, true), 57)
+      assert.strictEqual(explosionBot('1.20.6').getExplosionDamages(at, source, 4, true), 57)
+    })
+
     it('a point on the face of a block is not behind it (rays go from the point to the explosion)', () => {
       const bot = explosionBot('1.20.6')
       // the ground: every block below y = 0. The explosion just above it, the entity standing on it
