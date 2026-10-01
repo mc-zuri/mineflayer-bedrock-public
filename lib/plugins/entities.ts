@@ -500,7 +500,9 @@ function inject (bot: BotInternal): void {
     }
   }
 
+  // the firework rockets attached to the bot that the server has not removed yet: each boosts the glide
   const knownFireworks = new Set<number>()
+  bot._fireworkRockets = knownFireworks
   function handleBotUsedFireworkRocket (fireworkEntityId: number, fireworkInfo: any) {
     if (knownFireworks.has(fireworkEntityId)) return
     knownFireworks.add(fireworkEntityId)
@@ -918,6 +920,8 @@ function inject (bot: BotInternal): void {
 
   // dismounting when the vehicle is gone
   bot.on('entityGone', (entity) => {
+    // a rocket boosts until it explodes: the boost ends with the last one
+    if (knownFireworks.delete(entity.id) && knownFireworks.size === 0) bot.fireworkRocketDuration = 0
     if (bot.vehicle === entity) {
       bot.vehicle = null
       bot.emit('dismount', (entity))

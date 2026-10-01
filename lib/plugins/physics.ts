@@ -8,7 +8,8 @@ import { Physics, PlayerState } from 'prismarine-physics'
 import minecraftData from 'minecraft-data'
 import type { IndexedData } from 'minecraft-data'
 import type { Effect, Entity } from 'prismarine-entity'
-import type { PhysicsAttribute, PhysicsEntity, PhysicsVehicle } from 'prismarine-physics'
+import type { Item } from 'prismarine-item'
+import type { PhysicsAttribute, PhysicsEntity, PhysicsPiston, PhysicsVehicle } from 'prismarine-physics'
 import type { BotInternal } from '../types/internal.ts'
 import type { BotOptions, ControlState, ControlStateStatus } from '../types/mineflayer.ts'
 import type { MovementFlags } from '../types/protocol.ts'
@@ -37,6 +38,8 @@ const MOUNT_DEFAULTS: { [name: string]: { speed: number, jump: number } } = {
   pig: { speed: 0.25, jump: 0.42 },
   strider: { speed: 0.175, jump: 0.42 }
 }
+// block_action's piston direction (byte2): down, up, north, south, west, east
+const PISTON_DIRECTIONS: Array<[number, number, number]> = [[0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1], [-1, 0, 0], [1, 0, 0]]
 const isBoat = (name: string) => /boat$|raft$/.test(name)
 const isMinecart = (name: string) => /minecart$/.test(name)
 
@@ -60,7 +63,7 @@ function attributeValue (attribute: PhysicsAttribute): number {
   return value
 }
 
-function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptions): void {
+function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks, autoJump }: BotOptions): void {
   const PHYSICS_CATCHUP_TICKS = maxCatchupTicks ?? 4
   const world = { getBlock: (pos: Vec3) => { return bot.blockAt(pos, false) } }
   // 26.3+: teleport_confirm carries the position, and the server accepts one move packet per
@@ -74,6 +77,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
 
   bot.jumpQueued = false
   bot.jumpTicks = 0 // autojump cooldown
+  // vanilla's auto-jump option (1.11+): off unless asked for
+  bot.autoJump = autoJump ?? false
 
   const controlState: ControlStateStatus = {
     forward: false,
@@ -171,7 +176,18 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     state.jumpTriggerTime = 0
     // The entities around: boats and shulkers are solid, mobs push the player away
     state.entities = nearbyEntities()
+    // Each firework rocket attached to the bot boosts the glide until the server removes it
+    const rockets = bot._fireworkRockets?.size ?? 0
+    if (rockets > 0) {
+      state.fireworkRockets = rockets
+      if (!(state.fireworkRocketDuration > 0)) state.fireworkRocketDuration = 1
+    }
+    state.riptideLaunch = riptideLaunch()
+    if (state.riptideLaunch > 0) state.inRain = isInRain()
+    state.pistons = pistons
     const jumpWasHeld = !!state.jumpHeld
+    const wasGliding = !!bot.entity.elytraFlying
+    const fallingInAir = !bot.entity.onGround && bot.entity.velocity.y < 0
     let jumpScale = 0
     if (riding?.state) {
       state.vehicle = riding.state
@@ -179,6 +195,19 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
       riding.paddles = riding.state.input ?? riding.paddles
     }
     physics.simulatePlayer(state, world).apply(bot)
+    pistons = state.pistons ?? []
+    // Gliding: since 1.15 the client starts it itself (jump pressed in the air with an elytra); before, it asks
+    // the server, which starts it (LocalPlayer.aiStep / EntityPlayerSP.onLivingUpdate)
+    const glideStarted = clientStartsGliding
+      ? state.elytraFlying && !wasGliding
+      : control.jump && !jumpWasHeld && fallingInAir && !wasGliding && !state.flying && state.elytraEquipped && !riding
+    if (glideStarted) {
+      bot._client.write('entity_action', {
+        entityId: bot.entity.id,
+        actionId: bot.supportFeature('entityActionUsesStringMapper') ? 'start_elytra_flying' : 8,
+        jumpBoost: 0
+      })
+    }
     if (state.flying !== !!bot.entity.flying) {
       // the client ended (or started) the flight itself: it tells the server, like vanilla's onUpdateAbilities
       bot.entity.flying = state.flying
@@ -335,6 +364,52 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     }
     return result
   }
+
+  // Since 1.15 the client starts gliding itself
+  const clientStartsGliding = bot.registry.version['>=']('1.15')
+
+  // TridentItem.releaseUsing: letting go of a Riptide trident used for 10 ticks or more launches the player in
+  // water or rain; the engine pushes the bot along its look. The Riptide level of a launch this tick, else 0.
+  let useTicks = 0
+  let usedItem: Item | null = null
+  function riptideLaunch (): number {
+    if (bot.usingHeldItem) {
+      if (useTicks === 0) usedItem = bot.heldItem
+      useTicks++
+      return 0
+    }
+    const ticks = useTicks
+    const item = usedItem
+    useTicks = 0
+    usedItem = null
+    if (ticks < 10 || item?.name !== 'trident') return 0
+    return item.enchants.find(enchant => enchant.name === 'riptide')?.lvl ?? 0
+  }
+
+  // Entity.isInRain: it rains (the level above 0.2) and nothing above the bot stops the rain
+  function isInRain (): boolean {
+    if (!(bot.rainState > 0.2)) return false
+    const top = (bot.game.minY ?? 0) + (bot.game.height ?? 256)
+    const pos = bot.entity.position.floored()
+    for (let y = pos.y + 1; y < top; y++) {
+      const block = bot.blockAt(new Vec3(pos.x, y, pos.z), false)
+      if (block && (block.boundingBox === 'block' || block.name.includes('water') || block.name.includes('lava'))) return false
+    }
+    return true
+  }
+
+  // The piston heads moving next to the bot (block_action): the engine pushes the bot they reach
+  let pistons: PhysicsPiston[] = []
+  bot.on('pistonMove', (block, isPulling, direction) => {
+    const dir = PISTON_DIRECTIONS[direction]
+    if (!dir || isPulling > 1) return
+    const extending = isPulling === 0
+    const at = block.position
+    if (at.distanceTo(bot.entity?.position ?? at) > 8) return
+    pistons.push({ x: at.x + (extending ? dir[0] : 0), y: at.y + (extending ? dir[1] : 0), z: at.z + (extending ? dir[2] : 0), dir, extending, progress: 0 })
+    // (a head is done after two ticks; without physics ticking none would end)
+    if (pistons.length > 16) pistons.shift()
+  })
 
   // ---- riding ----
   // The vehicle the bot rides (bot.vehicle), as vanilla's client handles it (1.9+): it drives a boat, a saddled

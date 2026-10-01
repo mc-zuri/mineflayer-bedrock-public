@@ -109,6 +109,7 @@
       - [bot.game.height](#botgameheight)
       - [bot.abilities](#botabilities)
       - [bot.physicsEnabled](#botphysicsenabled)
+      - [bot.autoJump](#botautojump)
       - [bot.player](#botplayer)
       - [bot.players](#botplayers)
       - [bot.tablist](#bottablist)
@@ -827,6 +828,7 @@ Create and return an instance of the class bot.
    - pluginName : true : load internal plugin with given name ie. `pluginName` even though loadInternalplugins is set to false
    - pluginName : external plugin inject function : loads external plugin, overrides internal plugin with given name ie. `pluginName`
  * physicsEnabled : true by default, should the bot be affected by physics? can later be modified via bot.physicsEnabled
+ * autoJump : false by default, vanilla's auto-jump option (1.11+): walking into a one block step jumps onto it. Can later be modified via bot.autoJump
  * [chat](#bot.settings.chat)
  * [colorsEnabled](#bot.settings.colorsEnabled)
  * [viewDistance](#bot.settings.viewDistance)
@@ -941,6 +943,17 @@ What the server last allowed the player in the abilities packet.
 #### bot.physicsEnabled
 
 Enable physics, default true.
+
+The physics is vanilla's client's (prismarine-physics): besides the blocks it knows what the client knows, the
+server's attributes (speed effects, gravity, step height, scale...), the abilities (a bot the server makes fly
+hovers, and landing ends the flight), the entities around (boats and shulkers are solid, mobs push the bot), the
+vehicle the bot rides (see `bot.vehicle`), firework rockets attached to the bot, a Riptide trident let go in water
+or rain, and piston heads pushing the bot.
+
+#### bot.autoJump
+
+Vanilla's auto-jump option (1.11+), from the `autoJump` option of `createBot` (default `false`): while walking on
+the ground, a step the bot can jump onto (higher than half a block) is jumped.
 
 #### bot.player
 
@@ -1087,7 +1100,9 @@ Do this at your own risk.
 
 #### bot.fireworkRocketDuration
 
-How many physics ticks worth of firework rocket boost are left.
+How many physics ticks worth of firework rocket boost are left (an estimate of the rocket's flight). The glide
+is boosted as long as a rocket attached to the bot exists: each attached rocket boosts it once a tick, and the
+boost ends when the server removes the last one.
 
 #### bot.simpleClick.leftMouse (slot)
 

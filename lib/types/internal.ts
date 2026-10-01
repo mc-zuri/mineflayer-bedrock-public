@@ -27,6 +27,8 @@ export interface BotInternal extends Omit<Bot, '_client'> {
   _nextSequence: () => number
   /** queue a teleport / ping answer for the start of the next physics tick */
   _replyOnNextTick: (reply: () => void) => void
+  /** entity ids of the firework rockets attached to the bot (entities plugin) */
+  _fireworkRockets: Set<number>
   _placeBlockWithOptions: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<void>
   _placeEntityWithOptions: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<Entity>
   _genericPlace: (referenceBlock: Block, faceVector: Vec3, options: PlaceOptions) => Promise<Vec3>

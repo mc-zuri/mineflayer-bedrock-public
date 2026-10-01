@@ -5,6 +5,7 @@ import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import prismarineBlock from 'prismarine-block'
 import prismarineEntity from 'prismarine-entity'
+import prismarineItem from 'prismarine-item'
 import { Vec3 } from 'vec3'
 import entitiesPlugin from '../lib/plugins/entities.ts'
 import physicsPlugin from '../lib/plugins/physics.ts'
@@ -399,6 +400,104 @@ describe('physics plugin', function () {
       end(bot)
       assert.strictEqual(error?.message, 'dismount: not mounted')
     })
+  })
+
+  describe('auto-jump', () => {
+    for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
+      for (const autoJump of [false, true]) {
+        it(`${autoJump ? 'jumps' : 'does not jump'} a one block step with autoJump ${autoJump} (${version})`, async () => {
+          const bot = createFakeBot(version, { autoJump })
+          for (let x = -2; x <= 2; x++) for (let z = 3; z <= 12; z++) bot.blocks.set(`${x},${GROUND},${z}`, 'stone')
+          teleport(bot, new Vec3(0.5, GROUND, 0.5))
+          await ticks(bot, 3)
+          bot.entity.yaw = Math.PI // facing +z
+          bot.setControlState('forward', true)
+          await ticks(bot, 30)
+          end(bot)
+          assert.strictEqual(bot.autoJump, autoJump)
+          if (autoJump) assert.strictEqual(bot.entity.position.y, GROUND + 1, 'on the step')
+          else assert.strictEqual(bot.entity.position.y, GROUND, 'against the step')
+        })
+      }
+    }
+  })
+
+  describe('gliding', () => {
+    const elytra = (bot: FakeBot) => {
+      const Item = prismarineItem(bot.registry)
+      bot.inventory.slots[6] = new Item(bot.registry.itemsByName['elytra']!.id, 1)
+    }
+    for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
+      it(`pressing jump while falling with an elytra starts gliding (${version})`, async () => {
+        const bot = createFakeBot(version)
+        elytra(bot)
+        teleport(bot, new Vec3(0.5, GROUND + 30, 0.5))
+        await ticks(bot, 5)
+        bot.setControlState('jump', true)
+        await ticks(bot, 2)
+        end(bot)
+        const glide = bot.writes.filter(w => w.name === 'entity_action' && (w.params.actionId === 8 || w.params.actionId === 'start_elytra_flying'))
+        assert.strictEqual(glide.length, 1)
+        // since 1.15 the client starts gliding itself, before it waits for the server
+        assert.strictEqual(!!bot.entity.elytraFlying, version !== '1.12.2')
+      })
+
+      it(`an attached firework rocket boosts the glide until it explodes (${version})`, async () => {
+        const bot = createFakeBot(version)
+        elytra(bot)
+        teleport(bot, new Vec3(0.5, GROUND + 60, 0.5))
+        await ticks(bot, 3)
+        bot.entity.elytraFlying = true
+        bot.entity.yaw = Math.PI // facing +z, level
+        bot.entity.pitch = 0
+        const rocket = addEntity(bot, 9, bot.registry.entitiesByName['firework_rocket'] ? 'firework_rocket' : 'fireworks_rocket', bot.entity.position.clone())
+        bot._fireworkRockets.add(rocket.id)
+        bot.fireworkRocketDuration = 2 // shorter than the rocket's flight
+        await ticks(bot, 10)
+        assert.ok(bot.entity.velocity.z > 1, `boosted to ${bot.entity.velocity}`)
+        // the server removes the rocket: no more boost
+        bot._client.emit('entity_destroy', { entityIds: [rocket.id] } as any)
+        assert.strictEqual(bot.fireworkRocketDuration, 0)
+        const before = bot.entity.velocity.z
+        await ticks(bot, 3)
+        end(bot)
+        assert.ok(bot.entity.velocity.z < before, 'the glide slows down')
+      })
+    }
+  })
+
+  for (const version of ['1.16.5', '1.20.4', '1.21.11']) {
+    it(`a Riptide trident let go after 10 ticks of use launches the bot in water (${version})`, async () => {
+      const bot = createFakeBot(version)
+      for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) for (let y = GROUND; y < GROUND + 3; y++) bot.blocks.set(`${x},${y},${z}`, 'water')
+      teleport(bot, new Vec3(0.5, GROUND, 0.5))
+      await ticks(bot, 3)
+      const Item = prismarineItem(bot.registry)
+      const trident = new Item(bot.registry.itemsByName['trident']!.id, 1)
+      trident.enchants = [{ name: 'riptide', lvl: 3 }]
+      bot.heldItem = trident
+      bot.entity.yaw = Math.PI // facing +z
+      bot.entity.pitch = 0
+      bot.usingHeldItem = true
+      await ticks(bot, 12)
+      assert.ok(bot.entity.velocity.z < 0.2)
+      bot.usingHeldItem = false
+      await ticks(bot, 1)
+      end(bot)
+      // 3 * (1 + 3) / 4 = 3 blocks a tick along the look, less the water's drag
+      assert.ok(bot.entity.velocity.z > 1.5, `launched at ${bot.entity.velocity}`)
+    })
+  }
+
+  it('a piston head pushes the bot (1.20.4)', async () => {
+    const bot = createFakeBot('1.20.4')
+    teleport(bot, new Vec3(0.5, GROUND, 1.75))
+    await ticks(bot, 3)
+    // a piston at z = 3 extends north into the cell z = 2, which the bot's box reaches into
+    bot.emit('pistonMove', { position: new Vec3(0, GROUND, 3) } as Block, 0, 2)
+    await ticks(bot, 3)
+    end(bot)
+    assert.ok(bot.entity.position.z < 1.7, `pushed to ${bot.entity.position.z}`)
   })
 
   describe('flying (abilities)', () => {

@@ -31,6 +31,8 @@ export interface BotOptions extends Omit<ClientOptions, 'version'> {
   difficulty?: number
   chatLengthLimit?: number
   physicsEnabled?: boolean
+  /** vanilla's auto-jump option (1.11+): walking into a one block step jumps it. @default false */
+  autoJump?: boolean
   /** @default 4 */
   maxCatchupTicks?: number
   client?: Client | null
@@ -225,6 +227,8 @@ export interface Bot extends TypedEmitter<BotEvents> {
   /** the entity the bot rides, null when not riding */
   vehicle: Entity | null
   fireworkRocketDuration: number
+  /** vanilla's auto-jump option (1.11+), from the autoJump option; can be changed */
+  autoJump: boolean
   /** set by physics for prismarine-physics: a jump is requested */
   jumpQueued: boolean
   /** set by physics for prismarine-physics: autojump cooldown ticks */
