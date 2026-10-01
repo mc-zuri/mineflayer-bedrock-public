@@ -281,9 +281,29 @@ Most lib fixes come with a regression test (`test/coreTest.ts`, `test/entitiesTe
 | `5a86d82f` | teleport rotation test counted the next tick's movement packet |
 | `383316b4` | particles test left its listener asserting on every later particle |
 
+## Minecraft 26.3 (protocol 777)
+
+Verified against the decompiled official 26.3 server and client jars and a real 26.3 server (e2e 59/59):
+
+- entity moves are a `VecDelta` (one delta or chained per-tick steps); `sync_entity_position` carries a
+  linear or stepped position path
+- `teleport_confirm` carries the resolved position and rotation and is the client's move packet for
+  that tick, so no `position_look` follows it; the server accepts one move packet per client tick, so
+  a `tick_end` closes every physics tick
+- player actions: `CHANGE_DESTROY_DIRECTION` was inserted at id 1
+- there is no serverbound swing packet: a main hand swing is a `punch`, the server swings after uses
+  itself, swings arrive as `swing_animation` and the `animation` ids were renumbered
+- `update_sign` / `open_sign_entity` use a sign slot, particles have one speed per axis, light masks are
+  byte arrays
+
+It needs dependency versions that are not released yet (linked with `file:` in `package.json`):
+node-minecraft-protocol PRs #1539 (`vecDelta`), #1532 and #1529, prismarine-chunk #333/#334,
+prismarine-physics #145 (plus `climbUsingJump` for 26.2/26.3), and minecraft-data 26.3 data generated
+with minecraft-data-generator (`bump-26.3`).
+
 ## Known limitations
 
-- 26.3 is not supported yet: minecraft-protocol has no `vecDelta` type, which its movement packets use.
+- 26.3 depends on the unreleased dependency versions above; CI cannot install them until they are released.
 - 1.21.5+ `window_click` sends component hashes of 0 instead of vanilla's CRC32C hashes of the
   components' persistent codec form; the server resends mismatching slots, so the result corrects
   itself (see the comment in `lib/plugins/inventory.ts`).
