@@ -29,11 +29,15 @@ export default (): Record<string, TestFunction> => {
   const tests: Record<string, TestFunction> = {
     async activateEntityAt (bot) {
       const { item } = await make(bot)
-      const standName = bot.registry.entitiesByName['armor_stand'] ? 'armor_stand' : 'ArmorStand'
+      const summonName = bot.registry.entitiesByName['armor_stand'] ? 'armor_stand' : 'ArmorStand'
+      // as in placeEntity: 1.13's data names the armor stand object 'armorstand'
+      const standName = bot.supportFeature('entityNameUpperCaseNoUnderscore')
+        ? 'ArmorStand'
+        : bot.supportFeature('entityNameLowerCaseNoUnderscore') ? 'armorstand' : 'armor_stand'
       await bot.test.setInventorySlot(36, item('iron_helmet'))
       bot.setQuickBarSlot(0)
       const spawned = onceWithCleanup(bot, 'entitySpawn', { timeout: 5000, checkCondition: (e: Entity) => e.name === standName })
-      bot.chat(`/summon ${standName} ~2 ~ ~`)
+      bot.chat(`/summon ${summonName} ~2 ~ ~`)
       const [stand] = await spawned
       // survival: the helmet leaves the hand for the stand
       await bot.test.becomeSurvival()
@@ -44,7 +48,10 @@ export default (): Record<string, TestFunction> => {
       assert.ok(stand.equipment.some(equipment => equipment?.name === 'iron_helmet'), 'the stand does not wear the helmet')
       assert.strictEqual(bot.heldItem, null)
       await bot.test.becomeCreative()
-      await bot.test.killEntity(stand)
+      // killEntity selects by the entity's name, which is no command id on 1.13
+      const gone = onceWithCleanup(bot, 'entityGone', { timeout: 5000, checkCondition: (e: Entity) => e.id === stand.id })
+      bot.chat(`/kill @e[type=${summonName}]`)
+      await gone
     },
 
     async fullInventory (bot) {

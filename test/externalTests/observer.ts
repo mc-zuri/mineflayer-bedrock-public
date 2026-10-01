@@ -81,7 +81,7 @@ export default (): TestFunction => async (bot) => {
     // next to the origin, where spawn protection stops a player that is not an operator from digging.
     bot.chat(`/op ${OTHER}`)
     const gameModeSet = onceWithCleanup(otherBot, 'game', { timeout: 5000, checkCondition: () => otherBot.game.gameMode === 'survival' })
-    bot.chat(`/gamemode ${bot.supportFeature('hasExecuteCommand') ? 'survival' : '0'} ${OTHER}`)
+    bot.chat(`/gamemode ${bot.registry.isNewerOrEqualTo('1.13') ? 'survival' : '0'} ${OTHER}`)
     await gameModeSet
     const digPos = new Vec3(4, ground, 2)
     const otherSawDirt = onceWithCleanup(otherBot.world, `blockUpdate:${digPos}`, { timeout: 5000, checkCondition: (_old, block) => block?.name === 'dirt' })
@@ -128,9 +128,9 @@ export default (): TestFunction => async (bot) => {
       await onceWithCleanup(otherBot.world, 'blockUpdate', { timeout: 5000 })
     }
     const sawSleep = onceWithCleanup(bot, 'entitySleep', { timeout: 5000, checkCondition: isOther })
-    // Before 1.13 the server marks the bed occupied without telling the clients (BlockBed sets the state
-    // with flag 4, no block update), so only 1.13+ clients can know the bed is taken.
-    const occupiedVisible = bot.registry.version['>=']('1.13')
+    // Before 1.14 the server marks the bed occupied without telling the clients (the bed state is set
+    // with flag 4, no block update; 1.13.2 sends none either), so only 1.14+ clients can know the bed is taken.
+    const occupiedVisible = bot.registry.version['>=']('1.14')
     const occupied = occupiedVisible
       ? onceWithCleanup(bot.world, `blockUpdate:${head}`, { timeout: 5000, checkCondition: (_old, block) => block !== null && bot.parseBedMetadata(block).occupied === true })
       : Promise.resolve()
