@@ -129,6 +129,15 @@ describe('core', () => {
       bot._client.emit('scoreboard_objective', { name: 'kills', action: 2, displayText: { type: 'compound', name: '', value: { text: { type: 'string', value: 'Top kills' }, color: { type: 'string', value: 'red' } } }, type: 0 })
       assert.strictEqual(bot.scoreboards.kills.title, 'Top kills')
     })
+
+    it('removing an unknown objective emits no scoreboardDeleted', () => {
+      const bot = fakeBot('1.20.4')
+      scoreboardPlugin(bot)
+      const deleted: unknown[] = []
+      bot.on('scoreboardDeleted', (sb: unknown) => deleted.push(sb))
+      bot._client.emit('scoreboard_objective', { name: 'ghost', action: 1 })
+      assert.deepStrictEqual(deleted, [])
+    })
   })
 
   describe('title', () => {

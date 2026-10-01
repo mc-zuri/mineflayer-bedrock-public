@@ -18,6 +18,7 @@ function inject (bot: BotInternal): void {
     }
 
     if (packet.action === 1) {
+      if (!Object.hasOwn(scoreboards, packet.name)) return // nothing to remove
       bot.emit('scoreboardDeleted', scoreboards[packet.name]!)
       delete scoreboards[packet.name]
 
