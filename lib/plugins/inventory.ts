@@ -593,13 +593,19 @@ function inject (bot: BotInternal, _options: BotOptions): void {
       bot.emit(`confirmTransaction${click.id}`, true)
     }
 
+    // The server applied the click its own way (its result differed from the
+    // click's item) and resends the whole window. Like the vanilla client,
+    // acknowledge it, which lets the server take clicks again, and take the
+    // resent window as the click's outcome.
     function onRejected (): void {
       bot._client.write('transaction', {
         windowId: click.windowId,
         action: click.id,
         accepted: true
       })
-      bot.emit(`confirmTransaction${click.id}`, false)
+      bot.once(`setWindowItems:${click.windowId}`, () => {
+        bot.emit(`confirmTransaction${click.id}`, false)
+      })
     }
   }
 
@@ -717,13 +723,11 @@ function inject (bot: BotInternal, _options: BotOptions): void {
       if (!window.transactionRequiresConfirmation(click)) {
         confirmTransaction(window.id, actionId, true)
       }
-      const [success] = await withTimeout(response, WINDOW_TIMEOUT)
+      // accepted, or rejected and resynced: either way the window holds the click's outcome
+      await withTimeout(response, WINDOW_TIMEOUT)
         .catch(() => {
           throw new Error(`Server didn't respond to transaction for clicking on slot ${slot} on window with id ${window?.id}.`)
         })
-      if (!success) {
-        throw new Error(`Server rejected transaction for clicking on slot ${slot}, on window with id ${window?.id}.`)
-      }
     } else {
       await waitForWindowUpdate(window, slot)
     }

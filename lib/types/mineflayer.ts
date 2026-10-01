@@ -203,7 +203,7 @@ export interface BotEvents {
   [event: `setWindowItems:${number}`]: () => Promise<void> | void
   /** set_slot (or set_player_inventory) for that window was applied */
   [event: `setSlot:${number}`]: (oldItem: Item | null, newItem: Item | null) => Promise<void> | void
-  /** the server accepted (true) or rejected (false) that click; 1.8 – 1.16 */
+  /** the server accepted (true) or rejected (false, once its resent window is applied) that click; 1.8 – 1.16 */
   [event: `confirmTransaction${number}`]: (accepted: boolean) => Promise<void> | void
   particle: (particle: Particle) => Promise<void> | void
 }

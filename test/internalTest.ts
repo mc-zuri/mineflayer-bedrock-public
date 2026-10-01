@@ -2751,5 +2751,37 @@ for (const supportedVersion of mineflayer.testedVersions) {
         assert.strictEqual(emitter.listenerCount('thing'), 0)
       })
     })
+
+    // edge cases the e2e tests cannot provoke from a vanilla server
+    describe('edge cases', () => {
+      it('a rejected click (1.8 - 1.16) is acknowledged and completes with the server resync', function (done) {
+        if (!bot.supportFeature('transactionPacketExists')) this.skip()
+        const stoneId = registry.itemsByName['stone']!.id
+        server.on('playerJoin', async (client) => {
+          try {
+            client.write('login', bot.test.generateLoginPacket())
+            await once(bot, 'login')
+            const ack = onceWithCleanup(client, 'transaction', { timeout: 2000 })
+            client.on('window_click', (data) => {
+              // like a vanilla server whose click result differs from the client's
+              // prediction: it applies the click anyway, rejects the transaction and
+              // resends the whole window
+              client.write('transaction', { windowId: 0, action: data.action, accepted: false })
+              const items = Array.from({ length: bot.inventory.slots.length }, () => Item.toNotch(null))
+              items[36] = Item.toNotch(new Item(stoneId, 2))
+              client.write('window_items', { windowId: 0, stateId: 1, items, carriedItem: Item.toNotch(null) })
+            })
+            await bot.clickWindow(36, 0, 0)
+            assert.strictEqual(bot.inventory.slots[36]?.count, 2, 'resolves after the resync')
+            const [data] = await ack
+            assert.strictEqual(data.windowId, 0)
+            assert.strictEqual(data.accepted, true, 'acknowledged like vanilla, so the server takes clicks again')
+            done()
+          } catch (err) {
+            done(err)
+          }
+        })
+      })
+    })
   })
 }
