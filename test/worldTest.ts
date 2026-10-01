@@ -222,6 +222,35 @@ describe('digging plugin', () => {
     })
   }
 
+  for (const version of ['1.8.8', '1.20.4', '26.3']) {
+    it(`an instant break (creative, insta-mine) sends only the start action, like vanilla (${version})`, async () => {
+      const bot: any = new EventEmitter()
+      const statuses: number[] = []
+      bot._client = { write: (name: string, params: any) => { if (name === 'block_dig') statuses.push(params.status) } }
+      bot._nextSequence = () => 0
+      const updated: Vec3[] = []
+      bot._updateBlockState = (position: Vec3) => {
+        updated.push(position)
+        bot.emit(`blockUpdate:${position}`, null, { name: 'air', type: 0, position })
+      }
+      bot.swingArm = () => {}
+      bot.heldItem = null
+      bot.inventory = { slots: [] }
+      bot.getEquipmentDestSlot = () => 5
+      bot.game = { gameMode: 'creative' }
+      bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
+      bot.blockAt = () => null
+      bot.lookAt = async () => {}
+      bot.registry = prismarineRegistry(version)
+      diggingPlugin(bot)
+      const block = { name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 0 }
+      await bot.dig(block, true)
+      assert.deepStrictEqual(statuses, [0])
+      assert.deepStrictEqual(updated, [block.position]) // the block is cleared locally
+      assert.strictEqual(bot.targetDigBlock, null)
+    })
+  }
+
   it('a dig started while the previous one finishes during its look keeps both faces', async () => {
     const bot: any = new EventEmitter()
     const writes: Array<{ status: number, location: Vec3, face: number | null }> = []

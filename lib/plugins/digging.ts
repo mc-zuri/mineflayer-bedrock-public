@@ -165,7 +165,8 @@ function inject (bot: BotInternal): void {
       clearTimeout(waitTimeout)
       swingInterval = null
       waitTimeout = null
-      if (bot.targetDigBlock) {
+      // an instant break (creative, insta-mine) is done with the start action: vanilla sends no finish
+      if (bot.targetDigBlock && waitTime > 0) {
         bot._client.write('block_dig', {
           status: 2 + playerActionShift, // finish digging
           location: bot.targetDigBlock.position,
