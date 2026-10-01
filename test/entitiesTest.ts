@@ -232,7 +232,7 @@ describe('entities plugin', () => {
   describe('entity attributes', () => {
     // the attribute id field is `key` except on 1.17 – 1.20.4, where it is `name`
     for (const [version, id] of [['1.8.8', 'generic.movementSpeed'], ['1.16.5', 'minecraft:generic.movement_speed'],
-      ['1.17.1', 'minecraft:generic.movement_speed'], ['1.20.4', 'minecraft:generic.movement_speed'], ['1.21.4', 'generic.movement_speed']]) {
+      ['1.17.1', 'minecraft:generic.movement_speed'], ['1.20.4', 'minecraft:generic.movement_speed'], ['1.21.4', 'generic.movement_speed']] as const) {
       it(`are stored under their id (${version})`, () => {
         const bot = createFakeBot(version)
         const packetName = bot.registry.version['<']('1.9') ? 'update_attributes' : 'entity_update_attributes'
@@ -244,7 +244,7 @@ describe('entities plugin', () => {
         const { data } = deserializer.parsePacketBuffer(buffer)
         bot._client.emit(data.name, data.params)
         assert.deepStrictEqual(Object.keys(bot.entity.attributes), [id])
-        assert.strictEqual(bot.entity.attributes[id].value, 0.1)
+        assert.strictEqual(bot.entity.attributes[id]!.value, 0.1)
       })
     }
   })
@@ -286,10 +286,10 @@ describe('fishing plugin', () => {
 
     const fishing = bot.fish()
     assert.strictEqual(activations, 1) // cast
-    const type = registry.entitiesByName.fishing_bobber.id
+    const type = registry.entitiesByName['fishing_bobber']!.id
     client.emit('spawn_entity', { entityId: 50, objectUUID: '00000000-0000-0000-0000-000000000050', type, x: 10, y: 62, z: 10, pitch: 0, yaw: 0, headPitch: 0, objectData: 1 })
     // a bite: 6 fishing particles next to the bobber
-    client.emit('world_particles', { particleId: registry.particlesByName.fishing.id, particles: 6, x: 10.2, y: 62, z: 10.1 })
+    client.emit('world_particles', { particleId: registry.particlesByName['fishing']!.id, particles: 6, x: 10.2, y: 62, z: 10.1 })
     await fishing
     assert.strictEqual(activations, 2) // reeled in
   })
@@ -302,7 +302,7 @@ describe('fishing plugin', () => {
       bot.activateItem = () => { activations++ }
       fishingPlugin(bot)
       const fishing = bot.fish()
-      const type = registry.supportFeature('fishingBobberCorrectlyNamed') ? registry.entitiesByName.fishing_bobber.id : 90
+      const type = registry.supportFeature('fishingBobberCorrectlyNamed') ? registry.entitiesByName['fishing_bobber']!.id : 90
       const k = registry.supportFeature('fixedPointPosition') ? 32 : 1 // 1.8: 1/32 block
       const spawn = (entityId: number, owner: number, x: number) => bot._client.emit('spawn_entity', {
         entityId, objectUUID: `00000000-0000-0000-0000-0000000000${entityId}`, type, x: x * k, y: 62 * k, z: 10 * k, pitch: 0, yaw: 0, headPitch: 0, objectData: owner, velocity: { x: 0, y: 0, z: 0 }
@@ -339,8 +339,8 @@ describe('creative plugin (1.21.3+, no set_creative_slot ack)', () => {
 
   it('rejects when the server corrects the slot to another item', async () => {
     const { bot, Item, registry } = createCreativeBot()
-    const stone = new Item(registry.itemsByName.stone.id, 1)
-    const dirt = new Item(registry.itemsByName.dirt.id, 1)
+    const stone = new Item(registry.itemsByName['stone']!.id, 1)
+    const dirt = new Item(registry.itemsByName['dirt']!.id, 1)
     const set = bot.creative.setInventorySlot(36, stone, 300)
     bot.inventory.emit('updateSlot:36', stone, dirt)
     await assert.rejects(set, { message: 'Server rejected' })
@@ -348,7 +348,7 @@ describe('creative plugin (1.21.3+, no set_creative_slot ack)', () => {
 
   it('clearSlot rejects when the server puts an item back', async () => {
     const { bot, Item, registry } = createCreativeBot()
-    const stone = new Item(registry.itemsByName.stone.id, 1)
+    const stone = new Item(registry.itemsByName['stone']!.id, 1)
     bot.inventory.slots[36] = stone
     const clear = bot.creative.clearSlot(36)
     assert.doesNotThrow(() => bot.inventory.emit('updateSlot:36', null, stone))
@@ -368,9 +368,9 @@ describe('creative plugin (1.21.3+, no set_creative_slot ack)', () => {
 
   it('resolves when the server keeps the item', async () => {
     const { bot, Item, registry } = createCreativeBot()
-    const stone = new Item(registry.itemsByName.stone.id, 1)
+    const stone = new Item(registry.itemsByName['stone']!.id, 1)
     const set = bot.creative.setInventorySlot(36, stone, 50)
-    bot.inventory.emit('updateSlot:36', null, new Item(registry.itemsByName.stone.id, 1))
+    bot.inventory.emit('updateSlot:36', null, new Item(registry.itemsByName['stone']!.id, 1))
     await set
   })
 })
@@ -383,7 +383,7 @@ describe('place_entity plugin', () => {
     bot.supportFeature = registry.supportFeature.bind(registry)
     bot._client = new EventEmitter()
     bot.heldItem = { name: 'armor_stand' }
-    bot._genericPlace = async (referenceBlock: any, faceVector: any) => {
+    bot._genericPlace = async (referenceBlock: any) => {
       setImmediate(() => {
         bot.emit('entitySpawn', { name: 'zombie', position: new Vec3(0.5, 65, 0.5) })
         bot.emit('entitySpawn', { name: 'armor_stand', position: new Vec3(0.5, 65, 0.5) })
@@ -396,7 +396,7 @@ describe('place_entity plugin', () => {
   })
 
   // [version, held item, the entity vanilla spawns]
-  for (const [version, item, entityName] of [['1.12.2', 'boat', 'boat'], ['1.20.4', 'oak_boat', 'boat'], ['1.20.4', 'oak_chest_boat', 'chest_boat'], ['1.21.4', 'oak_boat', 'oak_boat'], ['1.21.11', 'spruce_chest_boat', 'spruce_chest_boat']]) {
+  for (const [version, item, entityName] of [['1.12.2', 'boat', 'boat'], ['1.20.4', 'oak_boat', 'boat'], ['1.20.4', 'oak_chest_boat', 'chest_boat'], ['1.21.4', 'oak_boat', 'oak_boat'], ['1.21.11', 'spruce_chest_boat', 'spruce_chest_boat']] as const) {
     it(`placeEntity with ${item} finds the ${entityName} entity (${version})`, async () => {
       const registry = prismarineRegistry(version)
       const bot: any = new EventEmitter()
@@ -406,8 +406,8 @@ describe('place_entity plugin', () => {
       bot._client.write = () => {}
       bot._nextSequence = () => 0
       bot.entity = { yaw: 0, pitch: 0 }
-      bot.heldItem = { name: item, type: registry.itemsByName[item].id, count: 1 }
-      bot._genericPlace = async (referenceBlock: any, faceVector: any) => {
+      bot.heldItem = { name: item, type: registry.itemsByName[item]!.id, count: 1 }
+      bot._genericPlace = async (referenceBlock: any) => {
         setImmediate(() => bot.emit('entitySpawn', { name: entityName, position: new Vec3(0.5, 64, 0.5) }))
         return referenceBlock.position
       }
@@ -431,7 +431,7 @@ describe('bed plugin', () => {
     bot.entity = { position: new Vec3(0, 64, 0) }
     bot.blockAt = () => null // neighbouring chunk not loaded
     bedPlugin(bot)
-    const redBed = registry.blocksByName.red_bed
+    const redBed = registry.blocksByName['red_bed']!
     // state offset 3: facing north, not occupied, foot
     const bedBlock = { name: 'red_bed', stateId: redBed.minStateId! + 3, position: new Vec3(0, 64, 1) }
     await assert.rejects(bot.sleep(bedBlock), { message: "there's only half bed" })

@@ -30,12 +30,12 @@ describe('packet trace', () => {
     const lines = fs.readFileSync(file, 'utf8').trimEnd().split('\n')
     assert.strictEqual(lines.length, RECORDS + 1)
 
-    const record = JSON.parse(lines[0])
+    const record = JSON.parse(lines[0]!)
     assert.strictEqual(typeof record.ts, 'number')
     delete record.ts
     const expected = { type: 'PACKET', dir: 'S2C', name: 'map_chunk_bulk', data: { i: 0, data: Buffer.alloc(CHUNK_BYTES, 1) } }
     assert.strictEqual(JSON.stringify(record), JSON.stringify(expected))
 
-    assert.strictEqual(lines[RECORDS].slice(lines[RECORDS].indexOf('"type"')), `"type":"LOG","msg":"done","args":{"n":"${RECORDS}"}}`)
+    assert.strictEqual(lines[RECORDS]!.slice(lines[RECORDS]!.indexOf('"type"')), `"type":"LOG","msg":"done","args":{"n":"${RECORDS}"}}`)
   })
 })

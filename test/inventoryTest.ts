@@ -86,7 +86,7 @@ describe('inventory plugin', () => {
       bot.activateBlock = () => {}
       furnacePlugin(bot)
       const Item = prismarineItem(bot.registry)
-      const furnaceWindow = prismarineWindows(bot.version).windows['minecraft:furnace']
+      const furnaceWindow = prismarineWindows(bot.version).windows['minecraft:furnace']!
       const before = bot._client.listenerCount('craft_progress_bar')
       const opening = bot.openFurnace({ position: new Vec3(0, 0, 0) })
       bot._client.emit('open_window', { windowId: 1, inventoryType: furnaceWindow.type, windowTitle: JSON.stringify({ text: 'Furnace' }) })
@@ -165,7 +165,7 @@ describe('inventory plugin', () => {
   it('a click in a merchant window without a selected trade', async () => {
     const bot = createFakeBot('1.20.4')
     const Item = prismarineItem(bot.registry)
-    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']
+    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']!
     bot._client.emit('open_window', { windowId: 1, inventoryType: merchant.type, windowTitle: JSON.stringify({ text: 'Villager' }) })
     bot._client.emit('window_items', { windowId: 1, stateId: 1, items: new Array(merchant.slots).fill(Item.toNotch(null)), carriedItem: Item.toNotch(null) })
     assert.strictEqual(bot.currentWindow?.type, 'minecraft:merchant')
@@ -181,7 +181,7 @@ describe('villager plugin', () => {
     villagerPlugin(bot, {} as any)
     const Item = prismarineItem(bot.registry)
     const { emerald, bread } = bot.registry.itemsByName
-    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']
+    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']!
     const opening = bot.openVillager({ id: 5, entityType: bot.registry.entitiesByName.villager.id, position: new Vec3(0, 0, 0) })
     bot._client.emit('open_window', { windowId: 1, inventoryType: merchant.type, windowTitle: JSON.stringify({ text: 'Villager' }) })
     bot._client.emit('window_items', { windowId: 1, stateId: 1, items: new Array(merchant.slots).fill(Item.toNotch(null)), carriedItem: Item.toNotch(null) })
@@ -221,7 +221,7 @@ describe('villager plugin', () => {
     villagerPlugin(bot, {} as any)
     const Item = prismarineItem(bot.registry)
     const { emerald, bread } = bot.registry.itemsByName
-    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']
+    const merchant = prismarineWindows(bot.version).windows['minecraft:merchant']!
     const invStart = merchant.inventory.start
     // a server that accepts every click and moves the price into slot 0 when a trade is selected
     const write = bot._client.write
@@ -263,7 +263,7 @@ describe('villager plugin', () => {
     })
     const villager = await opening
     const plain: number[] = []
-    villager.on('updateSlot', (slot: number, oldItem: unknown, newItem: object | null) => {
+    villager.on('updateSlot', (slot: number, _oldItem: unknown, newItem: object | null) => {
       if (newItem && Object.getPrototypeOf(newItem) === Object.prototype) plain.push(slot)
     })
     await bot.trade(villager, 0, 1)

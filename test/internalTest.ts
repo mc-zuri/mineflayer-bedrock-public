@@ -268,7 +268,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
       // Versions prior to 1.11 have capital first letter
       const entities = bot.registry.entitiesByName
-      const creeperId = entities.creeper ? entities.creeper.id : entities.Creeper.id
+      const creeperId = entities['creeper'] ? entities['creeper'].id : entities['Creeper']!.id
       server.on('playerJoin', (client) => {
         client.write(bot.registry.supportFeature('consolidatedEntitySpawnPacket') ? 'spawn_entity' : 'spawn_entity_living', {
           entityId: 8, // random
@@ -295,7 +295,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
     })
     it('blockAt', (done) => {
       const pos = vec3(1, 65, 1)
-      const goldId = bot.registry.blocksByName.gold_block.id
+      const goldId = bot.registry.blocksByName['gold_block']!.id
       bot.on('chunkColumnLoad', (columnPoint) => {
         assert.strictEqual(columnPoint.x, 0)
         assert.strictEqual(columnPoint.z, 0)
@@ -318,8 +318,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
         // A second position where eye level has water: player at y=70, eye at y=71.62 -> block y=71
         const playerPos2 = vec3(1.5, 70, 1.5)
         const eyeLevelBlockPos2 = vec3(1, 71, 1)
-        const dirtId = bot.registry.blocksByName.dirt.id
-        const waterId = bot.registry.blocksByName.water.id
+        const dirtId = bot.registry.blocksByName['dirt']!.id
+        const waterId = bot.registry.blocksByName['water']!.id
         const blockPos2 = vec3(1, 69, 1)
 
         bot.on('chunkColumnLoad', () => {
@@ -388,7 +388,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         server.on('playerJoin', async (client) => {
           await client.write('login', bot.test.generateLoginPacket())
           await client.write('position', basePosition)
-          client.on('packet', (data, meta) => {
+          client.on('packet', (_data, meta) => {
             const packetName = meta.name
             switch (packetName) {
               case 'position':
@@ -643,7 +643,6 @@ for (const supportedVersion of mineflayer.testedVersions) {
         // attempts to send, whatever the state.
         if (!bot.supportFeature('hasConfigurationState')) {
           this.skip()
-          return
         }
         const positionPacket = {
           x: 1.5,
@@ -704,7 +703,6 @@ for (const supportedVersion of mineflayer.testedVersions) {
         // configuration state.
         if (!bot.supportFeature('hasConfigurationState')) {
           this.skip()
-          return
         }
         const positionPacket = {
           x: 1.5,
@@ -761,7 +759,6 @@ for (const supportedVersion of mineflayer.testedVersions) {
         // The mock server never reaches the configuration phase, so the plugin is driven directly.
         if (!registry.supportFeature('resourcePackUsesUUID')) {
           this.skip()
-          return
         }
         const packUuid = '8ef4746b-93b7-3c32-9dcb-b375016c114d'
         const expectedBytes = Buffer.from(packUuid.replace(/-/g, ''), 'hex')
@@ -934,7 +931,6 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('pong is written at the next tick boundary, after the movement packet of the tick that received the ping', function (done) {
         if (bot.supportFeature('transactionPacketExists')) {
           this.skip()
-          return
         }
         const movementPackets = ['position', 'position_look', 'look', 'flying']
         server.on('playerJoin', async (client) => {
@@ -982,7 +978,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             await sleep(100)
             const pongs = seen.filter(p => p.name === 'pong')
             assert.strictEqual(pongs.length, 1, 'each ping is answered exactly once')
-            const pongIndex = seen.indexOf(pongs[0])
+            const pongIndex = seen.indexOf(pongs[0]!)
             const before = seen[pongIndex - 1]
             assert.ok(before !== undefined, 'a movement packet precedes the pong')
             assert.ok(movementPackets.includes(before.name), `packet before pong is ${before.name}`)
@@ -997,7 +993,6 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('pong is written within one tick when physics is not ticking', function (done) {
         if (bot.supportFeature('transactionPacketExists')) {
           this.skip()
-          return
         }
         server.on('playerJoin', async (client) => {
           try {
@@ -1041,10 +1036,10 @@ for (const supportedVersion of mineflayer.testedVersions) {
                 assert.strictEqual(clicks.length, 0)
               } else {
                 assert.strictEqual(clicks.length, 1)
-                assert.strictEqual(clicks[0].windowId, 0)
-                assert.strictEqual(clicks[0].slot, -999)
-                assert.strictEqual(clicks[0].mode, 0)
-                assert.strictEqual(clicks[0].mouseButton, 0)
+                assert.strictEqual(clicks[0]!.windowId, 0)
+                assert.strictEqual(clicks[0]!.slot, -999)
+                assert.strictEqual(clicks[0]!.mode, 0)
+                assert.strictEqual(clicks[0]!.mouseButton, 0)
               }
             })
             .then(done, done)
@@ -1058,7 +1053,6 @@ for (const supportedVersion of mineflayer.testedVersions) {
         // prefer worldType (login) / dimension (respawn) for the codec lookup.
         if (!bot.supportFeature('dimensionDataInCodec') || bot.supportFeature('segmentedRegistryCodecData')) {
           this.skip()
-          return
         }
 
         const loginPacket = bot.test.generateLoginPacket()
@@ -1087,7 +1081,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         // Vanilla 26.1 can bring rain in with only rain_level_change ramps,
         // never sending start_raining/stop_raining (observed on a quick
         // weather flip), so level crossings alone must drive isRaining.
-        const mapped = JSON.stringify(registry.protocol.play.toClient.types.packet_game_state_change).includes('rain_level_change')
+        const mapped = JSON.stringify(registry.protocol['play'].toClient.types.packet_game_state_change).includes('rain_level_change')
         const reason = mapped ? 'rain_level_change' : 7
         server.on('playerJoin', (client) => {
           client.write('login', bot.test.generateLoginPacket())
@@ -1116,7 +1110,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
     describe('block actions', () => {
       it('emits chestLidMove again once an open chest has been replaced', async () => {
         const pos = vec3(1, 65, 1)
-        const chestId = bot.registry.blocksByName.chest.id
+        const chestId = bot.registry.blocksByName['chest']!.id
         const location = { x: pos.x, y: pos.y, z: pos.z }
         const [client] = await once(server, 'playerJoin')
         client.write('login', bot.test.generateLoginPacket())
@@ -1220,7 +1214,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('player displayName', (done) => {
         server.on('playerJoin', (client) => {
           bot.on('entitySpawn', (entity) => {
-            const player = bot.players[entity.username!]
+            const player = bot.players[entity.username!]!
             assert.strictEqual(entity.username, player.displayName.toString())
             if (registry.supportFeature('playerInfoActionIsBitfield')) {
               client.write('player_info', {
@@ -1297,7 +1291,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('spawn_entity', {
               entityId: 56,
               objectUUID: '1-2-3-4',
-              type: bot.registry.entitiesByName.player.internalId,
+              type: bot.registry.entitiesByName['player']!.internalId,
               x: 1,
               y: 2,
               z: 3,
@@ -1330,7 +1324,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
         server.on('playerJoin', (client) => {
           bot.on('entitySpawn', (entity) => {
-            const player = bot.players[entity.username!]
+            const player = bot.players[entity.username!]!
             assert.ok(player, 'player should exist')
             assert.ok(player.skinData, 'skinData should be parsed from mojangson')
             assert.strictEqual(player.skinData.url, 'http://textures.minecraft.net/texture/abc123')
@@ -1377,7 +1371,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('spawn_entity', {
               entityId: 56,
               objectUUID: '1-2-3-4',
-              type: bot.registry.entitiesByName.player.internalId,
+              type: bot.registry.entitiesByName['player']!.internalId,
               x: 1,
               y: 2,
               z: 3,
@@ -1422,7 +1416,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
         server.on('playerJoin', (client) => {
           bot.on('entitySpawn', (entity) => {
-            const player = bot.players[entity.username!]
+            const player = bot.players[entity.username!]!
             assert.ok(player, 'player should exist')
             assert.ok(player.skinData, 'skinData should be parsed from JSON')
             assert.strictEqual(player.skinData.url, 'http://textures.minecraft.net/texture/def456')
@@ -1469,7 +1463,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('spawn_entity', {
               entityId: 57,
               objectUUID: '1-2-3-4',
-              type: bot.registry.entitiesByName.player.internalId,
+              type: bot.registry.entitiesByName['player']!.internalId,
               x: 1,
               y: 2,
               z: 3,
@@ -1500,7 +1494,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
       it('sets players[player].entity to null upon despawn', (done) => {
         let serverClient: ServerClient | null = null
-        bot.once('entitySpawn', (entity) => {
+        bot.once('entitySpawn', () => {
           if (bot.version !== '1.17') {
             serverClient!.write('entity_destroy', {
               entityIds: [56]
@@ -1516,7 +1510,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           setImmediate(() => {
             try {
               assert.strictEqual(entity.username, 'bot5')
-              assert.strictEqual(bot.players[entity.username].entity, null)
+              assert.strictEqual(bot.players[entity.username]!.entity, null)
               done()
             } catch (err) {
               done(err)
@@ -1553,7 +1547,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('spawn_entity', {
               entityId: 56,
               objectUUID: '1-2-3-4',
-              type: bot.registry.entitiesByName.player.internalId,
+              type: bot.registry.entitiesByName['player']!.internalId,
               x: 1,
               y: 2,
               z: 3,
@@ -1602,7 +1596,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
           // Versions prior to 1.11 have capital first letter
           const entities = bot.registry.entitiesByName
-          const creeperId = entities.creeper ? entities.creeper.id : entities.Creeper.id
+          const creeperId = entities['creeper'] ? entities['creeper'].id : entities['Creeper']!.id
           client.write(bot.registry.supportFeature('consolidatedEntitySpawnPacket') ? 'spawn_entity' : 'spawn_entity_living', {
             entityId: 8, // random
             entityUUID: '00112233-4455-6677-8899-aabbccddeeff',
@@ -1631,7 +1625,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
         server.on('playerJoin', (client) => {
           bot.on('itemDrop', (entity) => {
-            const slotPosition = metadataPacket.metadata[0].key
+            const slotPosition = metadataPacket.metadata[0]!.key
 
             if (bot.supportFeature('itemsAreAlsoBlocks')) {
               assert.strictEqual((entity.metadata[slotPosition] as MetadataSlot).blockId, itemData.itemId)
@@ -1672,27 +1666,27 @@ for (const supportedVersion of mineflayer.testedVersions) {
           // Versions prior to 1.13 use 5 as type field value of metadata for storing a slot. 1.13 and so on, use 6
           // Also the structure of a slot changes from 1.12 to 1.13
           if (bot.supportFeature('itemsAreAlsoBlocks')) {
-            metadataPacket.metadata[0].key = 6
-            metadataPacket.metadata[0].type = 5
-            metadataPacket.metadata[0].value.blockId = itemData.itemId
-            metadataPacket.metadata[0].value.itemDamage = 0
+            metadataPacket.metadata[0]!.key = 6
+            metadataPacket.metadata[0]!.type = 5
+            metadataPacket.metadata[0]!.value.blockId = itemData.itemId
+            metadataPacket.metadata[0]!.value.itemDamage = 0
           } else if (bot.supportFeature('itemsAreNotBlocks')) {
-            if (bot.majorVersion === '1.13') metadataPacket.metadata[0].key = 6
-            metadataPacket.metadata[0].value.itemId = itemData.itemId
-            metadataPacket.metadata[0].value.present = true
+            if (bot.majorVersion === '1.13') metadataPacket.metadata[0]!.key = 6
+            metadataPacket.metadata[0]!.value.itemId = itemData.itemId
+            metadataPacket.metadata[0]!.value.present = true
           }
 
           if (bot.supportFeature('entityMetadataHasLong')) {
-            metadataPacket.metadata[0].type = 7
+            metadataPacket.metadata[0]!.type = 7
           }
 
           if (bot.registry.supportFeature('mcDataHasEntityMetadata')) {
-            metadataPacket.metadata[0].type = 'item_stack'
+            metadataPacket.metadata[0]!.type = 'item_stack'
           }
-          metadataPacket.metadata[0].value.addedComponentCount = 0
-          metadataPacket.metadata[0].value.removedComponentCount = 0
-          metadataPacket.metadata[0].value.components = []
-          metadataPacket.metadata[0].value.removeComponents = []
+          metadataPacket.metadata[0]!.value.addedComponentCount = 0
+          metadataPacket.metadata[0]!.value.removedComponentCount = 0
+          metadataPacket.metadata[0]!.value.components = []
+          metadataPacket.metadata[0]!.value.removeComponents = []
 
           client.write('entity_metadata', metadataPacket)
         })
@@ -1712,26 +1706,26 @@ for (const supportedVersion of mineflayer.testedVersions) {
         { head: vec3(12, 0, 0), foot: vec3(11, 0, 0), facing: 1, throws: false }
       ]
 
-      const zombieId = entities.zombie ? entities.zombie.id : entities.Zombie.id
+      const zombieId = entities['zombie'] ? entities['zombie'].id : entities['Zombie']!.id
       let bedBlock!: (typeof blocks)[string]
       if (bot.supportFeature('oneBlockForSeveralVariations')) {
-        bedBlock = blocks.bed
+        bedBlock = blocks['bed']!
       } else if (bot.supportFeature('blockSchemeIsFlat')) {
-        bedBlock = blocks.red_bed
+        bedBlock = blocks['red_bed']!
       }
       const bedId = bedBlock.id
 
-      bot.once('chunkColumnLoad', async (columnPoint) => {
+      bot.once('chunkColumnLoad', async () => {
         try {
           for (const bed in beds) {
-            const bedBock = bot.blockAt(beds[bed].foot)!
+            const bedBock = bot.blockAt(beds[bed]!.foot)!
             const bedBockMetadata = bot.parseBedMetadata(bedBock)
-            assert.strictEqual(bedBockMetadata.facing, beds[bed].facing, 'The facing property seems to be wrong')
+            assert.strictEqual(bedBockMetadata.facing, beds[bed]!.facing, 'The facing property seems to be wrong')
             assert.strictEqual(bedBockMetadata.part, false, 'The part property seems to be wrong') // Is the foot
 
             const sleeping = bot.sleep(bedBock)
-            if (beds[bed].throws) {
-              await assert.rejects(sleeping, beds[bed].error)
+            if (beds[bed]!.throws) {
+              await assert.rejects(sleeping, beds[bed]!.error)
             } else {
               bot.emit('sleep') // the mock server never puts the bot to sleep
               await sleeping
@@ -1753,34 +1747,34 @@ for (const supportedVersion of mineflayer.testedVersions) {
         const chunk = bot.test.buildChunk()
 
         for (const bed in beds) {
-          chunk.setBlockType(beds[bed].head, bedId)
-          chunk.setBlockType(beds[bed].foot, bedId)
+          chunk.setBlockType(beds[bed]!.head, bedId)
+          chunk.setBlockType(beds[bed]!.foot, bedId)
         }
 
         if (bot.supportFeature('blockStateId')) {
-          chunk.setBlockStateId(beds[0].foot, 3 + bedBlock.minStateId) // { facing: north, occupied: false, part: foot }
-          chunk.setBlockStateId(beds[0].head, 2 + bedBlock.minStateId) // { facing:north, occupied: false, part: head }
+          chunk.setBlockStateId(beds[0]!.foot, 3 + bedBlock.minStateId) // { facing: north, occupied: false, part: foot }
+          chunk.setBlockStateId(beds[0]!.head, 2 + bedBlock.minStateId) // { facing:north, occupied: false, part: head }
 
-          chunk.setBlockStateId(beds[1].foot, 15 + bedBlock.minStateId) // { facing: east, occupied:false, part:foot }
-          chunk.setBlockStateId(beds[1].head, 14 + bedBlock.minStateId) // { facing: east, occupied: false, part: head }
+          chunk.setBlockStateId(beds[1]!.foot, 15 + bedBlock.minStateId) // { facing: east, occupied:false, part:foot }
+          chunk.setBlockStateId(beds[1]!.head, 14 + bedBlock.minStateId) // { facing: east, occupied: false, part: head }
 
-          chunk.setBlockStateId(beds[2].foot, 7 + bedBlock.minStateId) // { facing: south, occupied: false, part: foot }
-          chunk.setBlockStateId(beds[2].head, 6 + bedBlock.minStateId) // { facing: south, occupied: false, part: head }
+          chunk.setBlockStateId(beds[2]!.foot, 7 + bedBlock.minStateId) // { facing: south, occupied: false, part: foot }
+          chunk.setBlockStateId(beds[2]!.head, 6 + bedBlock.minStateId) // { facing: south, occupied: false, part: head }
 
-          chunk.setBlockStateId(beds[3].foot, 11 + bedBlock.minStateId) // { facing: west, occupied: false, part: foot }
-          chunk.setBlockStateId(beds[3].head, 10 + bedBlock.minStateId) // { facing: west, occupied: false, part: head }
+          chunk.setBlockStateId(beds[3]!.foot, 11 + bedBlock.minStateId) // { facing: west, occupied: false, part: foot }
+          chunk.setBlockStateId(beds[3]!.head, 10 + bedBlock.minStateId) // { facing: west, occupied: false, part: head }
         } else if (bot.supportFeature('blockMetadata')) {
-          chunk.setBlockData(beds[0].foot, 2) // { facing: north, occupied: false, part: foot }
-          chunk.setBlockData(beds[0].head, 10) // { facing:north, occupied: false, part: head }
+          chunk.setBlockData(beds[0]!.foot, 2) // { facing: north, occupied: false, part: foot }
+          chunk.setBlockData(beds[0]!.head, 10) // { facing:north, occupied: false, part: head }
 
-          chunk.setBlockData(beds[1].foot, 3) // { facing: east, occupied:false, part:foot }
-          chunk.setBlockData(beds[1].head, 11) // { facing: east, occupied: false, part: head }
+          chunk.setBlockData(beds[1]!.foot, 3) // { facing: east, occupied:false, part:foot }
+          chunk.setBlockData(beds[1]!.head, 11) // { facing: east, occupied: false, part: head }
 
-          chunk.setBlockData(beds[2].foot, 0) // { facing: south, occupied: false, part: foot }
-          chunk.setBlockData(beds[2].head, 8) // { facing: south, occupied: false, part: head }
+          chunk.setBlockData(beds[2]!.foot, 0) // { facing: south, occupied: false, part: foot }
+          chunk.setBlockData(beds[2]!.head, 8) // { facing: south, occupied: false, part: head }
 
-          chunk.setBlockData(beds[3].foot, 1) // { facing: west, occupied: false, part: foot }
-          chunk.setBlockData(beds[3].head, 9) // { facing: west, occupied: false, part: head }
+          chunk.setBlockData(beds[3]!.foot, 1) // { facing: west, occupied: false, part: foot }
+          chunk.setBlockData(beds[3]!.head, 9) // { facing: west, occupied: false, part: head }
         }
 
         client.write('position', {
@@ -1832,8 +1826,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
             const scale = bot.supportFeature('blockPlaceHasHandAndFloatCursor') || bot.supportFeature('blockPlaceHasInsideBlock') ? 1 : 16
             assert.deepStrictEqual(writes.map(w => w.name), ['block_place', 'arm_animation', 'block_place', 'arm_animation'])
             const cursor = ({ params }: { params: ServerboundPackets['block_place'] }) => [params.cursorX / scale, params.cursorY / scale, params.cursorZ / scale, params.direction]
-            assert.deepStrictEqual(cursor(writes[0]), [0.5, 1, 0.5, 1])
-            assert.deepStrictEqual(cursor(writes[2]), [0, 0.5, 0.5, 4])
+            assert.deepStrictEqual(cursor(writes[0]!), [0.5, 1, 0.5, 1])
+            assert.deepStrictEqual(cursor(writes[2]!), [0, 0.5, 0.5, 4])
             done()
           } catch (err) {
             done(err)
@@ -1850,14 +1844,14 @@ for (const supportedVersion of mineflayer.testedVersions) {
           await client.write('login', bot.test.generateLoginPacket())
           await loggedIn
           const writes: string[] = []
-          bot._client.write = (name, params) => { writes.push(name) }
+          bot._client.write = (name) => { writes.push(name) }
           bot.quickBarSlot = 0
           bot.activateItem()
           bot.activateItem(true)
           try {
             assert.deepStrictEqual(writes, [])
             assert.strictEqual(bot.usingHeldItem, false)
-            bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName.stone.id, 1))
+            bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName['stone']!.id, 1))
             bot.activateItem()
             assert.deepStrictEqual(writes, [bot.supportFeature('useItemWithOwnPacket') ? 'use_item' : 'block_place'])
             assert.strictEqual(bot.usingHeldItem, true)
@@ -1874,7 +1868,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         const Item = prismarineItem(supportedVersion)
         const QUICK_BAR_SLOT = 0
         const HOTBAR_START = 36
-        const stoneId = registry.itemsByName.stone.id
+        const stoneId = registry.itemsByName['stone']!.id
         const stoneItem = new Item(stoneId, 1)
         const notchItem = Item.toNotch(stoneItem)
 
@@ -1902,7 +1896,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('emits heldItemChanged via updateSlot on the inventory', (done) => {
         const Item = prismarineItem(supportedVersion)
         const QUICK_BAR_SLOT = 0
-        const stoneId = registry.itemsByName.stone.id
+        const stoneId = registry.itemsByName['stone']!.id
         const stoneItem = new Item(stoneId, 1)
 
         server.on('playerJoin', (client) => {
@@ -1997,9 +1991,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
           await client.write('login', bot.test.generateLoginPacket())
           await loggedIn
           const writes: string[] = []
-          bot._client.write = (name, params) => { writes.push(name) }
+          bot._client.write = (name) => { writes.push(name) }
           bot.quickBarSlot = 0
-          bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName.stone.id, 1))
+          bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName['stone']!.id, 1))
           await bot._genericPlace({ position: vec3(1, 65, 1) } as Block, vec3(0, 1, 0), { forceLook: 'ignore', swingArm: 'right' })
           try {
             assert.deepStrictEqual(writes, ['block_place', 'arm_animation'])
@@ -2017,7 +2011,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       // legacy 'minecraft:chest' has a dynamic size resolved from the packet's
       // slotCount (container slots only); the modern equivalent is fixed
       const chestData = pWindows.windows['minecraft:generic_9x3'] ?? { type: 'minecraft:chest', slots: 63 }
-      const merchantData = pWindows.windows['minecraft:merchant'] ?? pWindows.windows['minecraft:villager']
+      const merchantData = pWindows.windows['minecraft:merchant'] ?? pWindows.windows['minecraft:villager']!
       const emptyItems = (n: number) => Array.from({ length: n }, () => Item.toNotch(null))
       const openWindowPacket = (windowId: number, winData: { type: number | string, slots: number }) => ({
         windowId,
@@ -2034,7 +2028,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
 
       it('opens a window whose early window_items reuses the id of a closed window', (done) => {
-        const emeraldId = registry.itemsByName.emerald.id
+        const emeraldId = registry.itemsByName['emerald']!.id
 
         server.on('playerJoin', (client) => {
           client.write('login', bot.test.generateLoginPacket())
@@ -2063,7 +2057,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
 
       it('applies the player-inventory region of a trailing sync for a closed window', (done) => {
-        const stoneId = registry.itemsByName.stone.id
+        const stoneId = registry.itemsByName['stone']!.id
         // chest slot 30 is in the window's player-inventory region and maps
         // back to inventory slot 12
         const chestSlot = 30
@@ -2076,7 +2070,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             bot.closeWindow(bot.currentWindow!)
           })
           client.on('close_window', () => {
-            bot.inventory.once(`updateSlot:${invSlot}`, (oldItem, newItem) => {
+            bot.inventory.once(`updateSlot:${invSlot}`, (_oldItem, newItem) => {
               assert.strictEqual(newItem?.type, stoneId)
               done()
             })
@@ -2097,7 +2091,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         await once(bot, 'login')
         bot._client.emit('scoreboard_objective', { name: 'test1', action: 0, displayText: JSON.stringify({ text: 'Test 1' }) })
         bot._client.emit('scoreboard_display_objective', { name: 'test1', position: 1 })
-        assert.strictEqual(bot.scoreboard.sidebar, bot.scoreboards.test1)
+        assert.strictEqual(bot.scoreboard.sidebar, bot.scoreboards['test1'])
         assert.strictEqual(bot.scoreboard.list, undefined)
         assert.deepStrictEqual(Object.keys(bot.scoreboard), ['1'])
         assert.ok(Object.values(bot.scoreboard).every(sb => sb !== undefined))
@@ -2111,7 +2105,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('handles newlines in header and footer', (done) => {
         const HEADER = 'asd\ndsa'
         const FOOTER = '\nas\nas\nas\n'
-        bot._client.on('playerlist_header', (packet) => {
+        bot._client.on('playerlist_header', () => {
           setImmediate(() => {
             assert.strictEqual(bot.tablist.header.toString(), HEADER)
             assert.strictEqual(bot.tablist.footer.toString(), FOOTER)
@@ -2159,7 +2153,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       }
 
       function objectiveAddPacket (name: string) {
-        const typeField = registry.protocol.play.toClient.types.packet_scoreboard_objective[1].find((f: { name: string }) => f.name === 'type')
+        const typeField = registry.protocol['play'].toClient.types.packet_scoreboard_objective[1].find((f: { name: string }) => f.name === 'type')
         return {
           name,
           action: 0,
@@ -2210,11 +2204,11 @@ for (const supportedVersion of mineflayer.testedVersions) {
         client.write('scoreboard_objective', objectiveAddPacket('kills'))
         client.write('scoreboard_display_objective', { position: 1, name: 'kills' })
         await once(bot, 'scoreboardPosition')
-        assert.deepStrictEqual(bot.teams.red.members, ['alice'])
-        assert.strictEqual(bot.teamMap.alice, bot.teams.red)
-        assert.strictEqual(bot.scoreboards.kills.name, 'kills')
-        assert.strictEqual(bot.scoreboard.sidebar, bot.scoreboards.kills)
-        assert.strictEqual(bot.scoreboard[1], bot.scoreboards.kills)
+        assert.deepStrictEqual(bot.teams['red']!.members, ['alice'])
+        assert.strictEqual(bot.teamMap['alice'], bot.teams['red'])
+        assert.strictEqual(bot.scoreboards['kills']!.name, 'kills')
+        assert.strictEqual(bot.scoreboard.sidebar, bot.scoreboards['kills'])
+        assert.strictEqual(bot.scoreboard[1], bot.scoreboards['kills'])
 
         let removedEvents = 0
         bot.on('teamRemoved', () => { removedEvents++ })
@@ -2236,22 +2230,21 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
         client.write(teamPacketName, teamAddPacket('red', ['bob']))
         await once(bot, 'teamCreated')
-        assert.deepStrictEqual(bot.teams.red.members, ['bob'])
-        assert.strictEqual(bot.teamMap.alice, undefined)
+        assert.deepStrictEqual(bot.teams['red']!.members, ['bob'])
+        assert.strictEqual(bot.teamMap['alice'], undefined)
 
         client.write('respawn', respawnPacket(loginPacket))
         await once(bot, 'respawn')
-        assert.deepStrictEqual(bot.teams.red.members, ['bob'])
-        assert.strictEqual(bot.teamMap.bob, bot.teams.red)
+        assert.deepStrictEqual(bot.teams['red']!.members, ['bob'])
+        assert.strictEqual(bot.teamMap['bob'], bot.teams['red'])
       })
     })
 
     describe('block prediction sequence', () => {
       it('shares one pre-incremented counter across use_item and use_item_on, 0 on release', function (done) {
-        const useItemFields = registry.protocol?.play?.toServer?.types?.packet_use_item?.[1]
+        const useItemFields = registry.protocol?.['play']?.toServer?.types?.packet_use_item?.[1]
         if (!useItemFields?.some((f: { name: string }) => f.name === 'sequence')) {
           this.skip()
-          return
         }
         server.on('playerJoin', async (client) => {
           await bot.test.pluginsLoaded
@@ -2261,7 +2254,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           const writes: Array<[string, number | undefined]> = []
           bot._client.write = (name, params) => { writes.push([name, (params as { sequence?: number }).sequence]) }
           bot.quickBarSlot = 0
-          bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName.stone.id, 1))
+          bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName['stone']!.id, 1))
 
           bot.activateItem()
           bot.deactivateItem()
@@ -2283,10 +2276,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
 
       it('gives both packets of a boat placement their own value, interleaved with use_item', function (done) {
-        const useItemFields = registry.protocol?.play?.toServer?.types?.packet_use_item?.[1]
+        const useItemFields = registry.protocol?.['play']?.toServer?.types?.packet_use_item?.[1]
         if (!useItemFields?.some((f: { name: string }) => f.name === 'sequence')) {
           this.skip()
-          return
         }
         server.on('playerJoin', async (client) => {
           await bot.test.pluginsLoaded
@@ -2302,7 +2294,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           }
           bot.lookAt = async () => {}
           bot.quickBarSlot = 0
-          const boat = registry.itemsByName.oak_boat ?? registry.itemsByName.boat
+          const boat = registry.itemsByName['oak_boat'] ?? registry.itemsByName['boat']!
           bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(boat.id, 1))
 
           try {
@@ -2310,7 +2302,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             bot.deactivateItem()
             const placed = bot.placeEntity({ position: vec3(1, 64, 1) } as Block, vec3(0, 1, 0))
             await sleep(0)
-            bot.emit('entitySpawn', { name: registry.entitiesByName.oak_boat ? 'oak_boat' : bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Boat' : 'boat', position: vec3(1.5, 65, 1.5) } as Entity)
+            bot.emit('entitySpawn', { name: registry.entitiesByName['oak_boat'] ? 'oak_boat' : bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Boat' : 'boat', position: vec3(1.5, 65, 1.5) } as Entity)
             await placed
             bot.activateItem()
 
@@ -2332,7 +2324,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
     describe('activateBlock rotation', () => {
       it('faces the point on the clicked face that the packet reports', async () => {
         const blockPos = vec3(1, 65, 1)
-        const stoneId = registry.blocksByName.stone.id
+        const stoneId = registry.blocksByName['stone']!.id
         const chunk = bot.test.buildChunk()
         for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) chunk.setBlockType(vec3(x, 64, z), stoneId)
         chunk.setBlockType(blockPos, stoneId)
@@ -2381,11 +2373,10 @@ for (const supportedVersion of mineflayer.testedVersions) {
     describe('activateItem rotation', () => {
       it('should send the bot rotation in the use_item packet', function (done) {
         // The rotation field in use_item was added in 1.21.1
-        const useItemFields = registry.protocol?.play?.toServer?.types?.packet_use_item?.[1]
+        const useItemFields = registry.protocol?.['play']?.toServer?.types?.packet_use_item?.[1]
         const hasRotation = useItemFields && useItemFields.some((f: { name: string }) => f.name === 'rotation')
         if (!hasRotation) {
           this.skip()
-          return
         }
         const { toNotchianYaw, toNotchianPitch } = conversionsModule
         const testYaw = 1.5
@@ -2423,7 +2414,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           bot.entity.yaw = testYaw
           bot.entity.pitch = testPitch
           bot.quickBarSlot = 0
-          bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName.stone.id, 1))
+          bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName['stone']!.id, 1))
           bot.activateItem()
         })
       })
@@ -2435,7 +2426,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           try {
             client.write('login', bot.test.generateLoginPacket())
             const chunk = bot.test.buildChunk()
-            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName.stone.id)
+            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName['stone']!.id)
             client.write('map_chunk', generateChunkPacket(chunk))
             await once(bot, 'chunkColumnLoad')
             const teleport = {
@@ -2476,13 +2467,12 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('answers pings and teleports in the order the packets arrived', function (done) {
         if (bot.supportFeature('transactionPacketExists')) {
           this.skip()
-          return
         }
         server.on('playerJoin', async (client) => {
           try {
             client.write('login', bot.test.generateLoginPacket())
             const chunk = bot.test.buildChunk()
-            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName.stone.id)
+            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName['stone']!.id)
             client.write('map_chunk', generateChunkPacket(chunk))
             await once(bot, 'chunkColumnLoad')
             const teleport = {
@@ -2531,7 +2521,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           try {
             client.write('login', bot.test.generateLoginPacket())
             const chunk = bot.test.buildChunk()
-            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName.stone.id)
+            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName['stone']!.id)
             client.write('map_chunk', generateChunkPacket(chunk))
             await once(bot, 'chunkColumnLoad')
             const teleport = {
@@ -2577,7 +2567,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           try {
             client.write('login', bot.test.generateLoginPacket())
             const chunk = bot.test.buildChunk()
-            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName.stone.id)
+            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName['stone']!.id)
             client.write('map_chunk', generateChunkPacket(chunk))
             await once(bot, 'chunkColumnLoad')
             const teleport = {
@@ -2626,7 +2616,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           try {
             client.write('login', bot.test.generateLoginPacket())
             const chunk = bot.test.buildChunk()
-            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName.stone.id)
+            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName['stone']!.id)
             client.write('map_chunk', generateChunkPacket(chunk))
             await once(bot, 'chunkColumnLoad')
             const teleport = {
@@ -2678,7 +2668,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           try {
             client.write('login', bot.test.generateLoginPacket())
             const chunk = bot.test.buildChunk()
-            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName.stone.id)
+            chunk.setBlockType(vec3(1, 65, 1), registry.blocksByName['stone']!.id)
             client.write('map_chunk', generateChunkPacket(chunk))
             await once(bot, 'chunkColumnLoad')
             const teleport = {
