@@ -894,6 +894,7 @@ Whether the bot is using the item that it's holding, for example eating food or 
 #### bot.game.dimension
 
 The bot's current dimension, such as `overworld`, `the_end` or `the_nether`.
+It is the name of the dimension type (without a `minecraft:` prefix); if the server did not send that dimension type in its registry data (1.20.5+), it is the world name instead, such as `overworld` or `example:mining_world`.
 
 #### bot.game.difficulty
 

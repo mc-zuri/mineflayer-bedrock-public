@@ -17,6 +17,8 @@ interface SpawnData {
   dimension?: any
   worldType?: string
   worldName?: string
+  /** worldState: the world (level) name */
+  name?: string
   dimensionCodec?: any
   difficulty?: number
 }
@@ -61,7 +63,10 @@ function inject (bot: BotInternal, options: BotOptions): void {
     }
     if (bot.supportFeature('segmentedRegistryCodecData')) { // 1.20.5
       if (typeof packet.dimension === 'number') {
-        bot.game.dimension = bot.registry.dimensionsArray![packet.dimension]?.name?.replace('minecraft:', '')!
+        // the name of the dimension type with that registry id; if the server sent no such
+        // dimension_type entry, the world (level) name, like the 1.19 – 1.20.4 code without a type name
+        const dimType = bot.registry.dimensionsArray?.[packet.dimension]?.name ?? packet.name!
+        bot.game.dimension = dimType.replace('minecraft:', '')
       } else if (typeof packet.dimension === 'string') { // iirc, in 1.21 it's back to a string
         bot.game.dimension = packet.dimension.replace('minecraft:', '')
       }
@@ -94,7 +99,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
     bot.game.height = 256
 
     if (bot.supportFeature('dimensionDataInCodec')) { // 1.19+
-      const dimData = bot.registry.dimensionsByName![bot.game.dimension]
+      const dimData = bot.registry.dimensionsByName?.[bot.game.dimension]
       if (dimData) {
         bot.game.minY = dimData.minY
         bot.game.height = dimData.height

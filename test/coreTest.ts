@@ -244,6 +244,29 @@ describe('core', () => {
       }
     })
 
+    it('a 1.20.5+ dimension id missing from the registry falls back to the world name', () => {
+      for (const version of ['1.20.6', '1.21.4', latestSupportedVersion]) {
+        const bot = fakeBot(version)
+        gamePlugin(bot, { brand: 'vanilla' } as any)
+        const worldState = (dimension: number, name: string) => ({
+          dimension, name, hashedSeed: [0, 0], gamemode: 'survival', previousGamemode: -1, isDebug: false, isFlat: false, portalCooldown: 0, seaLevel: 63
+        })
+        const login = { entityId: 1, isHardcore: false, worldNames: [], maxPlayers: 20, viewDistance: 10, simulationDistance: 10, worldState: worldState(0, 'minecraft:overworld') }
+        // no dimension_type registry_data received (yet): the registry has no dimensions at all
+        bot._client.emit('login', login)
+        assert.strictEqual(bot.game.dimension, 'overworld', version)
+        bot._client.emit('registry_data', {
+          id: 'minecraft:dimension_type',
+          entries: [{ key: 'minecraft:overworld' }, { key: 'minecraft:the_nether' }]
+        })
+        bot._client.emit('respawn', { worldState: worldState(1, 'example:nether_copy'), copyMetadata: 0 })
+        assert.strictEqual(bot.game.dimension, 'the_nether', version)
+        bot._client.emit('respawn', { worldState: worldState(9999, 'example:mining_world'), copyMetadata: 0 })
+        assert.strictEqual(bot.game.dimension, 'example:mining_world', version)
+        assert.deepStrictEqual([bot.game.minY, bot.game.height], [0, 256], version)
+      }
+    })
+
     it('reads the difficulty packet of each version', () => {
       for (const [version, difficulty] of [['1.20.4', 3], ['1.21.6', 'hard']]) {
         const bot = fakeBot(version as string)
