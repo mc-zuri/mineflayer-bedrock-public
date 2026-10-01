@@ -140,7 +140,7 @@ function inject (bot: BotInternal): void {
 
         for (const key of Object.keys(bot.entities)) {
           const entity = bot.entities[key]
-          if (entity.kind === 'Hostile mobs') {
+          if (entity.kind === 'Hostile mobs' || entity.type === 'hostile') { // 1.17 / 1.18 data has no category, only the type
             const entityPos = entity.position.floored()
             if (entityPos.x <= seMonsterCorner.x && entityPos.x >= nwMonsterCorner.x && entityPos.y <= seMonsterCorner.y && entityPos.y >= nwMonsterCorner.y && entityPos.z <= seMonsterCorner.z && entityPos.z >= nwMonsterCorner.z) {
               throw new Error('there are monsters nearby')
