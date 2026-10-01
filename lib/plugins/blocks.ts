@@ -8,7 +8,6 @@ import prismarineChunk from 'prismarine-chunk'
 import type { Block as BlockInstance } from 'prismarine-block'
 import type { PCChunk } from 'prismarine-chunk'
 import type Section from 'prismarine-chunk/types/section'
-import type { NBT } from 'prismarine-nbt'
 import type { world } from 'prismarine-world'
 import type { RaycastIterator } from 'prismarine-world/types/iterators'
 import type { BotEvents, BotOptions, FindBlockOptions, Painting as PaintingInstance } from '../types/mineflayer.ts'
@@ -500,21 +499,11 @@ function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): 
   })
 
   bot._client.on('tile_entity_data', (packet) => {
-    let absolutePos: Vec3
-    if (packet.location !== undefined) {
-      const column = bot.world.getColumn(packet.location.x >> 4, packet.location.z >> 4)
-      if (!column) return
-      const pos = new Vec3(packet.location.x & 0xf, packet.location.y, packet.location.z & 0xf)
-      column.setBlockEntity(pos, packet.nbtData)
-      absolutePos = new Vec3(packet.location.x, packet.location.y, packet.location.z)
-    } else {
-      const tag = packet.nbtData as NBT & { value: { x: { value: number }, y: { value: number }, z: { value: number } } }
-      const column = bot.world.getColumn(tag.value.x.value >> 4, tag.value.z.value >> 4)
-      if (!column) return
-      const pos = new Vec3(tag.value.x.value & 0xf, tag.value.y.value, tag.value.z.value & 0xf)
-      column.setBlockEntity(pos, tag)
-      absolutePos = new Vec3(tag.value.x.value, tag.value.y.value, tag.value.z.value)
-    }
+    const column = bot.world.getColumn(packet.location.x >> 4, packet.location.z >> 4)
+    if (!column) return
+    const pos = new Vec3(packet.location.x & 0xf, packet.location.y, packet.location.z & 0xf)
+    column.setBlockEntity(pos, packet.nbtData)
+    const absolutePos = new Vec3(packet.location.x, packet.location.y, packet.location.z)
     bot.emit('blockEntityData', bot.blockAt(absolutePos))
   })
 
