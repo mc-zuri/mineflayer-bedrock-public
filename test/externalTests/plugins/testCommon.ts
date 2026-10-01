@@ -391,7 +391,10 @@ function inject (bot: TestBot, wrap: WrapServer): void {
       return run(childBotName)
     }
 
-    const child = spawn('node', [file, '127.0.0.1', `${bot.test.port}`])
+    // Node dies on SIGTERM without running its exit hooks, so a coverage run
+    // (NODE_V8_COVERAGE) never got the example's coverage: the preloaded
+    // handler turns the SIGTERM sent by closeExample into a normal exit.
+    const child = spawn('node', ['--import', 'data:text/javascript,process.on("SIGTERM",()=>process.exit(0))', file, '127.0.0.1', `${bot.test.port}`])
 
     // Useful to debug child processes:
     child.stdout.on('data', (data) => { console.log(`${data}`) })
