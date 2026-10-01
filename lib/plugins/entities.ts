@@ -938,9 +938,7 @@ function inject (bot: BotInternal): void {
   bot.swingArm = swingArm
   bot.attack = attack
   bot.mount = mount
-  bot.dismount = dismount
   bot.useOn = useOn
-  bot.moveVehicle = moveVehicle
 
   function swingArm (arm: 'left' | 'right' = 'right', showHand = true) {
     if (bot.registry.version['>=']('26.3')) {
@@ -978,48 +976,6 @@ function inject (bot: BotInternal): void {
   function mount (target: EntityT) {
     // TODO: check if crouching will make make this action always mount
     useEntity(target, 0)
-  }
-
-  function moveVehicle (left: number, forward: number) {
-    if (bot.supportFeature('newPlayerInputPacket')) {
-      // docs:
-      // * left can take -1 or 1 : -1 means right, 1 means left
-      // * forward can take -1 or 1 : -1 means backward, 1 means forward
-      bot._client.write('player_input', {
-        inputs: {
-          forward: forward > 0,
-          backward: forward < 0,
-          left: left > 0,
-          right: left < 0
-        }
-      })
-    } else {
-      bot._client.write('steer_vehicle', {
-        sideways: left,
-        forward,
-        jump: 0x01
-      })
-    }
-  }
-
-  function dismount () {
-    if (bot.vehicle) {
-      if (bot.supportFeature('newPlayerInputPacket')) {
-        bot._client.write('player_input', {
-          inputs: {
-            jump: true
-          }
-        })
-      } else {
-        bot._client.write('steer_vehicle', {
-          sideways: 0.0,
-          forward: 0.0,
-          jump: 0x02
-        })
-      }
-    } else {
-      bot.emit('error', new Error('dismount: not mounted'))
-    }
   }
 
   function useEntity (target: EntityT, leftClick: number) {

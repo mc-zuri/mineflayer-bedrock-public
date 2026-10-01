@@ -647,6 +647,8 @@ export interface ClientboundPackets {
   }
   /** 1.8 */
   update_sign: { location: Position, text1: string, text2: string, text3: string, text4: string }
+  /** 1.9+: the server moved the vehicle the client drives (yaw / pitch in degrees) */
+  vehicle_move: { x: number, y: number, z: number, yaw: number, pitch: number }
   update_time: {
     age: Int64
     time?: Int64 // before 26.1
@@ -802,8 +804,19 @@ export interface ServerboundPackets {
     enableServerListing?: boolean // 1.18+
     particleStatus?: 'all' | 'decreased' | 'minimal' // 1.21.2+
   }
+  /** 1.9+: the paddles of the boat the client drives */
+  steer_boat: { leftPaddle: boolean, rightPaddle: boolean }
   /** 1.8 – 1.21.1 */
   steer_vehicle: { sideways: number, forward: number, jump: number }
+  /** 1.9+: where the vehicle the client drives moved (yaw / pitch in degrees) */
+  vehicle_move: {
+    x: number
+    y: number
+    z: number
+    yaw: number
+    pitch: number
+    onGround?: boolean // 1.21.2+
+  }
   tab_complete: {
     text: string
     block?: Position | undefined // 1.8, an option: undefined writes none

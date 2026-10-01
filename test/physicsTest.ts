@@ -88,6 +88,8 @@ function addEntity (bot: FakeBot, id: number, name: string, pos: Vec3) {
   const entity = new Entity(id)
   entity.name = name
   entity.type = bot.registry.entitiesByName[name]!.type as BotInternal['entity']['type']
+  entity.height = bot.registry.entitiesByName[name]!.height!
+  entity.width = bot.registry.entitiesByName[name]!.width!
   entity.position = pos
   bot.entities[id] = entity
   return entity
@@ -241,6 +243,145 @@ describe('physics plugin', function () {
         assert.ok(!bot.writes.some(w => w.name === 'entity_action' && (w.params.actionId === 0 || w.params.actionId === 1)))
       })
     }
+  })
+
+  describe('riding', () => {
+    const versions: Array<[string, string]> = [['1.12.2', 'boat'], ['1.20.4', 'boat'], ['1.21.11', 'oak_boat']]
+    /** the bot mounted on a vehicle the test adds at pos */
+    async function mounted (version: string, name: string, pos: Vec3) {
+      const bot = createFakeBot(version)
+      teleport(bot, pos.offset(2, 0, 0))
+      await ticks(bot, 2)
+      const vehicle = addEntity(bot, 7, name, pos)
+      vehicle.yaw = Math.PI // facing +z
+      bot._client.emit('set_passengers', { entityId: 7, passengers: [1] } as any)
+      assert.strictEqual(bot.vehicle, vehicle)
+      bot.entity.yaw = Math.PI
+      return { bot, vehicle }
+    }
+
+    for (const [version, boat] of versions) {
+      it(`drives a boat with the keys and tells the server where it went (${version})`, async () => {
+        const { bot, vehicle } = await mounted(version, boat, new Vec3(0.5, GROUND, 0.5))
+        bot.writes.length = 0
+        bot.setControlState('forward', true)
+        await ticks(bot, 20)
+        end(bot)
+        assert.ok(vehicle.position.z > 0.6, `the boat moved to ${vehicle.position}`)
+        // the rider sits in the boat
+        assert.ok(Math.abs(bot.entity.position.x - vehicle.position.x) < 1e-9 && Math.abs(bot.entity.position.z - vehicle.position.z) < 1e-9)
+        assert.ok(bot.entity.position.y < vehicle.position.y + 0.6 && bot.entity.position.y > vehicle.position.y - 0.6)
+        const moves = bot.writes.filter(w => w.name === 'vehicle_move')
+        assert.ok(moves.length >= 20)
+        assert.strictEqual(moves[moves.length - 1]!.params.z, vehicle.position.z)
+        const paddles = bot.writes.filter(w => w.name === 'steer_boat').map(w => w.params)
+        assert.deepStrictEqual(paddles[0], { leftPaddle: false, rightPaddle: false }) // the keys of the tick before
+        assert.deepStrictEqual(paddles[19], { leftPaddle: true, rightPaddle: true })
+        // no walking packets while riding
+        assert.ok(!bot.writes.some(w => w.name === 'position' || w.name === 'position_look'))
+        if (bot.supportFeature('newPlayerInputPacket')) {
+          assert.ok(bot.writes.some(w => w.name === 'player_input' && w.params.inputs.forward))
+        } else {
+          const steer = bot.writes.filter(w => w.name === 'steer_vehicle')
+          assert.strictEqual(steer.length, moves.length)
+          assert.deepStrictEqual(steer[steer.length - 1]!.params, { sideways: 0, forward: Math.fround(0.98), jump: 0 })
+        }
+      })
+
+      it(`moveVehicle holds the vehicle's keys until changed (${version})`, async () => {
+        const { bot, vehicle } = await mounted(version, boat, new Vec3(0.5, GROUND, 0.5))
+        bot.moveVehicle(0, 1)
+        await ticks(bot, 15)
+        const moved = vehicle.position.z
+        assert.ok(moved > 0.6, `the boat moved to ${vehicle.position}`)
+        bot.moveVehicle(0, 0)
+        await ticks(bot, 40)
+        const stopped = vehicle.position.z
+        await ticks(bot, 5)
+        end(bot)
+        assert.ok(Math.abs(vehicle.position.z - stopped) < 1e-3, 'released, the boat stops')
+      })
+    }
+
+    for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
+      it(`a saddled horse moves on the keys and jumps when the charged jump is let go (${version})`, async () => {
+        const { bot, vehicle } = await mounted(version, 'horse', new Vec3(0.5, GROUND, 0.5))
+        const keys = bot.registry.entitiesByName['horse']!.metadataKeys
+        if (keys) (vehicle.metadata as unknown[])[keys.indexOf('flags')] = 2 | 4 // tame, saddled
+        bot.setControlState('forward', true)
+        await ticks(bot, 20)
+        assert.ok(vehicle.position.z > 2, `the horse moved to ${vehicle.position}`)
+        assert.ok(bot.writes.some(w => w.name === 'vehicle_move'))
+        bot.setControlState('jump', true)
+        await ticks(bot, 5)
+        bot.setControlState('jump', false)
+        await ticks(bot, 3)
+        end(bot)
+        const jumps = bot.writes.filter(w => w.name === 'entity_action' && (w.params.actionId === 5 || w.params.actionId === 'start_horse_jump'))
+        assert.strictEqual(jumps.length, 1)
+        assert.ok(jumps[0]!.params.jumpBoost > 0)
+      })
+    }
+
+    it('an unsaddled horse is not driven: the rider sits on it (1.20.4)', async () => {
+      const { bot, vehicle } = await mounted('1.20.4', 'horse', new Vec3(0.5, GROUND, 0.5))
+      const metadata = vehicle.metadata as unknown[]
+      metadata[bot.registry.entitiesByName['horse']!.metadataKeys!.indexOf('flags')] = 2 // tame only
+      bot.setControlState('forward', true)
+      await ticks(bot, 10)
+      end(bot)
+      assert.deepStrictEqual(vehicle.position, new Vec3(0.5, GROUND, 0.5))
+      assert.ok(!bot.writes.some(w => w.name === 'vehicle_move'))
+      assert.strictEqual(bot.entity.position.x, 0.5)
+      assert.ok(bot.entity.position.y > GROUND + 0.5)
+    })
+
+    it('a pig is driven only with a carrot on a stick in hand (1.20.4)', async () => {
+      const { bot, vehicle } = await mounted('1.20.4', 'pig', new Vec3(0.5, GROUND, 0.5))
+      await ticks(bot, 10)
+      assert.deepStrictEqual(vehicle.position, new Vec3(0.5, GROUND, 0.5))
+      bot.heldItem = { name: 'carrot_on_a_stick' } as BotInternal['heldItem']
+      await ticks(bot, 20)
+      end(bot)
+      // the steered pig always goes forward, where the rider looks
+      assert.ok(vehicle.position.z > 1, `the pig moved to ${vehicle.position}`)
+    })
+
+    it('the rider follows a minecart the server moves (1.21.11)', async () => {
+      const { bot, vehicle } = await mounted('1.21.11', 'minecart', new Vec3(0.5, GROUND, 0.5))
+      bot.writes.length = 0
+      await ticks(bot, 2)
+      vehicle.position = new Vec3(0.5, GROUND, 3.5)
+      await ticks(bot, 2)
+      end(bot)
+      assert.strictEqual(bot.entity.position.z, 3.5)
+      assert.ok(Math.abs(bot.entity.position.y - (GROUND + 0.1875 - 0.6)) < 1e-6, `y ${bot.entity.position.y}`)
+      assert.ok(!bot.writes.some(w => w.name === 'vehicle_move'), 'the server drives a minecart')
+      assert.ok(bot.writes.some(w => w.name === 'look'))
+    })
+
+    it('dismounting stops riding: the bot walks again (1.20.4)', async () => {
+      const { bot } = await mounted('1.20.4', 'boat', new Vec3(0.5, GROUND, 0.5))
+      await ticks(bot, 3)
+      bot._client.emit('set_passengers', { entityId: 7, passengers: [] } as any)
+      assert.strictEqual(bot.vehicle, null)
+      teleport(bot, new Vec3(3.5, GROUND, 0.5))
+      bot.writes.length = 0
+      bot.setControlState('forward', true)
+      await ticks(bot, 5)
+      end(bot)
+      assert.ok(bot.writes.some(w => w.name === 'position' || w.name === 'position_look'))
+      assert.ok(!bot.writes.some(w => w.name === 'vehicle_move'))
+    })
+
+    it('dismount without a vehicle emits an error', () => {
+      const bot = createFakeBot('1.20.4')
+      let error: Error | undefined
+      bot.on('error', (err) => { error = err })
+      bot.dismount()
+      end(bot)
+      assert.strictEqual(error?.message, 'dismount: not mounted')
+    })
   })
 
   describe('flying (abilities)', () => {

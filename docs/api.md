@@ -873,6 +873,13 @@ All nearby entities. This object is a map of entityId to entity.
 
 The entity the bot is riding, or `null` when it is not riding anything.
 
+While riding, the physics does what vanilla's client does (1.9+): it drives a boat or raft, a saddled horse,
+donkey, mule or camel, and a pig or strider when the bot holds a carrot / warped fungus on a stick, on the
+bot's controls (`forward`, `back`, `left`, `right`, `jump` charges a mount's jump) and `bot.moveVehicle`'s, moves
+`bot.vehicle` there and tells the server (`vehicle_move`). A minecart is moved by the server and the bot sits
+in it. On any other vehicle (and before 1.9) the bot sits where the server has its vehicle. `bot.entity.position`
+is the rider's position, updated every tick (with a `move` event).
+
 #### bot.username
 
 Use this to find out your own name.
@@ -2109,12 +2116,13 @@ Dismounts from the vehicle you are in.
 
 #### bot.moveVehicle(left,forward)
 
-Moves the vehicle :
+Steers the vehicle: holds its keys until the next call (`bot.moveVehicle(0, 0)` releases them) or the bot
+dismounts. They add to the control states (see `bot.vehicle`).
 
- * left can take -1 or 1 : -1 means right, 1 means left
- * forward can take -1 or 1 : -1 means backward, 1 means forward
+ * left can take -1, 0 or 1 : -1 means right, 1 means left
+ * forward can take -1, 0 or 1 : -1 means backward, 1 means forward
 
-All the direction are relative to where the bot is looking at
+All the direction are relative to where the bot is looking at (a boat turns, a mount faces where the bot looks)
 
 #### bot.setQuickBarSlot(slot)
 

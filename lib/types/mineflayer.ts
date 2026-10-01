@@ -412,8 +412,10 @@ export interface Bot extends TypedEmitter<BotEvents> {
 
   mount: (entity: Entity) => void
 
+  /** emits an error (dismount: not mounted) when not riding */
   dismount: () => void
 
+  /** holds the vehicle's keys until the next call: left 1 / -1 (right), forward 1 / -1 (back), 0 releases */
   moveVehicle: (left: number, forward: number) => void
 
   setQuickBarSlot: (slot: number) => void

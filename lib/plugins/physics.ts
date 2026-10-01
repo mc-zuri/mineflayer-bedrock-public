@@ -8,7 +8,7 @@ import { Physics, PlayerState } from 'prismarine-physics'
 import minecraftData from 'minecraft-data'
 import type { IndexedData } from 'minecraft-data'
 import type { Effect, Entity } from 'prismarine-entity'
-import type { PhysicsAttribute, PhysicsEntity } from 'prismarine-physics'
+import type { PhysicsAttribute, PhysicsEntity, PhysicsVehicle } from 'prismarine-physics'
 import type { BotInternal } from '../types/internal.ts'
 import type { BotOptions, ControlState, ControlStateStatus } from '../types/mineflayer.ts'
 import type { MovementFlags } from '../types/protocol.ts'
@@ -24,6 +24,41 @@ const PHYSICS_TIMESTEP = PHYSICS_INTERVAL_MS / 1000 // 0.05
 
 // the sprint modifier's id: a UUID before 1.21, a resource location since
 const SPRINT_MODIFIER_UUID = '662a6b8d-da3e-4c1c-8813-96ea6097278d'
+// the mounts the rider steers and makes jump (AbstractHorse): the engine moves them on the rider's keys
+const HORSES = new Set(['horse', 'donkey', 'mule', 'skeleton_horse', 'zombie_horse', 'camel'])
+// the driven mounts' movement_speed and jump_strength until the server sends their attributes
+const MOUNT_DEFAULTS: { [name: string]: { speed: number, jump: number } } = {
+  horse: { speed: 0.225, jump: 0.7 },
+  donkey: { speed: 0.175, jump: 0.5 },
+  mule: { speed: 0.175, jump: 0.5 },
+  skeleton_horse: { speed: 0.2, jump: 0.7 },
+  zombie_horse: { speed: 0.2, jump: 0.7 },
+  camel: { speed: 0.09, jump: 0.42 },
+  pig: { speed: 0.25, jump: 0.42 },
+  strider: { speed: 0.175, jump: 0.42 }
+}
+const isBoat = (name: string) => /boat$|raft$/.test(name)
+const isMinecart = (name: string) => /minecart$/.test(name)
+
+interface Ridden {
+  entity: Entity
+  /** the engine's vehicle, kept from tick to tick; null for a vehicle the engine does not know (the rider just sits on it) */
+  state: PhysicsVehicle | null
+  /** the client moves it: a boat, a saddled horse, a pig or strider steered with its stick */
+  driven: boolean
+  /** the keys the boat paddled with this tick (those of the tick before) */
+  paddles: { left: boolean, right: boolean, up: boolean, down: boolean }
+}
+
+// an attribute's value with its modifiers (AttributeInstance.calculateValue)
+function attributeValue (attribute: PhysicsAttribute): number {
+  let base = attribute.value
+  for (const modifier of attribute.modifiers) if (modifier.operation === 0) base += modifier.amount
+  let value = base
+  for (const modifier of attribute.modifiers) if (modifier.operation === 1) value += base * modifier.amount
+  for (const modifier of attribute.modifiers) if (modifier.operation === 2) value *= 1 + modifier.amount
+  return value
+}
 
 function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptions): void {
   const PHYSICS_CATCHUP_TICKS = maxCatchupTicks ?? 4
@@ -101,35 +136,56 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     flushReplies()
     if (!bot.entity?.position || !Number.isFinite(bot.entity.position.x)) return // entity not ready
     if (bot.blockAt(bot.entity.position) == null) return // check if chunk is unloaded
+    updateRidden()
     if (bot.physicsEnabled && shouldUsePhysics) {
-      const state = new PlayerState(bot, controlState)
-      state.attributes = engineAttributes(bot.entity.attributes)
-      // A changed bot.physics.gravity (creative.startFlying sets 0) wins over the gravity attribute (1.20.5+)
-      if (state.attributes && physics.gravity !== DEFAULT_GRAVITY) delete state.attributes[gravityResource]
-      // The abilities the server granted (abilities packet): flying holds the bot up, landing ends it
-      state.flying = !!bot.entity.flying
-      state.mayFly = bot.abilities.mayFly
-      state.flySpeed = bot.abilities.flyingSpeed
-      state.gameMode = bot.game.gameMode
-      // A bot never double-taps forward or jump: it sprints with the sprint control, and flies when the
-      // server (or creative.startFlying) says so
-      state.sprintTriggerTime = 0
-      state.jumpTriggerTime = 0
-      // The entities around: boats and shulkers are solid, mobs push the player away
-      state.entities = nearbyEntities()
-      physics.simulatePlayer(state, world).apply(bot)
-      if (state.flying !== !!bot.entity.flying) {
-        // the client ended (or started) the flight itself: it tells the server, like vanilla's onUpdateAbilities
-        bot.entity.flying = state.flying
-        bot.abilities.flying = state.flying
-        sendAbilities()
-      }
+      simulate()
       bot.emit('physicsTick')
       bot.emit('physicTick') // Deprecated, only exists to support old plugins. May be removed in the future
     }
     if (shouldUsePhysics) {
       updatePosition(now)
     }
+  }
+
+  function simulate () {
+    const riding = ridden
+    if (riding?.state) refreshVehicle(riding, riding.state)
+    if (riding && (riding.state === null || (!riding.driven && !isMinecart(riding.state.type)))) {
+      // a vehicle the client neither drives nor seats itself on: the rider sits on it where the server has it
+      seatOnVehicle(riding.entity)
+      return
+    }
+    const control = riding ? ridingControls() : controlState
+    const state = new PlayerState(bot, control)
+    state.attributes = engineAttributes(bot.entity.attributes)
+    // A changed bot.physics.gravity (creative.startFlying sets 0) wins over the gravity attribute (1.20.5+)
+    if (state.attributes && physics.gravity !== DEFAULT_GRAVITY) delete state.attributes[gravityResource]
+    // The abilities the server granted (abilities packet): flying holds the bot up, landing ends it
+    state.flying = !!bot.entity.flying
+    state.mayFly = bot.abilities.mayFly
+    state.flySpeed = bot.abilities.flyingSpeed
+    state.gameMode = bot.game.gameMode
+    // A bot never double-taps forward or jump: it sprints with the sprint control, and flies when the
+    // server (or creative.startFlying) says so
+    state.sprintTriggerTime = 0
+    state.jumpTriggerTime = 0
+    // The entities around: boats and shulkers are solid, mobs push the player away
+    state.entities = nearbyEntities()
+    const jumpWasHeld = !!state.jumpHeld
+    let jumpScale = 0
+    if (riding?.state) {
+      state.vehicle = riding.state
+      jumpScale = riding.state.jumpRidingScale ?? 0
+      riding.paddles = riding.state.input ?? riding.paddles
+    }
+    physics.simulatePlayer(state, world).apply(bot)
+    if (state.flying !== !!bot.entity.flying) {
+      // the client ended (or started) the flight itself: it tells the server, like vanilla's onUpdateAbilities
+      bot.entity.flying = state.flying
+      bot.abilities.flying = state.flying
+      sendAbilities()
+    }
+    if (riding?.state) afterRidingTick(riding, riding.state, state.yaw, jumpWasHeld && !control.jump, jumpScale)
   }
 
   // remove this when 'physicTick' is removed
@@ -226,6 +282,10 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
 
     const yaw = Math.fround(conv.toNotchianYaw(lastSentYaw!))
     const pitch = Math.fround(conv.toNotchianPitch(lastSentPitch!))
+    if (ridden) {
+      sendRidingPackets(ridden, yaw, pitch)
+      return
+    }
     const position = bot.entity.position
     const onGround = bot.entity.onGround
 
@@ -274,6 +334,206 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
       result.push({ id: entity.id, type: entity.name, pos: at.clone(), vel: entity.velocity.clone() })
     }
     return result
+  }
+
+  // ---- riding ----
+  // The vehicle the bot rides (bot.vehicle), as vanilla's client handles it (1.9+): it drives a boat, a saddled
+  // horse, donkey, mule or camel, and a pig or strider it steers with its stick: the engine moves them on the
+  // bot's keys (moveVehicle's too) and the client tells the server where they went (vehicle_move). A minecart
+  // moves on the server's packets and the engine seats the rider on it. On any other vehicle, and before 1.9,
+  // the bot sits where the server has its vehicle.
+  let ridden: Ridden | null = null
+  // the keys moveVehicle holds: left 1 / -1 (right), forward 1 / -1 (back); 0 releases
+  const steering = { left: 0, forward: 0 }
+  const movementSpeedResource = physics.movementSpeedAttribute
+  const jumpStrengthResource = bot.registry.attributesArray.find(attribute => attribute.name === 'jumpStrength' || attribute.name === 'horseJumpStrength')?.resource ?? ''
+
+  function updateRidden () {
+    const vehicle = bot.vehicle
+    if (!vehicle) {
+      if (ridden) {
+        ridden = null
+        steering.left = 0
+        steering.forward = 0
+      }
+      return
+    }
+    if (ridden?.entity === vehicle) return
+    const name = vehicle.name ?? ''
+    const known = bot.registry.version['>=']('1.9') && (isBoat(name) || isMinecart(name) || name in MOUNT_DEFAULTS)
+    ridden = { entity: vehicle, state: known ? vehicleState(vehicle) : null, driven: false, paddles: { left: false, right: false, up: false, down: false } }
+  }
+
+  function vehicleState (vehicle: Entity): PhysicsVehicle {
+    return {
+      id: vehicle.id,
+      type: vehicle.name ?? '',
+      pos: vehicle.position.clone(),
+      vel: vehicle.velocity.clone(),
+      yaw: Math.fround(conv.toNotchianYaw(vehicle.yaw)),
+      pitch: Math.fround(conv.toNotchianPitch(vehicle.pitch)),
+      onGround: false,
+      deltaRotation: 0,
+      landFriction: 0,
+      input: { left: false, right: false, up: false, down: false }
+    }
+  }
+
+  // Whether the client controls the vehicle (its getControllingPassenger is the player)
+  function clientDrives (vehicle: Entity): boolean {
+    const name = vehicle.name ?? ''
+    if (isBoat(name)) return true
+    if (HORSES.has(name)) return !knownUnsaddled(vehicle)
+    const held = [bot.heldItem?.name, bot.inventory.slots[45]?.name]
+    if (name === 'pig') return held.includes('carrot_on_a_stick')
+    if (name === 'strider') return held.includes('warped_fungus_on_a_stick')
+    return false
+  }
+
+  // AbstractHorse's flags hold the saddle (4) before 1.21.5, where it became equipment
+  function knownUnsaddled (vehicle: Entity): boolean {
+    if (bot.registry.version['>=']('1.21.5')) return false
+    const keys = bot.registry.entitiesByName[vehicle.name ?? '']?.metadataKeys
+    const index = keys ? keys.indexOf('flags') : -1
+    const flags: unknown = index >= 0 ? vehicle.metadata[index] : undefined
+    return typeof flags === 'number' && (flags & 4) === 0
+  }
+
+  // What the engine needs again each tick: who drives, a minecart where the server has it, a mount's attributes
+  function refreshVehicle (riding: Ridden, state: PhysicsVehicle) {
+    const vehicle = riding.entity
+    riding.driven = clientDrives(vehicle)
+    if (isMinecart(state.type)) {
+      state.pos = vehicle.position.clone()
+      state.yaw = Math.fround(conv.toNotchianYaw(vehicle.yaw))
+    }
+    const defaults = MOUNT_DEFAULTS[state.type]
+    if (defaults) {
+      const attributes = engineAttributes(vehicle.attributes) ?? {}
+      const speed = attributes[movementSpeedResource]
+      const jump = attributes[jumpStrengthResource]
+      state.movementSpeed = speed ? attributeValue(speed) : defaults.speed
+      state.jumpStrength = jump ? attributeValue(jump) : defaults.jump
+      state.steered = riding.driven
+    }
+  }
+
+  function ridingControls (): ControlStateStatus {
+    return {
+      ...controlState,
+      forward: controlState.forward || steering.forward > 0,
+      back: controlState.back || steering.forward < 0,
+      left: controlState.left || steering.left > 0,
+      right: controlState.right || steering.left < 0
+    }
+  }
+
+  function afterRidingTick (riding: Ridden, state: PhysicsVehicle, riderYaw: number, jumpReleased: boolean, jumpScale: number) {
+    if (!riding.driven) return
+    // the vehicle entity is where the client moved it
+    const vehicle = riding.entity
+    const moved = !vehicle.position.equals(state.pos)
+    vehicle.position.set(state.pos.x, state.pos.y, state.pos.z)
+    vehicle.velocity.set(state.vel.x, state.vel.y, state.vel.z)
+    vehicle.yaw = conv.fromNotchianYaw(state.yaw)
+    vehicle.onGround = state.onGround
+    if (moved) bot.emit('entityMoved', vehicle)
+    // a boat turns its rider with it
+    if (isBoat(state.type)) bot.entity.yaw = math.euclideanMod(riderYaw, PI_2)
+    // letting go of a charged jump makes the mount jump: the client tells the server how strong
+    if (jumpReleased && HORSES.has(state.type)) {
+      bot._client.write('entity_action', {
+        entityId: bot.entity.id,
+        actionId: bot.supportFeature('entityActionUsesStringMapper') ? 'start_horse_jump' : 5,
+        jumpBoost: Math.floor(Math.fround(jumpScale * 100))
+      })
+    }
+  }
+
+  // Entity.positionRider for a vehicle the client does not simulate: on its top, less the player's offset
+  function seatOnVehicle (vehicle: Entity) {
+    const seat = bot.registry.version['>=']('1.20.2') ? vehicle.height - 0.6 : vehicle.height * 0.75 - 0.35
+    bot.entity.position.set(vehicle.position.x, vehicle.position.y + seat, vehicle.position.z)
+    bot.entity.velocity.set(0, 0, 0)
+  }
+
+  // LocalPlayer.tick for a passenger: the boat's paddles, the rotation, the keys (steer_vehicle before
+  // player_input), and where the vehicle the client drives went
+  function sendRidingPackets (riding: Ridden, yaw: number, pitch: number) {
+    const state = riding.state
+    const keys = ridingControls()
+    const onGround = bot.entity.onGround
+    if (riding.driven && state && isBoat(state.type)) {
+      const paddles = riding.paddles
+      bot._client.write('steer_boat', {
+        leftPaddle: (paddles.right && !paddles.left) || paddles.up,
+        rightPaddle: (paddles.left && !paddles.right) || paddles.up
+      })
+    }
+    bot._client.write('look', { yaw, pitch, onGround, flags: { onGround, hasHorizontalCollision: undefined } })
+    if (!bot.supportFeature('newPlayerInputPacket')) {
+      bot._client.write('steer_vehicle', {
+        sideways: Math.fround(((keys.left ? 1 : 0) - (keys.right ? 1 : 0)) * 0.98),
+        forward: Math.fround(((keys.forward ? 1 : 0) - (keys.back ? 1 : 0)) * 0.98),
+        jump: (keys.jump ? 1 : 0) | (keys.sneak ? 2 : 0)
+      })
+    }
+    if (riding.driven && state) {
+      bot._client.write('vehicle_move', {
+        x: state.pos.x,
+        y: state.pos.y,
+        z: state.pos.z,
+        yaw: Math.fround(state.yaw),
+        pitch: Math.fround(state.pitch),
+        onGround: state.onGround
+      })
+    }
+    const oldPos = new Vec3(lastSent.x, lastSent.y, lastSent.z)
+    const position = bot.entity.position
+    lastSent.x = position.x
+    lastSent.y = position.y
+    lastSent.z = position.z
+    lastSent.yaw = yaw
+    lastSent.pitch = pitch
+    lastSent.onGround = onGround
+    bot.emit('move', oldPos)
+  }
+
+  // ClientPacketListener.handleMoveVehicle: the server put the vehicle the client drives elsewhere; the
+  // client takes it and says where the vehicle now is
+  bot._client.on('vehicle_move', (packet) => {
+    const state = ridden?.state
+    if (!ridden || !state || !ridden.driven) return
+    state.pos = new Vec3(packet.x, packet.y, packet.z)
+    state.yaw = packet.yaw
+    state.pitch = packet.pitch
+    ridden.entity.position.set(packet.x, packet.y, packet.z)
+    bot._client.write('vehicle_move', { x: packet.x, y: packet.y, z: packet.z, yaw: packet.yaw, pitch: packet.pitch, onGround: state.onGround })
+  })
+
+  bot.moveVehicle = (left, forward) => {
+    steering.left = Math.sign(left)
+    steering.forward = Math.sign(forward)
+  }
+
+  bot.dismount = () => {
+    if (!bot.vehicle) {
+      bot.emit('error', new Error('dismount: not mounted'))
+      return
+    }
+    if (bot.supportFeature('newPlayerInputPacket')) {
+      bot._client.write('player_input', {
+        inputs: {
+          jump: true
+        }
+      })
+    } else {
+      bot._client.write('steer_vehicle', {
+        sideways: 0.0,
+        forward: 0.0,
+        jump: 0x02
+      })
+    }
   }
 
   // ServerboundPlayerAbilitiesPacket: since 1.16 only the flying bit, before every ability and both speeds
@@ -381,15 +641,16 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
   let sentSprinting = false
   let sentSneaking = false
   function sendInputState () {
+    const held = ridden ? ridingControls() : controlState
     if (bot.supportFeature('newPlayerInputPacket')) {
       const inputs = {
-        forward: controlState.forward,
-        backward: controlState.back,
-        left: controlState.left,
-        right: controlState.right,
-        jump: controlState.jump,
-        shift: controlState.sneak,
-        sprint: controlState.sprint
+        forward: held.forward,
+        backward: held.back,
+        left: held.left,
+        right: held.right,
+        jump: held.jump,
+        shift: held.sneak,
+        sprint: held.sprint
       }
       const keys = Object.values(inputs).join()
       if (keys !== sentInput) {
@@ -397,6 +658,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
         bot._client.write('player_input', { inputs })
       }
     }
+    // (a rider: only on a vehicle it drives, since 1.19.3; the sneak key dismounts it)
+    if (ridden && !(ridden.driven && bot.registry.version['>=']('1.19.3'))) return
     const sprinting = bot.physicsEnabled ? !!bot.entity.sprinting : controlState.sprint
     if (sprinting !== sentSprinting) {
       sentSprinting = sprinting
@@ -408,7 +671,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
         jumpBoost: 0
       })
     }
-    if (!bot.supportFeature('newPlayerInputPacket') && controlState.sneak !== sentSneaking) {
+    if (!bot.supportFeature('newPlayerInputPacket') && !ridden && controlState.sneak !== sentSneaking) {
       sentSneaking = controlState.sneak
       bot._client.write('entity_action', {
         entityId: bot.entity.id,
@@ -684,7 +947,6 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     clearTimeout(respawnReply)
     respawnReply = null
   }
-  bot.on('mount', () => { shouldUsePhysics = false })
   bot.on('death', () => {
     shouldUsePhysics = false
     respawnTimer = Date.now()

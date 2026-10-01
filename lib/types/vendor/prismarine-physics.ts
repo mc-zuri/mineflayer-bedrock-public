@@ -167,6 +167,8 @@ declare module 'prismarine-physics' {
     sprinting: boolean
     sprintTriggerTime: number
     jumpTriggerTime: number
+    /** the jump key the last tick ended with */
+    jumpHeld: boolean
     flying: boolean
     mayFly: boolean
     flySpeed: number | undefined
