@@ -214,4 +214,39 @@ describe('digging plugin', () => {
       [blockB.position.toString(), 0] // stopDigging: face down (0)
     ])
   })
+
+  it('a dig that interrupts another starts with its own face', async () => {
+    const bot: any = new EventEmitter()
+    const writes: Array<{ status: number, location: Vec3, face: number | null }> = []
+    bot._client = { write: (name: string, params: any) => { if (name === 'block_dig') writes.push({ status: params.status, location: params.location, face: params.face }) } }
+    bot._nextSequence = () => 0
+    bot._updateBlockState = () => {}
+    bot.swingArm = () => {}
+    bot.heldItem = null
+    bot.inventory = { slots: [] }
+    bot.getEquipmentDestSlot = () => 5
+    bot.game = { gameMode: 'survival' }
+    bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
+    bot.blockAt = () => null
+    bot.lookAt = async () => {}
+    diggingPlugin(bot)
+    const blockA = { name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 1000 }
+    const blockB = { name: 'dirt', position: new Vec3(0, 64, 1), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 20 }
+
+    const digA = bot.dig(blockA, true, new Vec3(1, 0, 0)).catch(() => {}) // east face (5)
+    await new Promise(resolve => setImmediate(resolve))
+    const digB = bot.dig(blockB, true, new Vec3(0, 0, 1)) // south face (3)
+    await digA
+    assert.strictEqual(bot.targetDigFace, 3)
+    await new Promise(resolve => setTimeout(resolve, 40))
+    bot.emit(`blockUpdate:${blockB.position}`, blockB, { name: 'air', type: 0, position: blockB.position })
+    await digB
+
+    assert.deepStrictEqual(writes.map(({ status, location, face }) => [status, location.toString(), face]), [
+      [0, blockA.position.toString(), 5], // start A
+      [1, blockA.position.toString(), 3], // abort A for the new dig
+      [0, blockB.position.toString(), 3], // start B, with B's face
+      [2, blockB.position.toString(), 3] // finish B, with B's face
+    ])
+  })
 })

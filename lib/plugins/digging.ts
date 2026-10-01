@@ -140,6 +140,7 @@ function inject (bot: BotInternal): void {
       stoppingForNewDigRequest = true
       bot.stopDigging()
       stoppingForNewDigRequest = false
+      bot.targetDigFace = targetDigFace // stopDigging reset it
     }
 
     diggingTask = createTask()
