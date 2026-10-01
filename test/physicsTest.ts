@@ -501,6 +501,49 @@ describe('physics plugin', function () {
     assert.ok(bot.entity.position.z < 1.7, `pushed to ${bot.entity.position.z}`)
   })
 
+  describe('the vanilla engine', () => {
+    for (const version of ['1.16.5', '1.20.4', '1.21.11']) {
+      it(`kelp is water: the bot sinks in a kelp column instead of falling (${version})`, async () => {
+        const bot = createFakeBot(version)
+        for (let y = GROUND; y < GROUND + 12; y++) bot.blocks.set(`0,${y},0`, y === GROUND + 11 ? 'kelp' : 'kelp_plant')
+        teleport(bot, new Vec3(0.5, GROUND + 10, 0.5))
+        await ticks(bot, 10)
+        end(bot)
+        assert.ok(bot.entity.isInWater, 'in the kelp\'s water')
+        // in air it would have fallen 4 blocks
+        assert.ok(bot.entity.position.y > GROUND + 9, `sank to ${bot.entity.position.y}`)
+      })
+    }
+
+    // the steady walking speed of a vanilla player on flat ground (0.1 movement speed): 4.317 blocks a second
+    for (const version of ['1.8.8', '1.12.2', '1.20.4', '1.21.11']) {
+      it(`walks at vanilla's speed (${version})`, async () => {
+        const bot = createFakeBot(version)
+        const speed = await walkingSpeed(bot)
+        end(bot)
+        assert.ok(Math.abs(speed - 0.215859) < 0.0005, `walked ${speed} blocks a tick`)
+      })
+
+      it(`sprints at vanilla's speed (${version})`, async () => {
+        const bot = createFakeBot(version)
+        bot.setControlState('sprint', true)
+        const speed = await walkingSpeed(bot)
+        end(bot)
+        assert.ok(Math.abs(speed - 0.280617) < 0.0005, `sprinted ${speed} blocks a tick`)
+      })
+
+      it(`does not sprint with 6 food or less (${version})`, async () => {
+        const bot = createFakeBot(version)
+        bot.food = 6
+        bot.setControlState('sprint', true)
+        const speed = await walkingSpeed(bot)
+        end(bot)
+        assert.ok(Math.abs(speed - 0.215859) < 0.0005, `moved ${speed} blocks a tick`)
+        assert.ok(!bot.writes.some(w => w.name === 'entity_action'), 'no start_sprinting')
+      })
+    }
+  })
+
   describe('flying (abilities)', () => {
     for (const version of ['1.12.2', '1.20.4', '1.21.11']) {
       it(`hovers while the server says it flies (${version})`, async () => {
