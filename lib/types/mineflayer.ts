@@ -241,7 +241,7 @@ export interface Bot extends TypedEmitter<BotEvents> {
   settings: GameSettings
   experience: Experience
   health: number
-  /** false from death (or a respawn packet) until health is above 0 again (health plugin) */
+  /** false from death until health is above 0 again (health plugin) */
   isAlive: boolean
   food: number
   foodSaturation: number

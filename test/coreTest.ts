@@ -11,6 +11,7 @@ import teamPlugin from '../lib/plugins/team.ts'
 import scoreboardPlugin from '../lib/plugins/scoreboard.ts'
 import titlePlugin from '../lib/plugins/title.ts'
 import gamePlugin from '../lib/plugins/game.ts'
+import healthPlugin from '../lib/plugins/health.ts'
 import resourcePackPlugin from '../lib/plugins/resource_pack.ts'
 import settingsPlugin from '../lib/plugins/settings.ts'
 import explosionPlugin from '../lib/plugins/explosion.ts'
@@ -203,6 +204,53 @@ describe('core', () => {
       bot._client.emit('set_title_subtitle', { text: { type: 'compound', name: '', value: { text: { type: 'string', value: 'styled' }, color: { type: 'string', value: 'red' } } } })
       assert.deepStrictEqual(events, [['title', 'plain', 'title'], ['title', 'styled', 'subtitle']])
     })
+  })
+
+  describe('health', () => {
+    function healthBot (version: string) {
+      const bot = fakeBot(version)
+      healthPlugin(bot, { respawn: true } as any)
+      const events: string[] = []
+      for (const event of ['spawn', 'respawn', 'death']) bot.on(event, () => events.push(event))
+      return { bot, events }
+    }
+    const health = (value: number) => ({ health: value, food: 20, foodSaturation: 5 })
+
+    for (const version of ['1.12.2', '1.21.11']) {
+      it(`a respawn of a living bot (dimension change, proxy server switch) keeps it alive (${version})`, () => {
+        const { bot, events } = healthBot(version)
+        bot._client.emit('update_health', health(20))
+        assert.deepStrictEqual(events, ['spawn'])
+        bot._client.emit('respawn', {})
+        assert.strictEqual(bot.isAlive, true) // no update_health needs to follow
+        bot._client.emit('update_health', health(20))
+        assert.deepStrictEqual(events, ['spawn', 'respawn', 'spawn'])
+        assert.strictEqual(bot.isAlive, true)
+        bot._client.emit('update_health', health(19))
+        assert.deepStrictEqual(events, ['spawn', 'respawn', 'spawn'])
+      })
+
+      it(`a respawn after death keeps the bot dead until its health is back (${version})`, () => {
+        const { bot, events } = healthBot(version)
+        bot._client.emit('update_health', health(20))
+        bot._client.emit('update_health', health(0))
+        assert.strictEqual(bot.isAlive, false)
+        assert.ok(bot._client.writes.some((w: Write) => w.name === 'client_command'))
+        bot._client.emit('respawn', {})
+        assert.strictEqual(bot.isAlive, false)
+        bot._client.emit('update_health', health(20))
+        assert.strictEqual(bot.isAlive, true)
+        assert.deepStrictEqual(events, ['spawn', 'death', 'respawn', 'spawn'])
+      })
+
+      it(`a respawn before the first update_health spawns once (${version})`, () => {
+        const { bot, events } = healthBot(version)
+        bot._client.emit('respawn', {})
+        assert.strictEqual(bot.isAlive, true)
+        bot._client.emit('update_health', health(20))
+        assert.deepStrictEqual(events, ['respawn', 'spawn'])
+      })
+    }
   })
 
   describe('game', () => {

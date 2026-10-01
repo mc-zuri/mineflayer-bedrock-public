@@ -5,9 +5,14 @@ export default inject
 
 function inject (bot: BotInternal, options: BotOptions): void {
   bot.isAlive = true
+  // a respawn of a living bot (dimension change, proxy server switch): 'spawn' on the next update_health
+  let spawnPending = false
 
   bot._client.on('respawn', () => {
-    bot.isAlive = false
+    // vanilla only shows the death screen while the player's health is 0: a respawn that is not
+    // the answer to a death leaves the bot alive, even when no update_health follows
+    if (bot.health <= 0) bot.isAlive = false
+    else spawnPending = true
     bot.emit('respawn')
   })
 
@@ -20,6 +25,7 @@ function inject (bot: BotInternal, options: BotOptions): void {
 
   bot._client.once('update_health', (packet) => {
     if (packet.health > 0) {
+      spawnPending = false
       spawn()
     }
   })
@@ -36,8 +42,9 @@ function inject (bot: BotInternal, options: BotOptions): void {
       }
       if (!options.respawn) return
       bot.respawn()
-    } else if (bot.health > 0 && !bot.isAlive) {
+    } else if (bot.health > 0 && (!bot.isAlive || spawnPending)) {
       bot.isAlive = true
+      spawnPending = false
       spawn()
     }
   })
