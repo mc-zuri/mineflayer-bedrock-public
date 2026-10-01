@@ -60,14 +60,11 @@ function inject (bot: BotInternal, options: BotOptions): void {
       bot.game.gameMode = parseGameMode((packet.gamemode as number | undefined) ?? packet.gameMode!)
     }
     if (bot.supportFeature('segmentedRegistryCodecData')) { // 1.20.5
-      if (typeof packet.dimension === 'number') {
-        // the name of the dimension type with that registry id; if the server sent no such
-        // dimension_type entry, the world (level) name, like the 1.19 – 1.20.4 code without a type name
-        const dimType = bot.registry.dimensionsArray?.[packet.dimension]?.name ?? packet.name!
-        bot.game.dimension = dimType.replace('minecraft:', '')
-      } else if (typeof packet.dimension === 'string') { // iirc, in 1.21 it's back to a string
-        bot.game.dimension = packet.dimension.replace('minecraft:', '')
-      }
+      // the worldState dimension is the varint registry id of the dimension type (1.20.5 – 26.3).
+      // The name of the dimension type with that id; if the server sent no such
+      // dimension_type entry, the world (level) name, like the 1.19 – 1.20.4 code without a type name
+      const dimType = bot.registry.dimensionsArray?.[packet.dimension]?.name ?? packet.name!
+      bot.game.dimension = dimType.replace('minecraft:', '')
     } else if (bot.supportFeature('dimensionIsAnInt')) {
       bot.game.dimension = dimensionNames[packet.dimension]!
     } else if (bot.supportFeature('dimensionIsAString')) {
