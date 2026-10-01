@@ -2782,6 +2782,101 @@ for (const supportedVersion of mineflayer.testedVersions) {
           }
         })
       })
+
+      function spawnUnknownEntity (client: ServerClient, type: number) {
+        client.write(bot.registry.supportFeature('consolidatedEntitySpawnPacket') ? 'spawn_entity' : 'spawn_entity_living', {
+          entityId: 8,
+          entityUUID: '00112233-4455-6677-8899-aabbccddeeff',
+          objectUUID: '00112233-4455-6677-8899-aabbccddeeff',
+          type,
+          x: 10,
+          y: 11,
+          z: 12,
+          yaw: 13,
+          pitch: 14,
+          headPitch: 14,
+          velocity: { x: 0, y: 0, z: 0 },
+          metadata: []
+        })
+      }
+
+      it('an entity of a type id missing from the registry spawns as an unknown entity', (done) => {
+        bot.once('entitySpawn', (entity) => {
+          try {
+            assert.strictEqual(entity.id, 8)
+            assert.strictEqual(entity.type, 'other')
+            assert.strictEqual(entity.name, 'unknown')
+            assert.strictEqual(entity.displayName, 'unknown')
+            assert.strictEqual(entity.kind, 'unknown')
+            assert.strictEqual(entity.entityType, 250)
+            done()
+          } catch (err) {
+            done(err)
+          }
+        })
+        server.on('playerJoin', (client) => {
+          client.write('login', bot.test.generateLoginPacket())
+          spawnUnknownEntity(client, 250) // no version has that many entity types; fits 1.8's u8 mob type
+        })
+      })
+
+      it('removing an effect the entity was never given ends a placeholder effect', (done) => {
+        bot.once('entityEffectEnd', (entity, effect) => {
+          try {
+            assert.strictEqual(entity.id, 8)
+            assert.deepStrictEqual(effect, { id: 10, amplifier: -1, duration: -1 })
+            done()
+          } catch (err) {
+            done(err)
+          }
+        })
+        server.on('playerJoin', (client) => {
+          client.write('login', bot.test.generateLoginPacket())
+          spawnUnknownEntity(client, bot.registry.entitiesByName['creeper']?.id ?? bot.registry.entitiesByName['Creeper']!.id)
+          client.write('remove_entity_effect', { entityId: 8, effectId: 10 })
+        })
+      })
+
+      describe('placeBlock', () => {
+        // the outcome logic is version independent: run it on one version
+        beforeEach(function () {
+          if (supportedVersion !== mineflayer.latestSupportedVersion) this.skip()
+        })
+
+        async function placeWithoutServer () {
+          await once(bot, 'login')
+          bot._genericPlace = async () => vec3(0, 0, 0) // no block_place goes out: only the replies matter
+          return { position: vec3(1, 65, 1) } as Block
+        }
+
+        it('rejects when the server never answers', function (done) {
+          server.on('playerJoin', async (client) => {
+            const login = placeWithoutServer()
+            client.write('login', bot.test.generateLoginPacket())
+            const reference = await login
+            const started = Date.now()
+            await assert.rejects(bot._placeBlockWithOptions(reference, vec3(0, 1, 0), {}),
+              /Server did not answer the placement at \(1, 66, 1\)/)
+            assert.ok(Date.now() - started >= 4900)
+            done()
+          })
+        })
+
+        it('rejects when the server answers with the unchanged block', function (done) {
+          server.on('playerJoin', async (client) => {
+            const login = placeWithoutServer()
+            client.write('login', bot.test.generateLoginPacket())
+            const reference = await login
+            const air = { type: 0, name: 'air' } as Block
+            const placing = bot._placeBlockWithOptions(reference, vec3(0, 1, 0), {})
+            await sleep(10)
+            bot.emit('blockUpdate:(1, 65, 1)', air, air) // the reference block reply
+            bot.emit('blockUpdate:(1, 66, 1)', air, air) // dest is still air
+            await assert.rejects(placing, /Server refused to place block at \(1, 66, 1\): the block is still air/)
+            done()
+          })
+        })
+      })
     })
   })
 }
