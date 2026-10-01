@@ -16,7 +16,6 @@ import * as conversionsModule from '../lib/conversions.ts'
 
 for (const supportedVersion of mineflayer.testedVersions) {
   const registry = prismarineRegistry(supportedVersion)
-  const version = registry.version
   const Chunk = prismarineChunk(supportedVersion)
   const Item = prismarineItem(registry)
 
