@@ -21,7 +21,9 @@ function inject (bot: BotInternal): void {
   let lastBobberId: number | null | undefined = null
 
   bot._client.on('spawn_entity', (packet) => {
-    if (packet.type === bobberId && !fishingTask.done && lastBobberId == null) {
+    // A fishing hook's objectData is its owner's entity id (vanilla, all versions): another player's
+    // bobber spawning while this bot casts is not ours.
+    if (packet.type === bobberId && packet.objectData === bot.entity.id && !fishingTask.done && lastBobberId == null) {
       lastBobberId = packet.entityId
     }
   })

@@ -293,6 +293,32 @@ describe('fishing plugin', () => {
     await fishing
     assert.strictEqual(activations, 2) // reeled in
   })
+
+  for (const version of ['1.8.8', '1.12.2', '1.20.4', '1.21.11']) {
+    it(`ignores another player's bobber, whose objectData is its owner (${version})`, async () => {
+      const bot = createFakeBot(version)
+      const registry = bot.registry
+      let activations = 0
+      bot.activateItem = () => { activations++ }
+      fishingPlugin(bot)
+      const fishing = bot.fish()
+      const type = registry.supportFeature('fishingBobberCorrectlyNamed') ? registry.entitiesByName.fishing_bobber.id : 90
+      const k = registry.supportFeature('fixedPointPosition') ? 32 : 1 // 1.8: 1/32 block
+      const spawn = (entityId: number, owner: number, x: number) => bot._client.emit('spawn_entity', {
+        entityId, objectUUID: `00000000-0000-0000-0000-0000000000${entityId}`, type, x: x * k, y: 62 * k, z: 10 * k, pitch: 0, yaw: 0, headPitch: 0, objectData: owner, velocity: { x: 0, y: 0, z: 0 }
+      })
+      const bite = (x: number) => bot._client.emit('world_particles', registry.supportFeature('updatedParticlesPacket')
+        ? { particle: { type: 'fishing' }, amount: 6, x, y: 62, z: 10 }
+        : { particleId: (registry.particlesByName.fishing ?? registry.particlesByName.bubble).id, particles: 6, x, y: 62, z: 10 })
+      spawn(60, 2, 30) // player 2's bobber, cast just before ours
+      spawn(50, 1, 10) // ours (the bot is entity 1)
+      bite(30) // a bite on player 2's bobber
+      assert.strictEqual(activations, 1)
+      bite(10)
+      await fishing
+      assert.strictEqual(activations, 2) // reeled in
+    })
+  }
 })
 
 describe('creative plugin (1.21.3+, no set_creative_slot ack)', () => {
