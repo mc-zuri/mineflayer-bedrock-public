@@ -509,6 +509,20 @@ describe('core', () => {
       bot.emit('messagestr', 'first', 'chat', {})
       assert.strictEqual(singles.length, 1)
     })
+
+    it('keeps the leading dot of a Geyser / Floodgate (Bedrock) username', () => {
+      const bot = fakeBot('1.20.4')
+      chatPlugin(bot, {} as any)
+      const chats: unknown[] = []
+      const whispers: unknown[] = []
+      bot.on('chat', (username: string, message: string) => chats.push([username, message]))
+      bot.on('whisper', (username: string, message: string) => whispers.push([username, message]))
+      bot.emit('messagestr', '<.Steve> hi', 'chat', {})
+      bot.emit('messagestr', '<Alex> hi', 'chat', {})
+      bot.emit('messagestr', '.Steve whispers to you: psst', 'system', {})
+      assert.deepStrictEqual(chats, [['.Steve', 'hi'], ['Alex', 'hi']])
+      assert.deepStrictEqual(whispers, [['.Steve', 'psst']])
+    })
   })
 
   describe('loader', () => {

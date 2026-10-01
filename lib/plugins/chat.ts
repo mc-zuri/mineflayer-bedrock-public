@@ -6,7 +6,7 @@ import type { BotOptions, chatPatternOptions } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
 import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
 
-const USERNAME_REGEX = '(?:\\(.{1,15}\\)|\\[.{1,15}\\]|.){0,5}?(\\w+)'
+const USERNAME_REGEX = '(?:\\(.{1,15}\\)|\\[.{1,15}\\]|.){0,5}?(\\.?\\w+)' // a leading '.': Geyser / Floodgate (Bedrock) players
 const LEGACY_VANILLA_CHAT_REGEX = new RegExp(`^${USERNAME_REGEX}\\s?[>:\\-»\\]\\)~]+\\s(.*)$`)
 
 export default inject
