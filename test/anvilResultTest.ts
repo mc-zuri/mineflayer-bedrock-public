@@ -32,6 +32,7 @@ describe('anvil result', () => {
       const bot: any = new EventEmitter()
       client.write = (name: string, params: any) => {
         writes.push({ name, params })
+        if (name === 'client_command') send('statistics', { entries: [] })
         if (name !== 'window_click') return
         const window = bot.currentWindow
         if (params.stateId === -1) {

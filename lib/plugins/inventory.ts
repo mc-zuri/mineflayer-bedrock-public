@@ -2,6 +2,7 @@ import assert from 'assert'
 import { Vec3 } from 'vec3'
 import { once, sleep, createDoneTask, createTask, withTimeout } from '../promise_utils.ts'
 import { toNotchianYaw, toNotchianPitch } from '../conversions.ts'
+import { confirmServerProcessed } from '../server_round_trip.ts'
 import prismarineItem from 'prismarine-item'
 import prismarineWindows from 'prismarine-windows'
 import prismarineChat from 'prismarine-chat'
@@ -931,6 +932,10 @@ function inject (bot: BotInternal, _options: BotOptions): void {
   // 1.17.1+ servers only answer a click when their record of the client is
   // stale, so a click they ignored is never reported. A no-op click carrying
   // an impossible stateId always gets the full window state back.
+  // Earlier clicks sent before the server's answers to the ones before them
+  // arrived were stale too, and each gets a full window state of its own: the
+  // first one to arrive can describe the window before the later clicks. A
+  // stats round trip after the sync click proves that every answer is in.
   async function syncWindow (window: Window): Promise<void> {
     if (!bot.supportFeature('stateIdUsed')) return
     const synced = once(bot, `setWindowItems:${window.id}`)
@@ -943,6 +948,7 @@ function inject (bot: BotInternal, _options: BotOptions): void {
       changedSlots: [],
       cursorItem: Item.toNotch(window.selectedItem)
     })
+    await confirmServerProcessed(bot, WINDOW_TIMEOUT)
     await synced
   }
   bot._syncWindow = syncWindow
