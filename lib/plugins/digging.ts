@@ -36,17 +36,19 @@ function inject (bot: BotInternal): void {
       throw new Error(`dig time for ${block?.name ?? block} is Infinity`)
     }
 
-    bot.targetDigFace = 1 // Default (top)
+    // The face is kept local until the look is done: a previous dig can finish during the await
+    // and reads (then resets) bot.targetDigFace.
+    let targetDigFace = 1 // Default (top)
 
     if (forceLook !== 'ignore') {
       if ((digFace as Vec3)?.x || (digFace as Vec3)?.y || (digFace as Vec3)?.z) {
         // Determine the block face the bot should mine
         if ((digFace as Vec3).x) {
-          bot.targetDigFace = (digFace as Vec3).x > 0 ? BlockFaces.EAST : BlockFaces.WEST
+          targetDigFace = (digFace as Vec3).x > 0 ? BlockFaces.EAST : BlockFaces.WEST
         } else if ((digFace as Vec3).y) {
-          bot.targetDigFace = (digFace as Vec3).y > 0 ? BlockFaces.TOP : BlockFaces.BOTTOM
+          targetDigFace = (digFace as Vec3).y > 0 ? BlockFaces.TOP : BlockFaces.BOTTOM
         } else if ((digFace as Vec3).z) {
-          bot.targetDigFace = (digFace as Vec3).z > 0 ? BlockFaces.SOUTH : BlockFaces.NORTH
+          targetDigFace = (digFace as Vec3).z > 0 ? BlockFaces.SOUTH : BlockFaces.NORTH
         }
         await bot.lookAt(
           block.position.offset(0.5, 0.5, 0.5).offset((digFace as Vec3).x * 0.5, (digFace as Vec3).y * 0.5, (digFace as Vec3).z * 0.5),
@@ -114,7 +116,7 @@ function inject (bot: BotInternal): void {
             }
           }
           await bot.lookAt(closest!.targetPos, forceLook)
-          bot.targetDigFace = closest!.face
+          targetDigFace = closest!.face
         } else if (closerBlocks.length === 0 && block.shapes.length === 0) {
           // no other blocks were detected and the block has no shapes.
           // The block in question is replaceable (like tall grass) so we can just dig it
@@ -128,6 +130,8 @@ function inject (bot: BotInternal): void {
         await bot.lookAt(block.position.offset(0.5, 0.5, 0.5), forceLook)
       }
     }
+
+    bot.targetDigFace = targetDigFace
 
     // In vanilla the client will cancel digging the current block once the other block is at the crosshair.
     // Todo: don't wait until lookAt is at middle of the block, but at the edge of it.
