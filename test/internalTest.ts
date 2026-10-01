@@ -13,22 +13,77 @@ import prismarineItem from 'prismarine-item'
 import resourcePackModule from '../lib/plugins/resource_pack.ts'
 import prismarineWindows from 'prismarine-windows'
 import * as conversionsModule from '../lib/conversions.ts'
+import type { Vec3 } from 'vec3'
+import type { Block } from 'prismarine-block'
+import type { Entity } from 'prismarine-entity'
+import type { Server, ServerClient, States } from 'minecraft-protocol'
+import type { PCChunk } from 'prismarine-chunk'
+import type { PCChunkLightDump } from '../lib/types/vendor/prismarine-chunk.ts'
+import type {} from '../lib/types/vendor/minecraft-protocol.ts'
+import type { BotInternal } from '../lib/types/internal.ts'
+import type { ClientboundPackets, Int64Write, ServerboundPackets, Vec3Like } from '../lib/types/protocol.ts'
+
+/** prismarine-chunk's d.ts makes the constructor argument required, but pre-1.18 columns take none */
+type PCChunkConstructor = new (initData?: { minY?: number, worldHeight?: number } | null) => PCChunk
+
+/** the login packet the mock server writes: minecraft-data's default one (1.16+) or a hand-made one before */
+type LoginPacket = Omit<ClientboundPackets['login'], 'hashedSeed' | 'reducedDebugInfo'> & {
+  hashedSeed?: Int64Write
+  reducedDebugInfo: boolean | number
+}
+
+/** the respawn packet the mock server writes: flat before 1.20.5, its world fields inside worldState after */
+interface RespawnPacket {
+  /** number before 1.16 and in worldState, NBT 1.16 – 1.18, a name 1.19 – 1.20.4 */
+  dimension?: any
+  name?: string // worldState
+  worldName?: string
+  hashedSeed?: Int64Write
+  gamemode?: number
+  previousGamemode?: number
+  levelType?: string
+  isDebug?: boolean
+  isFlat?: boolean
+  copyMetadata?: boolean
+  death?: { dimensionName: string, location: Vec3Like }
+  worldState?: RespawnPacket
+}
+
+/** the slot an item entity's metadata holds, as the server sent it (prismarine-entity's d.ts says object) */
+interface MetadataSlot {
+  blockId?: number // before 1.13
+  itemId?: number // 1.13+
+  itemCount: number
+}
+
+/** the helpers beforeEach adds to the bot as `bot.test` */
+interface TestHelpers {
+  /** resolves once the plugins are injected (inject_allowed) */
+  pluginsLoaded: Promise<void>
+  buildChunk: () => PCChunk
+  generateLoginPacket: () => LoginPacket
+}
+
+/** the bot under test: the tests also use internals (_client, _genericPlace) */
+interface TestBot extends BotInternal {
+  test: TestHelpers
+}
 
 for (const supportedVersion of mineflayer.testedVersions) {
   const registry = prismarineRegistry(supportedVersion)
-  const Chunk = prismarineChunk(supportedVersion)
+  const Chunk = prismarineChunk(supportedVersion) as unknown as PCChunkConstructor
   const Item = prismarineItem(registry)
 
   const hasSignedChat = registry.supportFeature('signedChat')
-  function chatText (text) {
+  function chatText (text: string) {
     // TODO: move this to prismarine-chat in a new ChatMessage(text).toNotch(asNbt) method
     return registry.supportFeature('chatPacketsUseNbtComponents')
       ? nbt.comp({ text: nbt.string(text) })
       : JSON.stringify({ text })
   }
 
-  function generateChunkPacket (chunk) {
-    const lights = chunk.dumpLight()
+  function generateChunkPacket (chunk: PCChunk) {
+    const lights = chunk.dumpLight() as PCChunkLightDump | undefined // a 1.14 – 1.16 Buffer has none of these fields either
     return {
       x: 0,
       z: 0,
@@ -56,9 +111,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
   describe(`mineflayer_internal ${supportedVersion}v`, function () {
     this.timeout(10 * 1000)
-    let bot
-    let server
-    let PORT
+    let bot: TestBot
+    let server: Server
+    let PORT: number
     beforeEach(async function () {
       PORT = await getPort()
       server = mc.createServer({
@@ -71,11 +126,11 @@ for (const supportedVersion of mineflayer.testedVersions) {
         username: 'player',
         version: supportedVersion,
         port: PORT
-      })
-      bot.test = {}
+      }) as TestBot // the internal view; bot.test is added below
+      bot.test = {} as TestHelpers // filled in below
       // Plugins are injected on a timer after createBot, which can lose the
       // race against the mock server's playerJoin
-      bot.test.pluginsLoaded = new Promise(resolve => bot.once('inject_allowed', resolve))
+      bot.test.pluginsLoaded = new Promise<void>(resolve => bot.once('inject_allowed', resolve))
 
       bot.test.buildChunk = () => {
         if (bot.supportFeature('tallWorld')) {
@@ -86,9 +141,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
       }
 
       bot.test.generateLoginPacket = () => {
-        let loginPacket
+        let loginPacket: LoginPacket
         if (bot.supportFeature('usesLoginPacket')) {
-          loginPacket = registry.loginPacket
+          loginPacket = registry.loginPacket as unknown as LoginPacket // minecraft-data's d.ts has hashedSeed: number (an [hi, lo] pair) and no 1.20.5+ worldState
           loginPacket.entityId = 0 // Default login packet in minecraft-data 1.16.5 is 1, so set it to 0
         } else {
           loginPacket = {
@@ -177,7 +232,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         } else {
           client.write('chat', { message, position: 0, sender: '0' })
         }
-        function onChat (packet) {
+        function onChat (packet: { message: string }) { // chat before 1.19, chat_message after
           const msg = packet.message
           assert.strictEqual(msg, 'hi')
           done()
@@ -244,7 +299,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       bot.on('chunkColumnLoad', (columnPoint) => {
         assert.strictEqual(columnPoint.x, 0)
         assert.strictEqual(columnPoint.z, 0)
-        assert.strictEqual(bot.blockAt(pos).type, goldId)
+        assert.strictEqual(bot.blockAt(pos)!.type, goldId)
         done()
       })
       server.on('playerJoin', (client) => {
@@ -272,18 +327,18 @@ for (const supportedVersion of mineflayer.testedVersions) {
           bot.entity.eyeHeight = 1.62
           bot.entity.onGround = true
           bot.entity.isInWater = false
-          bot.entity.effects = {}
+          bot.entity.effects = {} as BotInternal['entity']['effects'] // prismarine-entity's own default; its d.ts says Effect[]
           bot.game = bot.game || {}
           bot.game.gameMode = 'survival'
 
           // Test 1: No water at eye level -> normal dig speed
           bot.entity.position = playerPos
-          const block1 = bot.blockAt(blockPos)
+          const block1 = bot.blockAt(blockPos)!
           const digTimeNoWater = bot.digTime(block1)
 
           // Test 2: Water at eye level -> slower dig speed
           bot.entity.position = playerPos2
-          const block2 = bot.blockAt(blockPos2)
+          const block2 = bot.blockAt(blockPos2)!
           const digTimeWithWater = bot.digTime(block2)
 
           // Digging in water should be slower (higher dig time)
@@ -355,7 +410,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('absolute position & relative position (velocity)', (done) => {
         // forcedMove fires when the teleport is answered at the start of a physics tick, so the state
         // it produces has to be read then; awaiting the event resumes after that tick's simulation.
-        const onForcedMove = () => new Promise(resolve => {
+        const onForcedMove = () => new Promise<{ velocity: Vec3, position: Vec3 }>(resolve => {
           bot.once('forcedMove', () => resolve({ velocity: bot.entity.velocity.clone(), position: bot.entity.position.clone() }))
         })
         server.on('playerJoin', async (client) => {
@@ -485,7 +540,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           const stallUntil = Date.now() + 1500
           while (Date.now() < stallUntil) { /* busy wait */ }
           let ticks = 0
-          const count = () => ticks++
+          const count: () => void = () => ticks++
           bot.on('physicsTick', count)
           await sleep(500)
           bot.off('physicsTick', count)
@@ -498,7 +553,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('answers only the latest teleport when a second one lands inside the respawn reply delay', (done) => {
         // After a death the reply to the next teleport waits 1.5 s. A teleport that arrives inside
         // that window replaces it: the deferred reply must not go out with the older coordinates.
-        const teleport = (teleportId, x, y, z) => ({
+        const teleport = (teleportId: number, x: number, y: number, z: number) => ({
           x,
           y,
           z,
@@ -517,7 +572,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             chunk.setBlockType(pos, goldId)
             await client.write('map_chunk', generateChunkPacket(chunk))
             await once(bot, 'chunkColumnLoad')
-            const replies = []
+            const replies: number[][] = []
             client.on('packet', (data, meta) => {
               if (meta.name === 'position_look') replies.push([data.x, data.y, data.z])
             })
@@ -664,7 +719,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           teleportId: 0
         }
         const movementPackets = ['position', 'position_look', 'look', 'flying']
-        const sent = []
+        const sent: string[] = []
         server.on('playerJoin', async (client) => {
           try {
             const originalWrite = bot._client.write.bind(bot._client)
@@ -712,11 +767,11 @@ for (const supportedVersion of mineflayer.testedVersions) {
         const expectedBytes = Buffer.from(packUuid.replace(/-/g, ''), 'hex')
         const serializer = mc.createSerializer({ state: 'configuration', isServer: false, version: supportedVersion })
 
-        const client = new EventEmitter()
-        client.state = 'configuration'
-        const writes = []
-        client.write = (name, params) => { writes.push({ name, params }) }
-        const fakeBot = new EventEmitter()
+        const client = new EventEmitter() as unknown as BotInternal['_client']
+        client.state = 'configuration' as States
+        const writes: Array<{ name: string, params: unknown }> = []
+        client.write = (name: string, params: unknown) => { writes.push({ name, params }) }
+        const fakeBot = new EventEmitter() as unknown as BotInternal
         fakeBot._client = client
         fakeBot.supportFeature = registry.supportFeature.bind(registry)
         resourcePackModule(fakeBot)
@@ -741,7 +796,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       const goldId = 41
       it('switchWorld respawn', (done) => {
         const loginPacket = bot.test.generateLoginPacket()
-        let respawnPacket
+        let respawnPacket: RespawnPacket
         if (bot.supportFeature('usesLoginPacket')) {
           loginPacket.worldName = 'minecraft:overworld'
           loginPacket.hashedSeed = [0, 0]
@@ -769,8 +824,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
             respawnPacket = {
               worldState: respawnPacket
             }
-            respawnPacket.worldState.name = loginPacket.worldName
-            respawnPacket.worldState.dimension = loginPacket.dimension
+            respawnPacket.worldState!.name = loginPacket.worldName
+            respawnPacket.worldState!.dimension = loginPacket.dimension
           }
         } else {
           respawnPacket = {
@@ -804,12 +859,12 @@ for (const supportedVersion of mineflayer.testedVersions) {
               done()
             })
             if (bot.supportFeature('spawnRespawnWorldDataField')) {
-              respawnPacket.worldState.name = 'minecraft:nether'
+              respawnPacket.worldState!.name = 'minecraft:nether'
             } else {
               respawnPacket.worldName = 'minecraft:nether'
             }
             if (bot.supportFeature('spawnRespawnWorldDataField')) {
-              respawnPacket.worldState.dimension = 1
+              respawnPacket.worldState!.dimension = 1
             } else if (bot.supportFeature('usesLoginPacket')) {
               // 1.19+ sends the dimension as a string, which has no name to change
               if (typeof respawnPacket.dimension === 'object') respawnPacket.dimension.name = 'e'
@@ -906,12 +961,12 @@ for (const supportedVersion of mineflayer.testedVersions) {
             // Falling takes a few ticks to leave the teleport height.
             await bot.waitForTicks(4)
 
-            const seen = []
+            const seen: Array<{ name: string, data: { y?: number } }> = []
             client.on('packet', (data, meta) => seen.push({ name: meta.name, data }))
 
             // The ping is processed inside a tick: after the simulation, before
             // the movement packet carrying this tick's position.
-            const { tickY, pingedAt } = await new Promise(resolve => {
+            const { tickY, pingedAt } = await new Promise<{ tickY: number, pingedAt: number }>(resolve => {
               bot.once('physicsTick', () => {
                 bot._client.emit('ping', { id: 123 })
                 resolve({ tickY: bot.entity.position.y, pingedAt: Date.now() })
@@ -948,7 +1003,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           try {
             client.write('login', bot.test.generateLoginPacket())
             await once(bot, 'login')
-            const pongs = []
+            const pongs: unknown[] = []
             client.on('pong', (data) => pongs.push(data))
             const pingedAt = Date.now()
             client.write('ping', { id: 123 })
@@ -967,7 +1022,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
       it('closeWindow follows close_window with a no-op inventory click on pre-1.17 only', (done) => {
         server.on('playerJoin', (client) => {
-          const clicks = []
+          const clicks: Array<ServerboundPackets['window_click']> = []
           let closed = false
           client.on('packet', (data, meta) => {
             if (meta.name === 'close_window') closed = true
@@ -1069,7 +1124,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         chunk.setBlockType(pos, chestId)
         client.write('map_chunk', generateChunkPacket(chunk))
         await once(bot, 'chunkColumnLoad')
-        const chestStateId = bot.blockAt(pos).stateId
+        const chestStateId = bot.blockAt(pos)!.stateId
 
         const opened = onceWithCleanup(bot, 'chestLidMove', { timeout: 2000 })
         client.write('block_action', { location, byte1: 1, byte2: 1, blockId: chestId })
@@ -1146,7 +1201,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('entity_head_rotation', { entityId: vehicleId, headYaw: 0 })
             bot.once('mount', () => {
               bot.once('dismount', (vehicle) => {
-                assert.strictEqual(vehicle.id, vehicleId)
+                assert.strictEqual(vehicle!.id, vehicleId)
                 assert.strictEqual(bot.vehicle, null)
                 done()
               })
@@ -1165,7 +1220,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('player displayName', (done) => {
         server.on('playerJoin', (client) => {
           bot.on('entitySpawn', (entity) => {
-            const player = bot.players[entity.username]
+            const player = bot.players[entity.username!]
             assert.strictEqual(entity.username, player.displayName.toString())
             if (registry.supportFeature('playerInfoActionIsBitfield')) {
               client.write('player_info', {
@@ -1207,7 +1262,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             }
 
             bot.once('playerUpdated', (player) => {
-              assert.strictEqual(player.entity.username, player.displayName.toString())
+              assert.strictEqual(player.entity!.username, player.displayName.toString())
               done()
             })
           })
@@ -1275,7 +1330,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
         server.on('playerJoin', (client) => {
           bot.on('entitySpawn', (entity) => {
-            const player = bot.players[entity.username]
+            const player = bot.players[entity.username!]
             assert.ok(player, 'player should exist')
             assert.ok(player.skinData, 'skinData should be parsed from mojangson')
             assert.strictEqual(player.skinData.url, 'http://textures.minecraft.net/texture/abc123')
@@ -1367,7 +1422,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
         server.on('playerJoin', (client) => {
           bot.on('entitySpawn', (entity) => {
-            const player = bot.players[entity.username]
+            const player = bot.players[entity.username!]
             assert.ok(player, 'player should exist')
             assert.ok(player.skinData, 'skinData should be parsed from JSON')
             assert.strictEqual(player.skinData.url, 'http://textures.minecraft.net/texture/def456')
@@ -1444,14 +1499,14 @@ for (const supportedVersion of mineflayer.testedVersions) {
       })
 
       it('sets players[player].entity to null upon despawn', (done) => {
-        let serverClient = null
+        let serverClient: ServerClient | null = null
         bot.once('entitySpawn', (entity) => {
           if (bot.version !== '1.17') {
-            serverClient.write('entity_destroy', {
+            serverClient!.write('entity_destroy', {
               entityIds: [56]
             })
           } else {
-            serverClient.write('destroy_entity', {
+            serverClient!.write('destroy_entity', {
               entityIds: 56
             })
           }
@@ -1579,20 +1634,20 @@ for (const supportedVersion of mineflayer.testedVersions) {
             const slotPosition = metadataPacket.metadata[0].key
 
             if (bot.supportFeature('itemsAreAlsoBlocks')) {
-              assert.strictEqual(entity.metadata[slotPosition].blockId, itemData.itemId)
+              assert.strictEqual((entity.metadata[slotPosition] as MetadataSlot).blockId, itemData.itemId)
             } else if (bot.supportFeature('itemsAreNotBlocks')) {
-              assert.strictEqual(entity.metadata[slotPosition].itemId, itemData.itemId)
+              assert.strictEqual((entity.metadata[slotPosition] as MetadataSlot).itemId, itemData.itemId)
             }
-            assert.strictEqual(entity.metadata[slotPosition].itemCount, itemData.itemCount)
+            assert.strictEqual((entity.metadata[slotPosition] as MetadataSlot).itemCount, itemData.itemCount)
 
             done()
           })
 
-          let entityType
+          let entityType: number
           if (['1.8', '1.9', '1.10', '1.11', '1.12'].includes(bot.majorVersion)) {
             entityType = 2
           } else {
-            entityType = bot.registry.entitiesArray.find(e => e.name.toLowerCase() === 'item' || e.name.toLowerCase() === 'item_stack').id
+            entityType = bot.registry.entitiesArray.find(e => e.name.toLowerCase() === 'item' || e.name.toLowerCase() === 'item_stack')!.id
           }
           client.write('spawn_entity', {
             entityId: 16,
@@ -1608,7 +1663,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             velocity: { x: 0, y: 0, z: 0 }
           })
 
-          const metadataPacket = {
+          const metadataPacket: ClientboundPackets['entity_metadata'] = {
             entityId: 16,
             metadata: [
               { key: 7, type: 6, value: { itemCount: itemData.itemCount } }
@@ -1658,7 +1713,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       ]
 
       const zombieId = entities.zombie ? entities.zombie.id : entities.Zombie.id
-      let bedBlock
+      let bedBlock!: (typeof blocks)[string]
       if (bot.supportFeature('oneBlockForSeveralVariations')) {
         bedBlock = blocks.bed
       } else if (bot.supportFeature('blockSchemeIsFlat')) {
@@ -1669,7 +1724,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       bot.once('chunkColumnLoad', async (columnPoint) => {
         try {
           for (const bed in beds) {
-            const bedBock = bot.blockAt(beds[bed].foot)
+            const bedBock = bot.blockAt(beds[bed].foot)!
             const bedBockMetadata = bot.parseBedMetadata(bedBock)
             assert.strictEqual(bedBockMetadata.facing, beds[bed].facing, 'The facing property seems to be wrong')
             assert.strictEqual(bedBockMetadata.part, false, 'The part property seems to be wrong') // Is the foot
@@ -1768,15 +1823,15 @@ for (const supportedVersion of mineflayer.testedVersions) {
           await client.write('login', bot.test.generateLoginPacket())
           await loggedIn
           bot.lookAt = async () => {}
-          const writes = []
+          const writes: Array<{ name: string, params: any }> = []
           bot._client.write = (name, params) => { writes.push({ name, params }) }
-          const block = { position: vec3(1, 65, 1) }
+          const block = { position: vec3(1, 65, 1) } as Block // activateBlock only reads the position
           await bot.activateBlock(block)
           await bot.activateBlock(block, vec3(-1, 0, 0))
           try {
             const scale = bot.supportFeature('blockPlaceHasHandAndFloatCursor') || bot.supportFeature('blockPlaceHasInsideBlock') ? 1 : 16
             assert.deepStrictEqual(writes.map(w => w.name), ['block_place', 'arm_animation', 'block_place', 'arm_animation'])
-            const cursor = ({ params }) => [params.cursorX / scale, params.cursorY / scale, params.cursorZ / scale, params.direction]
+            const cursor = ({ params }: { params: ServerboundPackets['block_place'] }) => [params.cursorX / scale, params.cursorY / scale, params.cursorZ / scale, params.direction]
             assert.deepStrictEqual(cursor(writes[0]), [0.5, 1, 0.5, 1])
             assert.deepStrictEqual(cursor(writes[2]), [0, 0.5, 0.5, 4])
             done()
@@ -1794,7 +1849,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           const loggedIn = once(bot, 'login')
           await client.write('login', bot.test.generateLoginPacket())
           await loggedIn
-          const writes = []
+          const writes: string[] = []
           bot._client.write = (name, params) => { writes.push(name) }
           bot.quickBarSlot = 0
           bot.activateItem()
@@ -1872,8 +1927,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
     })
 
     describe('held_item_slot', () => {
-      function collectHeldItemSlots (client) {
-        const sent = []
+      function collectHeldItemSlots (client: ServerClient) {
+        const sent: number[] = []
         client.on('packet', (data, meta) => {
           if (meta.name === 'held_item_slot') sent.push(data.slotId)
         })
@@ -1903,8 +1958,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
         server.on('playerJoin', async (client) => {
           try {
             const sent = collectHeldItemSlots(client)
-            const changes = []
-            bot.on('heldItemChanged', () => changes.push(bot.quickBarSlot))
+            const changes: number[] = []
+            bot.on('heldItemChanged', () => { changes.push(bot.quickBarSlot) })
             client.write('login', bot.test.generateLoginPacket())
             client.write('held_item_slot', { slot: 3 })
             await sleep(300)
@@ -1941,11 +1996,11 @@ for (const supportedVersion of mineflayer.testedVersions) {
           const loggedIn = once(bot, 'login')
           await client.write('login', bot.test.generateLoginPacket())
           await loggedIn
-          const writes = []
+          const writes: string[] = []
           bot._client.write = (name, params) => { writes.push(name) }
           bot.quickBarSlot = 0
           bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName.stone.id, 1))
-          await bot._genericPlace({ position: vec3(1, 65, 1) }, vec3(0, 1, 0), { forceLook: 'ignore', swingArm: 'right' })
+          await bot._genericPlace({ position: vec3(1, 65, 1) } as Block, vec3(0, 1, 0), { forceLook: 'ignore', swingArm: 'right' })
           try {
             assert.deepStrictEqual(writes, ['block_place', 'arm_animation'])
             done()
@@ -1963,15 +2018,15 @@ for (const supportedVersion of mineflayer.testedVersions) {
       // slotCount (container slots only); the modern equivalent is fixed
       const chestData = pWindows.windows['minecraft:generic_9x3'] ?? { type: 'minecraft:chest', slots: 63 }
       const merchantData = pWindows.windows['minecraft:merchant'] ?? pWindows.windows['minecraft:villager']
-      const emptyItems = (n) => Array.from({ length: n }, () => Item.toNotch(null))
-      const openWindowPacket = (windowId, winData) => ({
+      const emptyItems = (n: number) => Array.from({ length: n }, () => Item.toNotch(null))
+      const openWindowPacket = (windowId: number, winData: { type: number | string, slots: number }) => ({
         windowId,
         inventoryType: winData.type,
         windowTitle: chatText(''),
         slotCount: winData.slots - 36,
         entityId: 0
       })
-      const windowItemsPacket = (windowId, items) => ({
+      const windowItemsPacket = (windowId: number, items: unknown[]) => ({
         windowId,
         stateId: 1,
         items,
@@ -1985,7 +2040,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           client.write('login', bot.test.generateLoginPacket())
 
           bot.once('windowOpen', () => {
-            bot.closeWindow(bot.currentWindow)
+            bot.closeWindow(bot.currentWindow!)
           })
           client.on('close_window', () => {
             bot.once('windowOpen', (window) => {
@@ -2018,7 +2073,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           client.write('login', bot.test.generateLoginPacket())
 
           bot.once('windowOpen', () => {
-            bot.closeWindow(bot.currentWindow)
+            bot.closeWindow(bot.currentWindow!)
           })
           client.on('close_window', () => {
             bot.inventory.once(`updateSlot:${invSlot}`, (oldItem, newItem) => {
@@ -2083,8 +2138,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
     })
 
     describe('scoreboard reset on login', () => {
-      function teamAddPacket (teamName, players) {
-        const text = registry.supportFeature('teamUsesChatComponents') ? chatText : (s) => s
+      function teamAddPacket (teamName: string, players: string[]) {
+        const text = registry.supportFeature('teamUsesChatComponents') ? chatText : (s: string) => s
         const mappedMode = registry.version['>=']('1.21.6')
         const enumRules = registry.version['>=']('1.21.5') && registry.version['<']('1.21.6')
         return {
@@ -2103,8 +2158,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
         }
       }
 
-      function objectiveAddPacket (name) {
-        const typeField = registry.protocol.play.toClient.types.packet_scoreboard_objective[1].find(f => f.name === 'type')
+      function objectiveAddPacket (name: string) {
+        const typeField = registry.protocol.play.toClient.types.packet_scoreboard_objective[1].find((f: { name: string }) => f.name === 'type')
         return {
           name,
           action: 0,
@@ -2113,7 +2168,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         }
       }
 
-      function respawnPacket (loginPacket) {
+      function respawnPacket (loginPacket: LoginPacket): RespawnPacket {
         if (!bot.supportFeature('usesLoginPacket')) {
           return { dimension: 0, hashedSeed: [0, 0], gamemode: 0, levelType: 'default' }
         }
@@ -2121,7 +2176,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
         loginPacket.worldName = 'minecraft:overworld'
         loginPacket.hashedSeed = [0, 0]
         loginPacket.entityId = 0
-        const packet = {
+        const packet: RespawnPacket = {
           dimension: bot.supportFeature('dimensionDataInCodec') ? 'minecraft:overworld' : loginPacket.dimension,
           worldName: loginPacket.worldName,
           hashedSeed: loginPacket.hashedSeed,
@@ -2160,8 +2215,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
         assert.strictEqual(bot.scoreboard[1], bot.scoreboards.kills)
 
         let removedEvents = 0
-        bot.on('teamRemoved', () => removedEvents++)
-        bot.on('scoreboardDeleted', () => removedEvents++)
+        bot.on('teamRemoved', () => { removedEvents++ })
+        bot.on('scoreboardDeleted', () => { removedEvents++ })
         client.write('login', loginPacket)
         await once(bot, 'login')
         assert.strictEqual(bot.teams, teams)
@@ -2192,7 +2247,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
     describe('block prediction sequence', () => {
       it('shares one pre-incremented counter across use_item and use_item_on, 0 on release', function (done) {
         const useItemFields = registry.protocol?.play?.toServer?.types?.packet_use_item?.[1]
-        if (!useItemFields?.some(f => f.name === 'sequence')) {
+        if (!useItemFields?.some((f: { name: string }) => f.name === 'sequence')) {
           this.skip()
           return
         }
@@ -2201,14 +2256,14 @@ for (const supportedVersion of mineflayer.testedVersions) {
           const loggedIn = once(bot, 'login')
           await client.write('login', bot.test.generateLoginPacket())
           await loggedIn
-          const writes = []
-          bot._client.write = (name, params) => { writes.push([name, params.sequence]) }
+          const writes: Array<[string, number | undefined]> = []
+          bot._client.write = (name, params) => { writes.push([name, (params as { sequence?: number }).sequence]) }
           bot.quickBarSlot = 0
           bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName.stone.id, 1))
 
           bot.activateItem()
           bot.deactivateItem()
-          await bot._genericPlace({ position: vec3(1, 65, 1) }, vec3(0, 1, 0), { forceLook: 'ignore' })
+          await bot._genericPlace({ position: vec3(1, 65, 1) } as Block, vec3(0, 1, 0), { forceLook: 'ignore' })
           bot.activateItem()
 
           try {
@@ -2227,7 +2282,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
 
       it('gives both packets of a boat placement their own value, interleaved with use_item', function (done) {
         const useItemFields = registry.protocol?.play?.toServer?.types?.packet_use_item?.[1]
-        if (!useItemFields?.some(f => f.name === 'sequence')) {
+        if (!useItemFields?.some((f: { name: string }) => f.name === 'sequence')) {
           this.skip()
           return
         }
@@ -2238,10 +2293,10 @@ for (const supportedVersion of mineflayer.testedVersions) {
           await loggedIn
           // serialize every packet with the real protocol, so a missing field throws here
           const serializer = mc.createSerializer({ state: 'play', isServer: false, version: bot.version })
-          const writes = []
+          const writes: Array<[string, number | undefined]> = []
           bot._client.write = (name, params) => {
             serializer.createPacketBuffer({ name, params })
-            writes.push([name, params.sequence])
+            writes.push([name, (params as { sequence?: number }).sequence])
           }
           bot.lookAt = async () => {}
           bot.quickBarSlot = 0
@@ -2251,9 +2306,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
           try {
             bot.activateItem()
             bot.deactivateItem()
-            const placed = bot.placeEntity({ position: vec3(1, 64, 1) }, vec3(0, 1, 0))
+            const placed = bot.placeEntity({ position: vec3(1, 64, 1) } as Block, vec3(0, 1, 0))
             await sleep(0)
-            bot.emit('entitySpawn', { name: registry.entitiesByName.oak_boat ? 'oak_boat' : bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Boat' : 'boat', position: vec3(1.5, 65, 1.5) })
+            bot.emit('entitySpawn', { name: registry.entitiesByName.oak_boat ? 'oak_boat' : bot.supportFeature('entityNameUpperCaseNoUnderscore') ? 'Boat' : 'boat', position: vec3(1.5, 65, 1.5) } as Entity)
             await placed
             bot.activateItem()
 
@@ -2279,8 +2334,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
         const chunk = bot.test.buildChunk()
         for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) chunk.setBlockType(vec3(x, 64, z), stoneId)
         chunk.setBlockType(blockPos, stoneId)
-        let sent = null
-        await new Promise(resolve => {
+        let sent: ServerboundPackets['block_place'] | null = null
+        await new Promise<void>(resolve => {
           server.on('playerJoin', async (client) => {
             client.write('login', bot.test.generateLoginPacket())
             client.write('map_chunk', generateChunkPacket(chunk))
@@ -2303,12 +2358,12 @@ for (const supportedVersion of mineflayer.testedVersions) {
         })
 
         // the south face, the one an eye at z = 4.5 can see
-        await bot.activateBlock(bot.blockAt(blockPos), vec3(0, 0, 1))
+        await bot.activateBlock(bot.blockAt(blockPos)!, vec3(0, 0, 1))
         await sleep(200)
         assert.ok(sent, 'no block_place packet')
 
         const eye = bot.entity.position.offset(0, bot.entity.eyeHeight, 0)
-        const aim = (point) => {
+        const aim = (point: Vec3) => {
           const d = point.minus(eye)
           return { yaw: Math.atan2(-d.x, -d.z), pitch: Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) }
         }
@@ -2325,7 +2380,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
       it('should send the bot rotation in the use_item packet', function (done) {
         // The rotation field in use_item was added in 1.21.1
         const useItemFields = registry.protocol?.play?.toServer?.types?.packet_use_item?.[1]
-        const hasRotation = useItemFields && useItemFields.some(f => f.name === 'rotation')
+        const hasRotation = useItemFields && useItemFields.some((f: { name: string }) => f.name === 'rotation')
         if (!hasRotation) {
           this.skip()
           return
@@ -2396,14 +2451,14 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('position', teleport)
             await once(bot, 'forcedMove')
 
-            const writes = []
+            const writes: string[] = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => { writes.push(name); return write(name, params) }
             try {
-              await new Promise(resolve => bot.once('physicsTick', resolve))
+              await new Promise<void>(resolve => bot.once('physicsTick', resolve))
               writes.length = 0
               bot._client.emit('position', { ...teleport, y: 90, teleportId: 1 })
-              assert.deepStrictEqual(writes, [], 'the teleport must not be answered from inside the packet handler')
+              assert.deepStrictEqual<string[]>(writes, [], 'the teleport must not be answered from inside the packet handler')
               await once(bot, 'forcedMove')
               assert.ok(writes.includes('position_look'), 'the teleport is answered on the next tick')
             } finally {
@@ -2443,21 +2498,21 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('position', teleport)
             await once(bot, 'forcedMove')
 
-            const writes = []
+            const writes: Array<{ name: string, params: unknown }> = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => { writes.push({ name, params }); return write(name, params) }
             try {
-              await new Promise(resolve => bot.once('physicsTick', resolve))
+              await new Promise<void>(resolve => bot.once('physicsTick', resolve))
               writes.length = 0
               // Between two ticks the server's ping, teleport and second ping arrive in that order.
               bot._client.emit('ping', { id: 1 })
               bot._client.emit('position', { ...teleport, y: 90, teleportId: 1 })
               bot._client.emit('ping', { id: 2 })
-              assert.deepStrictEqual(writes, [], 'nothing is answered from inside the packet handlers')
+              assert.deepStrictEqual<Array<{ name: string, params: unknown }>>(writes, [], 'nothing is answered from inside the packet handlers')
               await once(bot, 'forcedMove')
               const replies = writes
                 .filter(w => ['pong', 'teleport_confirm', 'position_look'].includes(w.name))
-                .map(w => (w.name === 'pong' ? `pong ${w.params.id}` : w.name))
+                .map(w => (w.name === 'pong' ? `pong ${(w.params as ServerboundPackets['pong']).id}` : w.name))
               assert.deepStrictEqual(replies, ['pong 1', 'teleport_confirm', 'position_look', 'pong 2'])
             } finally {
               bot._client.write = write
@@ -2492,18 +2547,18 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('position', teleport)
             await once(bot, 'forcedMove')
 
-            const replies = []
+            const replies: number[] = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => {
-              if (name === 'position_look') replies.push(params.y)
+              if (name === 'position_look') replies.push((params as ServerboundPackets['position_look']).y)
               return write(name, params)
             }
             try {
-              await new Promise(resolve => bot.once('physicsTick', resolve))
+              await new Promise<void>(resolve => bot.once('physicsTick', resolve))
               replies.length = 0
               bot._client.emit('position', { ...teleport, y: 90, teleportId: 1 })
               bot._client.emit('position', { ...teleport, y: 100, teleportId: 2 })
-              await new Promise(resolve => bot.once('physicsTick', resolve))
+              await new Promise<void>(resolve => bot.once('physicsTick', resolve))
               assert.deepStrictEqual(replies, [90, 100], 'each queued teleport gets its own reply on the same tick')
             } finally {
               bot._client.write = write
@@ -2538,14 +2593,14 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('position', teleport)
             await once(bot, 'forcedMove')
 
-            const replies = []
+            const replies: number[] = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => {
-              if (name === 'position_look') replies.push(params.yaw)
+              if (name === 'position_look') replies.push((params as ServerboundPackets['position_look']).yaw)
               return write(name, params)
             }
             try {
-              await new Promise(resolve => bot.once('physicsTick', resolve))
+              await new Promise<void>(resolve => bot.once('physicsTick', resolve))
               replies.length = 0
               bot._client.emit('position', { ...teleport, yaw: 30, teleportId: 1 })
               bot._client.emit('player_rotation', { yaw: 90, pitch: 0 })
@@ -2585,14 +2640,14 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('position', teleport)
             await once(bot, 'forcedMove')
 
-            const writes = []
+            const writes: string[] = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => { writes.push(name); return write(name, params) }
             let forcedMoves = 0
             const onForcedMove = () => { forcedMoves++ }
             bot.on('forcedMove', onForcedMove)
             try {
-              await new Promise(resolve => bot.once('physicsTick', resolve))
+              await new Promise<void>(resolve => bot.once('physicsTick', resolve))
               writes.length = 0
               const pings = !bot.supportFeature('transactionPacketExists')
               if (pings) bot._client.emit('ping', { id: 1 })
@@ -2637,15 +2692,15 @@ for (const supportedVersion of mineflayer.testedVersions) {
             client.write('position', teleport)
             await once(bot, 'forcedMove')
 
-            const writes = []
+            const writes: string[] = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => { writes.push(name); return write(name, params) }
             try {
-              await new Promise(resolve => bot.once('physicsTick', resolve))
+              await new Promise<void>(resolve => bot.once('physicsTick', resolve))
               writes.length = 0
               bot._client.emit('position', { ...teleport, y: 90, teleportId: 1 })
               // Only the transition is simulated; the connection itself stays in play.
-              bot._client.emit('state', 'configuration', 'play')
+              bot._client.emit('state', 'configuration' as States, 'play' as States)
               await sleep(150)
               assert.ok(!writes.includes('position_look'), 'the teleport from the previous play session is not answered')
             } finally {
