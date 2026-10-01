@@ -46,7 +46,15 @@ function inject (bot: BotInternal): void {
     if (bot._client.state === 'configuration') acceptResourcePack()
   })
 
+  // There is nothing to answer before the server offered a pack (resource_pack_send before
+  // 1.20.3, add_resource_pack since): accept / deny are then no-ops instead of answering
+  // with an undefined hash / uuid.
+  function packOffered (): boolean {
+    return bot.supportFeature('resourcePackUsesUUID') ? latestUUID !== undefined : latestHash !== undefined
+  }
+
   function acceptResourcePack () {
+    if (!packOffered()) return
     if (bot.supportFeature('resourcePackUsesHash')) {
       bot._client.write('resource_pack_receive', {
         result: TEXTURE_PACK_RESULTS.ACCEPTED,
@@ -76,6 +84,7 @@ function inject (bot: BotInternal): void {
   }
 
   function denyResourcePack () {
+    if (!packOffered()) return
     if (bot.supportFeature('resourcePackUsesUUID')) {
       bot._client.write('resource_pack_receive', {
         uuid: latestUUID!,

@@ -1994,11 +1994,11 @@ Tells you how long it will take to dig the block, in milliseconds.
 
 #### bot.acceptResourcePack()
 
-Accepts resource pack.
+Accepts resource pack. Does nothing if the server has not offered a resource pack yet.
 
 #### bot.denyResourcePack()
 
-Denies resource pack.
+Denies resource pack. Does nothing if the server has not offered a resource pack yet.
 
 #### bot.placeBlock(referenceBlock, faceVector)
 

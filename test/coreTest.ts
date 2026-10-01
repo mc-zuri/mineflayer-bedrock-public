@@ -272,6 +272,16 @@ describe('core', () => {
       bot.denyResourcePack()
       assert.deepStrictEqual(bot._client.writes, [{ name: 'resource_pack_receive', params: { uuid, result: 1 } }])
     })
+
+    it('accept / deny before any pack was offered send nothing', () => {
+      for (const version of ['1.8.8', '1.12.2', '1.20.4', latestSupportedVersion]) {
+        const bot = fakeBot(version)
+        resourcePackPlugin(bot)
+        bot.acceptResourcePack()
+        bot.denyResourcePack()
+        assert.deepStrictEqual(bot._client.writes, [], version)
+      }
+    })
   })
 
   describe('settings', () => {
