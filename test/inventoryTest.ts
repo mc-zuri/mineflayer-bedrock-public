@@ -270,6 +270,14 @@ describe('villager plugin', () => {
     assert.deepStrictEqual(plain, [])
     assert.strictEqual(villager.slots[invStart + 1]?.name, 'bread')
   })
+
+  it('trade with an index the villager has no trade for rejects with an assertion and keeps selectedTrade', async () => {
+    const bot = createFakeBot('1.20.4')
+    villagerPlugin(bot, {} as any)
+    const villager = { trades: [], selectedTrade: null }
+    await assert.rejects(bot.trade(villager, 3), assert.AssertionError)
+    assert.strictEqual(villager.selectedTrade, null)
+  })
 })
 
 describe('craft plugin', () => {

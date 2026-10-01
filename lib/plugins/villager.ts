@@ -146,7 +146,7 @@ function inject (bot: BotInternal): void {
   async function trade (villager: Villager, index: string | number, count?: number): Promise<void> {
     const choice = parseInt(index as string, 10) // allow string argument
     assert.notStrictEqual(villager.trades, null)
-    assert.notStrictEqual(villager.trades[choice], null)
+    assert.ok(villager.trades[choice] !== undefined, `the villager has no trade ${index}`)
     const Trade = villager.trades[choice]!
     villager.selectedTrade = Trade
     count = count || Trade.maximumNbTradeUses - Trade.nbTradeUses
