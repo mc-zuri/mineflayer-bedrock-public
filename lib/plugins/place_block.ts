@@ -28,7 +28,7 @@ function inject (bot: BotInternal): void {
     let acked = false
     const onAck = () => { acked = true }
     bot.on(`blockUpdate:${referenceBlock.position}`, onAck)
-    const [, newBlock] = await onceWithCleanup<[Block | null, Block | null]>(bot, `blockUpdate:${dest}`, {
+    const [updatedBlock, newBlock] = await onceWithCleanup<[Block | null, Block | null]>(bot, `blockUpdate:${dest}`, {
       timeout: 5000,
       // oldBlock and newBlock are both null when the world unloads
       checkCondition: (oldBlock, newBlock) => !oldBlock || !newBlock || oldBlock.type !== newBlock.type || (acked && inFlight.get(key) === 1)
@@ -41,10 +41,14 @@ function inject (bot: BotInternal): void {
     })
 
     if (!newBlock) return
-    if (newBlock.type === oldBlock!.type) { // oldBlock is null only if dest is in an unloaded chunk
+    // oldBlock is null when dest was in an unloaded chunk: an update for dest then comes only after
+    // its chunk loaded, and the block it replaced is the one to compare with (null only together
+    // with newBlock, on a world unload)
+    const replacedBlock = oldBlock ?? updatedBlock!
+    if (newBlock.type === replacedBlock.type) {
       throw new Error(`Server refused to place ${bot.heldItem?.name ?? 'block'} at ${dest}: the block is still ${newBlock.name}`)
     }
-    bot.emit('blockPlaced', oldBlock!, newBlock)
+    bot.emit('blockPlaced', replacedBlock, newBlock)
   }
 
   async function placeBlock (referenceBlock: Block, faceVector: Vec3) {

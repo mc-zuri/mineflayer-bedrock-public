@@ -6,6 +6,7 @@ import prismarineChunk from 'prismarine-chunk'
 import injectBlocks from '../lib/plugins/blocks.ts'
 import anvilPlugin from '../lib/plugins/anvil.ts'
 import diggingPlugin from '../lib/plugins/digging.ts'
+import placeBlockPlugin from '../lib/plugins/place_block.ts'
 import { Vec3 } from 'vec3'
 import type { BotInternal } from '../lib/types/internal.ts'
 
@@ -121,6 +122,28 @@ describe('anvil plugin', () => {
     const Item = prismarineItem(bot.registry)
     const sword = new Item(bot.registry.itemsByName.diamond_sword.id, 1)
     await anvil.rename(sword, 'Sting')
+  })
+})
+
+describe('place_block plugin', () => {
+  it('a placement whose destination chunk was not loaded settles on the update after it loads', async () => {
+    const bot: any = new EventEmitter()
+    bot.blockAt = () => null // dest is in an unloaded chunk
+    bot._genericPlace = async () => {}
+    placeBlockPlugin(bot)
+    const reference = { name: 'stone', type: 1, position: new Vec3(15, 64, 0) }
+    const dest = reference.position.offset(1, 0, 0)
+    const air = { name: 'air', type: 0, position: dest }
+    const dirt = { name: 'dirt', type: 3, position: dest }
+    const placed: unknown[][] = []
+    bot.on('blockPlaced', (oldBlock: unknown, newBlock: unknown) => placed.push([oldBlock, newBlock]))
+    const placing = bot.placeBlock(reference, new Vec3(1, 0, 0))
+    await new Promise(resolve => setImmediate(resolve))
+    // the server's answer: the reference block, then dest (its chunk has loaded since)
+    bot.emit(`blockUpdate:${reference.position}`, reference, reference)
+    bot.emit(`blockUpdate:${dest}`, air, dirt)
+    await placing
+    assert.deepStrictEqual(placed, [[air, dirt]])
   })
 })
 
