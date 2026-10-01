@@ -153,7 +153,7 @@ export default (): TestFunction => async (bot) => {
     bot.test.sayEverywhere(`I can trade ${printCountTrade(trade.inputItem1)} ${trade.hasItem2 ? 'and ' + printCountTrade(trade.inputItem2!) : ''} for ${printCountTrade(trade.outputItem)}`)
   }
 
-  assert.rejects(bot.trade(villager, 1, 1)) // Shouldn't be able, the trade is blocked!
+  await assert.rejects(bot.trade(villager, 1, 1)) // Shouldn't be able, the trade is blocked!
   await villager.close()
   await bot.test.killEntity(entity)
 }
