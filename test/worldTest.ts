@@ -3,6 +3,7 @@ import assert from 'assert'
 import prismarineRegistry from 'prismarine-registry'
 import prismarineItem from 'prismarine-item'
 import prismarineChunk from 'prismarine-chunk'
+import prismarineBlock from 'prismarine-block'
 import injectBlocks from '../lib/plugins/blocks.ts'
 import anvilPlugin from '../lib/plugins/anvil.ts'
 import diggingPlugin from '../lib/plugins/digging.ts'
@@ -148,6 +149,43 @@ describe('place_block plugin', () => {
 })
 
 describe('digging plugin', () => {
+  for (const version of ['1.20.6', '1.21.4', '1.21.11', '26.1']) {
+    it(`digTime counts Efficiency and Aqua Affinity of 1.20.5+ component items (${version})`, () => {
+      const registry = prismarineRegistry(version)
+      const Item = prismarineItem(registry)
+      const Block = prismarineBlock(registry)
+      const bot: any = new EventEmitter()
+      bot.registry = registry
+      bot.game = { gameMode: 'survival' }
+      bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
+      bot.getEquipmentDestSlot = () => 5
+      bot.inventory = { slots: [] }
+      const water = Block.fromStateId(registry.blocksByName['water']!.defaultState, 0)
+      let eyeBlock: unknown = null
+      bot.blockAt = () => eyeBlock
+      diggingPlugin(bot)
+      // items as the server sends them (set_slot), enchantments as a component
+      const enchanted = (name: string, enchantment: string, level: number) => Item.fromNotch({
+        itemId: registry.itemsByName[name]!.id,
+        itemCount: 1,
+        components: [{ type: 'enchantments', data: { enchantments: [{ id: registry.enchantmentsByName[enchantment]!.id, level }] } }],
+        removeComponents: []
+      } as any)
+      const stone = Block.fromStateId(registry.blocksByName['stone']!.defaultState, 0)
+      const pickaxe = registry.itemsByName['diamond_pickaxe']!.id
+
+      bot.heldItem = enchanted('diamond_pickaxe', 'efficiency', 5)
+      assert.strictEqual(bot.digTime(stone), stone.digTime(pickaxe, false, false, false, [{ name: 'efficiency', lvl: 5 }], []))
+      assert.ok(bot.digTime(stone) < stone.digTime(pickaxe, false, false, false, [], []))
+
+      bot.heldItem = null
+      bot.inventory.slots[5] = enchanted('diamond_helmet', 'aqua_affinity', 1)
+      eyeBlock = water
+      assert.strictEqual(bot.digTime(stone), stone.digTime(null, false, true, false, [{ name: 'aqua_affinity', lvl: 1 }], []))
+      assert.ok(bot.digTime(stone) < stone.digTime(null, false, true, false, [], []))
+    })
+  }
+
   for (const [version, finish, abort] of [['26.1', 2, 1], ['26.3', 3, 2]] as const) {
     it(`uses the player action ids of ${version} (26.3 inserted CHANGE_DESTROY_DIRECTION at 1)`, async () => {
       const digBot = () => {

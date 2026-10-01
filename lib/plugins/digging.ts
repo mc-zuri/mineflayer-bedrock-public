@@ -247,6 +247,14 @@ function inject (bot: BotInternal): void {
     )
   }
 
+  // prismarine-item returns the raw enchantments component of a 1.20.5+ item ({ enchantments: [{ id, level }] })
+  // instead of [{ name, lvl }]
+  function enchantsOf (item: Item): Item['enchants'] {
+    const enchants = item.enchants as Item['enchants'] | { enchantments: Array<{ id: number, level: number }> }
+    if (Array.isArray(enchants)) return enchants
+    return enchants.enchantments.map(({ id, level }) => ({ name: bot.registry.enchantments[id]?.name as string, lvl: level }))
+  }
+
   function digTime (block: Block): number {
     let type: number | null = null
     let enchantments: Item['enchants'] = []
@@ -255,14 +263,14 @@ function inject (bot: BotInternal): void {
     const currentlyHeldItem = bot.heldItem
     if (currentlyHeldItem) {
       type = currentlyHeldItem.type
-      enchantments = currentlyHeldItem.enchants
+      enchantments = enchantsOf(currentlyHeldItem)
     }
 
     // Append helmet enchantments (because Aqua Affinity actually affects dig speed)
     const headEquipmentSlot = bot.getEquipmentDestSlot('head')
     const headEquippedItem = bot.inventory.slots[headEquipmentSlot]
     if (headEquippedItem) {
-      const helmetEnchantments = headEquippedItem.enchants
+      const helmetEnchantments = enchantsOf(headEquippedItem)
       enchantments = enchantments.concat(helmetEnchantments)
     }
 
