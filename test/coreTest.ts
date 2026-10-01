@@ -386,6 +386,19 @@ describe('core', () => {
     })
   })
 
+  describe('chat patterns', () => {
+    it('an unfinished pattern set does not stop the other patterns matching the same message', () => {
+      const bot = fakeBot('1.20.4')
+      chatPlugin(bot, {} as any)
+      bot.addChatPatternSet('pair', [/^first/, /^second/])
+      bot.addChatPattern('single', /^first/)
+      const singles: unknown[] = []
+      bot.on('chat:single', (matches: unknown) => singles.push(matches))
+      bot.emit('messagestr', 'first', 'chat', {})
+      assert.strictEqual(singles.length, 1)
+    })
+  })
+
   describe('loader', () => {
     it('a minecraft-data without the latest supported version fails with the "is it up to date?" error', async () => {
       const versions = minecraftData.versionsByMinecraftVersion.pc
