@@ -138,19 +138,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
           const uuid = 'd3527a0b-bc03-45d5-a878-2aafdd8c8a43' // random
           const networkName = chatText('gary')
 
-          if (registry.supportFeature('incrementedChatType')) {
-            client.write('player_chat', {
-              plainMessage: 'hello',
-              filterType: 0,
-              type: { chatType: 0 },
-              networkName,
-              previousMessages: [],
-              senderUuid: uuid,
-              timestamp: Date.now(),
-              index: 0,
-              salt: 1n
-            })
-          } else if (registry.supportFeature('useChatSessions')) {
+          if (registry.supportFeature('useChatSessions')) {
             client.write('player_chat', {
               plainMessage: 'hello',
               filterType: 0,
