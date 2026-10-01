@@ -24,6 +24,10 @@ const PHYSICS_TIMESTEP = PHYSICS_INTERVAL_MS / 1000 // 0.05
 function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptions): void {
   const PHYSICS_CATCHUP_TICKS = maxCatchupTicks ?? 4
   const world = { getBlock: (pos: Vec3) => { return bot.blockAt(pos, false) } }
+  // 26.3+: teleport_confirm carries the position, and the server accepts one move packet per
+  // client tick (tick_end ends a tick)
+  const confirmHasPosition = bot.registry.version['>=']('26.3')
+  const sendsTickEnd = bot.registry.version['>=']('26.3')
   const physics = Physics(bot.registry, world)
 
   const positionUpdateSentEveryTick = bot.supportFeature('positionUpdateSentEveryTick')
@@ -78,6 +82,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     catchupTicks = 0
     while (timeAccumulator >= PHYSICS_TIMESTEP) {
       tickPhysics(now)
+      // 26.3+: the server accepts one move packet per client tick, which tick_end closes
+      if (sendsTickEnd && bot._client.state === 'play') bot._client.write('tick_end', {})
       timeAccumulator -= PHYSICS_TIMESTEP
       catchupTicks++
       if (catchupTicks >= PHYSICS_CATCHUP_TICKS) break
@@ -141,7 +147,8 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     bot.emit('move', oldPos)
   }
 
-  function sendPacketPositionAndLook (position: Vec3, yaw: number, pitch: number, onGround: boolean) {
+  // send false: the position was already sent another way (26.3+ teleport_confirm), only record it
+  function sendPacketPositionAndLook (position: Vec3, yaw: number, pitch: number, onGround: boolean, send = true) {
     // sends data, no logic
     if (bot._client.state !== 'play') return
     if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(position.z)) return
@@ -153,7 +160,7 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
     lastSent.pitch = pitch
     lastSent.onGround = onGround
     lastSent.flags = { onGround, hasHorizontalCollision: undefined } // 1.21.3+
-    bot._client.write('position_look', lastSent)
+    if (send) bot._client.write('position_look', lastSent)
     bot.emit('move', oldPos)
   }
 
@@ -493,8 +500,13 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
 
   function answerTeleport (teleportId: number | undefined, pos: Vec3, yaw: number, pitch: number) {
     if (bot.supportFeature('teleportUsesOwnPacket')) {
-      bot._client.write('teleport_confirm', { teleportId: teleportId! }) // 1.9+: position has teleportId
+      // 1.9+: position has teleportId. 26.3+ also echoes the resolved position and rotation
+      // (older protocols do not serialize the extra fields).
+      bot._client.write('teleport_confirm', { teleportId: teleportId!, x: pos.x, y: pos.y, z: pos.z, yaw, pitch })
     }
+    // 26.3+: the confirm carries the position and is the client's move packet for this tick (the
+    // server allows one per tick), so no position_look follows it
+    const sendMove = !confirmHasPosition
 
     const confirmMove = () => {
       shouldUsePhysics = true
@@ -510,13 +522,13 @@ function inject (bot: BotInternal, { physicsEnabled, maxCatchupTicks }: BotOptio
       respawnTimer = 0 // only delay once
       respawnReply = setTimeout(() => {
         respawnReply = null
-        sendPacketPositionAndLook(pos, yaw, pitch, false)
+        sendPacketPositionAndLook(pos, yaw, pitch, false, sendMove)
         confirmMove()
       }, 1500)
       return
     }
 
-    sendPacketPositionAndLook(pos, yaw, pitch, false)
+    sendPacketPositionAndLook(pos, yaw, pitch, false, sendMove)
     confirmMove()
   }
 

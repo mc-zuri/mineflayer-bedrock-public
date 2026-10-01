@@ -73,6 +73,9 @@ for (const supportedVersion of mineflayer.testedVersions) {
   const registry = prismarineRegistry(supportedVersion)
   const Chunk = prismarineChunk(supportedVersion) as unknown as PCChunkConstructor
   const Item = prismarineItem(registry)
+  // the packet that answers a teleport with its position: 26.3+ teleport_confirm carries it,
+  // before a position_look follows the confirm
+  const teleportAnswer = registry.version['>=']('26.3') ? 'teleport_confirm' : 'position_look'
 
   const hasSignedChat = registry.supportFeature('signedChat')
   function chatText (text: string) {
@@ -574,7 +577,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             await once(bot, 'chunkColumnLoad')
             const replies: number[][] = []
             client.on('packet', (data, meta) => {
-              if (meta.name === 'position_look') replies.push([data.x, data.y, data.z])
+              if (meta.name === teleportAnswer) replies.push([data.x, data.y, data.z])
             })
             await client.write('position', teleport(0, 1.5, 80, 1.5))
             while (replies.length === 0) await once(client, 'packet')
@@ -587,7 +590,11 @@ for (const supportedVersion of mineflayer.testedVersions) {
             // Outlive the 1.5 s reply delay.
             await sleep(1700)
 
-            assert.deepStrictEqual(replies, [[1.5, 66, 1.5]], `teleport replies: ${JSON.stringify(replies)}`)
+            // 26.3+: every teleport_confirm carries its own position and is never delayed (the server
+            // ignores one for a teleport it no longer waits for); before, only the delayed
+            // position_look of the latest teleport goes out
+            const expected = registry.version['>=']('26.3') ? [[3.5, 80, 3.5], [1.5, 66, 1.5]] : [[1.5, 66, 1.5]]
+            assert.deepStrictEqual(replies, expected, `teleport replies: ${JSON.stringify(replies)}`)
             done()
           } catch (err) {
             done(err)
@@ -979,7 +986,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
             const pongs = seen.filter(p => p.name === 'pong')
             assert.strictEqual(pongs.length, 1, 'each ping is answered exactly once')
             const pongIndex = seen.indexOf(pongs[0]!)
-            const before = seen[pongIndex - 1]
+            // 26.3+: the tick's tick_end sits between its movement packet and the pong
+            const before = seen.slice(0, pongIndex).reverse().find(p => p.name !== 'tick_end')
             assert.ok(before !== undefined, 'a movement packet precedes the pong')
             assert.ok(movementPackets.includes(before.name), `packet before pong is ${before.name}`)
             assert.strictEqual(before.data.y, tickY, 'the pong follows the movement packet of the tick that received the ping')
@@ -1824,10 +1832,13 @@ for (const supportedVersion of mineflayer.testedVersions) {
           await bot.activateBlock(block, vec3(-1, 0, 0))
           try {
             const scale = bot.supportFeature('blockPlaceHasHandAndFloatCursor') || bot.supportFeature('blockPlaceHasInsideBlock') ? 1 : 16
-            assert.deepStrictEqual(writes.map(w => w.name), ['block_place', 'arm_animation', 'block_place', 'arm_animation'])
+            // 26.3+: the server swings the arm after a use, the client sends no swing
+            const swing = registry.version['>=']('26.3') ? [] : ['arm_animation']
+            assert.deepStrictEqual(writes.map(w => w.name), ['block_place', ...swing, 'block_place', ...swing])
             const cursor = ({ params }: { params: ServerboundPackets['block_place'] }) => [params.cursorX / scale, params.cursorY / scale, params.cursorZ / scale, params.direction]
-            assert.deepStrictEqual(cursor(writes[0]!), [0.5, 1, 0.5, 1])
-            assert.deepStrictEqual(cursor(writes[2]!), [0, 0.5, 0.5, 4])
+            const places = writes.filter(w => w.name === 'block_place')
+            assert.deepStrictEqual(cursor(places[0]!), [0.5, 1, 0.5, 1])
+            assert.deepStrictEqual(cursor(places[1]!), [0, 0.5, 0.5, 4])
             done()
           } catch (err) {
             done(err)
@@ -1996,7 +2007,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
           bot.inventory.updateSlot(bot.QUICK_BAR_START, new Item(registry.itemsByName['stone']!.id, 1))
           await bot._genericPlace({ position: vec3(1, 65, 1) } as Block, vec3(0, 1, 0), { forceLook: 'ignore', swingArm: 'right' })
           try {
-            assert.deepStrictEqual(writes, ['block_place', 'arm_animation'])
+            // 26.3+: the server swings the arm after a use, the client sends no swing
+            assert.deepStrictEqual(writes, registry.version['>=']('26.3') ? ['block_place'] : ['block_place', 'arm_animation'])
             done()
           } catch (err) {
             done(err)
@@ -2453,7 +2465,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
               bot._client.emit('position', { ...teleport, y: 90, teleportId: 1 })
               assert.deepStrictEqual<string[]>(writes, [], 'the teleport must not be answered from inside the packet handler')
               await once(bot, 'forcedMove')
-              assert.ok(writes.includes('position_look'), 'the teleport is answered on the next tick')
+              assert.ok(writes.includes(teleportAnswer), 'the teleport is answered on the next tick')
             } finally {
               bot._client.write = write
             }
@@ -2505,7 +2517,8 @@ for (const supportedVersion of mineflayer.testedVersions) {
               const replies = writes
                 .filter(w => ['pong', 'teleport_confirm', 'position_look'].includes(w.name))
                 .map(w => (w.name === 'pong' ? `pong ${(w.params as ServerboundPackets['pong']).id}` : w.name))
-              assert.deepStrictEqual(replies, ['pong 1', 'teleport_confirm', 'position_look', 'pong 2'])
+              const teleportReply = teleportAnswer === 'teleport_confirm' ? ['teleport_confirm'] : ['teleport_confirm', 'position_look']
+              assert.deepStrictEqual(replies, ['pong 1', ...teleportReply, 'pong 2'])
             } finally {
               bot._client.write = write
             }
@@ -2542,7 +2555,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             const replies: number[] = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => {
-              if (name === 'position_look') replies.push((params as ServerboundPackets['position_look']).y)
+              if (name === teleportAnswer) replies.push((params as ServerboundPackets['position_look']).y)
               return write(name, params)
             }
             try {
@@ -2588,7 +2601,7 @@ for (const supportedVersion of mineflayer.testedVersions) {
             const replies: number[] = []
             const write = bot._client.write.bind(bot._client)
             bot._client.write = (name, params) => {
-              if (name === 'position_look') replies.push((params as ServerboundPackets['position_look']).yaw)
+              if (name === teleportAnswer) replies.push((params as ServerboundPackets['position_look']).yaw)
               return write(name, params)
             }
             try {

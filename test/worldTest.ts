@@ -148,6 +148,42 @@ describe('place_block plugin', () => {
 })
 
 describe('digging plugin', () => {
+  for (const [version, finish, abort] of [['26.1', 2, 1], ['26.3', 3, 2]] as const) {
+    it(`uses the player action ids of ${version} (26.3 inserted CHANGE_DESTROY_DIRECTION at 1)`, async () => {
+      const digBot = () => {
+        const bot: any = new EventEmitter()
+        const statuses: number[] = []
+        bot._client = { write: (name: string, params: any) => { if (name === 'block_dig') statuses.push(params.status) } }
+        bot._nextSequence = () => 0
+        bot._updateBlockState = () => {}
+        bot.swingArm = () => {}
+        bot.heldItem = null
+        bot.inventory = { slots: [] }
+        bot.getEquipmentDestSlot = () => 5
+        bot.game = { gameMode: 'survival' }
+        bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
+        bot.blockAt = () => null
+        bot.lookAt = async () => {}
+        bot.registry = prismarineRegistry(version)
+        diggingPlugin(bot)
+        return { bot, statuses }
+      }
+      const block = (digTime: number) => ({ name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => digTime })
+      // a dig that runs its time: start, finish (the fake world never confirms the break)
+      const finished = digBot()
+      finished.bot.dig(block(10), true).catch(() => {})
+      await new Promise(resolve => setTimeout(resolve, 50))
+      assert.deepStrictEqual(finished.statuses, [0, finish])
+      // a dig that is stopped: start, abort
+      const stopped = digBot()
+      const dig = stopped.bot.dig(block(1000), true).catch(() => {})
+      await new Promise(resolve => setImmediate(resolve))
+      stopped.bot.stopDigging()
+      await dig
+      assert.deepStrictEqual(stopped.statuses, [0, abort])
+    })
+  }
+
   it('a dig started while the previous one finishes during its look keeps both faces', async () => {
     const bot: any = new EventEmitter()
     const writes: Array<{ status: number, location: Vec3, face: number | null }> = []
@@ -163,6 +199,7 @@ describe('digging plugin', () => {
     bot.blockAt = () => null
     let lookDelay = 0
     bot.lookAt = () => new Promise(resolve => setTimeout(resolve, lookDelay))
+    bot.registry = prismarineRegistry('1.20.4') // a real bot always has its registry when the plugins are injected
     diggingPlugin(bot)
     const blockA = { name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 20 }
     const blockB = { name: 'dirt', position: new Vec3(0, 64, 1), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 1000 }
@@ -197,6 +234,7 @@ describe('digging plugin', () => {
     bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
     bot.blockAt = () => null
     bot.lookAt = async () => {}
+    bot.registry = prismarineRegistry('1.20.4') // a real bot always has its registry when the plugins are injected
     diggingPlugin(bot)
     const blockA = { name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 1000 }
     const blockB = { name: 'dirt', position: new Vec3(0, 64, 1), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 1000 }
@@ -229,6 +267,7 @@ describe('digging plugin', () => {
     bot.entity = { position: new Vec3(0, 64, 0), eyeHeight: 1.62, onGround: true, effects: {} }
     bot.blockAt = () => null
     bot.lookAt = async () => {}
+    bot.registry = prismarineRegistry('1.20.4') // a real bot always has its registry when the plugins are injected
     diggingPlugin(bot)
     const blockA = { name: 'dirt', position: new Vec3(1, 64, 0), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 1000 }
     const blockB = { name: 'dirt', position: new Vec3(0, 64, 1), shapes: [[0, 0, 0, 1, 1, 1]], digTime: () => 20 }

@@ -13,6 +13,8 @@ const BlockFaces = (prismarineWorld as PrismarineWorldDefault).iterators.BlockFa
 export default inject
 
 function inject (bot: BotInternal): void {
+  // 26.3 inserted CHANGE_DESTROY_DIRECTION at id 1 of the player action enum, shifting the rest
+  const playerActionShift = bot.registry.version['>=']('26.3') ? 1 : 0
   let swingInterval: ReturnType<typeof setInterval> | null = null
   let waitTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -165,7 +167,7 @@ function inject (bot: BotInternal): void {
       waitTimeout = null
       if (bot.targetDigBlock) {
         bot._client.write('block_dig', {
-          status: 2, // finish digging
+          status: 2 + playerActionShift, // finish digging
           location: bot.targetDigBlock.position,
           face: bot.targetDigFace!, // always the same as the start face
           sequence: bot._nextSequence()
@@ -195,7 +197,7 @@ function inject (bot: BotInternal): void {
       swingInterval = null
       waitTimeout = null
       bot._client.write('block_dig', {
-        status: 1, // cancel digging
+        status: 1 + playerActionShift, // cancel digging
         location: bot.targetDigBlock.position,
         face: cancellationDiggingFace,
         sequence: 0

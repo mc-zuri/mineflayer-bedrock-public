@@ -12,7 +12,7 @@ import type { ChatLoader } from '../types/vendor/prismarine-chat.ts'
 import type { ItemClass } from '../types/vendor/prismarine-item.ts'
 import type { EntityLoader } from '../types/vendor/prismarine-entity.ts'
 import type { Effect, FindPlayers, Player, SkinData } from '../types/mineflayer.ts'
-import type { ClientboundPackets, EntityMetadataEntry, GameProfileProperty, ServerboundPackets, Vec3Like } from '../types/protocol.ts'
+import type { ClientboundPackets, DeltaStep, EntityMetadataEntry, GameProfileProperty, ServerboundPackets, Vec3Like } from '../types/protocol.ts'
 
 type PlayerInfoAction = ClientboundPackets['player_info']['action']
 /** player_info before 1.19.3: one action name per packet */
@@ -51,6 +51,12 @@ const animationEvents: { [animation: number]: EntityEventName | undefined } = {
   3: 'entityEat',
   4: 'entityCriticalEffect',
   5: 'entityMagicCriticalEffect'
+}
+// 26.3+: swings moved to swing_animation and the remaining animations were renumbered
+const animationEvents263: { [animation: number]: EntityEventName | undefined } = {
+  0: 'entityWake',
+  1: 'entityCriticalEffect',
+  2: 'entityMagicCriticalEffect'
 }
 
 const entityStatusEvents: { [entityStatus: number]: EntityEventName | undefined } = {
@@ -168,8 +174,14 @@ function inject (bot: BotInternal): void {
   bot._client.on('animation', (packet) => {
     // animation
     const entity = fetchEntity(packet.entityId)
-    const eventName = animationEvents[packet.animation]
+    const eventName = (bot.registry.version['>=']('26.3') ? animationEvents263 : animationEvents)[packet.animation]
     if (eventName) bot.emit(eventName, entity)
+  })
+
+  // 26.3+
+  bot._client.on('swing_animation', (packet) => {
+    const entity = fetchEntity(packet.entityId)
+    bot.emit('entitySwingArm', entity)
   })
 
   bot.on('entityCrouch', (entity) => {
@@ -345,14 +357,24 @@ function inject (bot: BotInternal): void {
     })
   })
 
+  // 26.3+ sends the move as a VecDelta: one delta, or - when the server batched several ticks -
+  // chained steps, each relative to the position the previous one left. Before, flat dX/dY/dZ.
+  function moveByDelta (entity: EntityT, packet: ClientboundPackets['rel_entity_move']) {
+    const delta = packet.delta
+    const steps: DeltaStep[] = delta ? ('steps' in delta ? delta.steps : [delta]) : [packet as DeltaStep]
+    for (const step of steps) {
+      if (bot.supportFeature('fixedPointDelta')) {
+        entity.position.translate(step.dX / 32, step.dY / 32, step.dZ / 32)
+      } else if (bot.supportFeature('fixedPointDelta128')) {
+        entity.position.translate(step.dX / (128 * 32), step.dY / (128 * 32), step.dZ / (128 * 32))
+      }
+    }
+  }
+
   bot._client.on('rel_entity_move', (packet) => {
     // entity relative move
     const entity = fetchEntity(packet.entityId)
-    if (bot.supportFeature('fixedPointDelta')) {
-      entity.position.translate(packet.dX / 32, packet.dY / 32, packet.dZ / 32)
-    } else if (bot.supportFeature('fixedPointDelta128')) {
-      entity.position.translate(packet.dX / (128 * 32), packet.dY / (128 * 32), packet.dZ / (128 * 32))
-    }
+    moveByDelta(entity, packet)
     bot.emit('entityMoved', entity)
   })
 
@@ -367,11 +389,7 @@ function inject (bot: BotInternal): void {
   bot._client.on('entity_move_look', (packet) => {
     // entity look and relative move
     const entity = fetchEntity(packet.entityId)
-    if (bot.supportFeature('fixedPointDelta')) {
-      entity.position.translate(packet.dX / 32, packet.dY / 32, packet.dZ / 32)
-    } else if (bot.supportFeature('fixedPointDelta128')) {
-      entity.position.translate(packet.dX / (128 * 32), packet.dY / (128 * 32), packet.dZ / (128 * 32))
-    }
+    moveByDelta(entity, packet)
     entity.yaw = conv.fromNotchianYawByte(packet.yaw)
     entity.pitch = conv.fromNotchianPitchByte(packet.pitch)
     bot.emit('entityMoved', entity)
@@ -413,8 +431,15 @@ function inject (bot: BotInternal): void {
   // 1.21.3 - merges the packets above
   bot._client.on('sync_entity_position', (packet) => {
     const entity = fetchEntity(packet.entityId)
-    entity.position.set(packet.x, packet.y, packet.z)
-    entity.velocity.set(packet.dx, packet.dy, packet.dz)
+    if (packet.path) {
+      // 26.3+: a position path, linear (one position) or stepped (one per tick); the entity ends
+      // at its last position. The packet no longer carries a velocity.
+      const end = 'steps' in packet.path ? packet.path.steps[packet.path.steps.length - 1] : packet.path
+      if (end) entity.position.set(end.x, end.y, end.z)
+    } else {
+      entity.position.set(packet.x!, packet.y!, packet.z!)
+      entity.velocity.set(packet.dx!, packet.dy!, packet.dz!)
+    }
     entity.yaw = conv.fromNotchianYaw(packet.yaw)
     entity.pitch = conv.fromNotchianPitch(packet.pitch)
     bot.emit('entityMoved', entity)
@@ -904,6 +929,12 @@ function inject (bot: BotInternal): void {
   bot.moveVehicle = moveVehicle
 
   function swingArm (arm: 'left' | 'right' = 'right', showHand = true) {
+    if (bot.registry.version['>=']('26.3')) {
+      // 26.3+: the client has no swing packet. A main hand swing at nothing is a punch (the
+      // server swings the arm and resets the attack strength); an off hand swing is never sent.
+      if (arm === 'right') bot._client.write('punch', {})
+      return
+    }
     const hand = arm === 'right' ? 0 : 1
     const packet: ServerboundPackets['arm_animation'] = {}
     if (showHand) packet.hand = hand

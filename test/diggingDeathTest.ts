@@ -1,5 +1,6 @@
 import EventEmitter from 'events'
 import assert from 'assert'
+import prismarineRegistry from 'prismarine-registry'
 import inject from '../lib/plugins/digging.ts'
 import type { BotInternal } from '../lib/types/internal.ts'
 import type { BotEvents } from '../lib/types/mineflayer.ts'
@@ -11,6 +12,8 @@ describe('digging plugin death handler', () => {
     bot.targetDigBlock = null
     bot.targetDigFace = null
     bot.lastDigTime = null
+    // a real bot always has its registry when the plugins are injected
+    bot.registry = prismarineRegistry('1.20.4') as BotInternal['registry']
     // stopDigging is set by the plugin, but starts as the noop at bottom of digging.js
     // We don't pre-set it so the plugin can assign it
     // Provide minimal _client stub for stopDigging path (write is called during cancel)

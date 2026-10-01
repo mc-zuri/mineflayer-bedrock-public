@@ -269,6 +269,82 @@ describe('entities plugin', () => {
   })
 })
 
+describe('entities plugin 26.3', () => {
+  const version = '26.3'
+  // packets go through the real 26.3 serializer, so the shapes are what minecraft-protocol decodes
+  const serializer = mc.createSerializer({ state: 'play', isServer: true, version })
+  const deserializer = mc.createDeserializer({ state: 'play', isServer: false, version })
+  const send = (bot: any, name: string, params: unknown) => {
+    const { data } = deserializer.parsePacketBuffer(serializer.createPacketBuffer({ name, params }))
+    bot._client.emit(data.name, data.params)
+  }
+
+  it('rel_entity_move applies a single vecDelta', () => {
+    const bot = createFakeBot(version)
+    const entity = bot.entities[1]
+    entity.position = new Vec3(10, 64, 10)
+    send(bot, 'rel_entity_move', { entityId: 1, delta: { onGround: true, dX: 4096, dY: -2048, dZ: 0 } })
+    assert.deepStrictEqual(entity.position.toArray(), [11, 63.5, 10])
+  })
+
+  it('rel_entity_move applies batched vecDelta steps in order, each from the previous one', () => {
+    const bot = createFakeBot(version)
+    const entity = bot.entities[1]
+    entity.position = new Vec3(10, 64, 10)
+    send(bot, 'rel_entity_move', {
+      entityId: 1,
+      delta: { onGround: false, steps: [{ ticks: 1, dX: 4096, dY: 0, dZ: 0 }, { ticks: 1, dX: 4096, dY: 0, dZ: 2048 }] }
+    })
+    assert.deepStrictEqual(entity.position.toArray(), [12, 64, 10.5])
+  })
+
+  it('entity_move_look applies the vecDelta and the rotation', () => {
+    const bot = createFakeBot(version)
+    const entity = bot.entities[1]
+    entity.position = new Vec3(0, 64, 0)
+    send(bot, 'entity_move_look', { entityId: 1, delta: { onGround: true, dX: 0, dY: 0, dZ: 4096 }, yaw: 64, pitch: 0 })
+    assert.deepStrictEqual(entity.position.toArray(), [0, 64, 1])
+    assert.strictEqual(entity.yaw, conv.fromNotchianYawByte(64))
+  })
+
+  it('sync_entity_position moves to the end of the path and keeps the velocity', () => {
+    const bot = createFakeBot(version)
+    const entity = bot.entities[1]
+    entity.velocity = new Vec3(0.1, 0, 0)
+    send(bot, 'sync_entity_position', {
+      entityId: 1,
+      pathType: 'stepped',
+      path: { steps: [{ x: 1, y: 64, z: 1, tickOffset: 0 }, { x: 2, y: 64, z: 3, tickOffset: 1 }] },
+      yaw: 90,
+      pitch: 0,
+      onGround: true
+    })
+    assert.deepStrictEqual(entity.position.toArray(), [2, 64, 3])
+    send(bot, 'sync_entity_position', { entityId: 1, pathType: 'linear', path: { x: 5, y: 65, z: 6 }, yaw: 90, pitch: 0, onGround: true })
+    assert.deepStrictEqual(entity.position.toArray(), [5, 65, 6])
+    assert.deepStrictEqual(entity.velocity.toArray(), [0.1, 0, 0])
+  })
+
+  it('swing_animation is a swing; animation 0 is a wake up, not a swing', () => {
+    const bot = createFakeBot(version)
+    const events: string[] = []
+    bot.on('entitySwingArm', () => events.push('swing'))
+    bot.on('entityWake', () => events.push('wake'))
+    send(bot, 'swing_animation', { entityId: 1, hand: 'main_hand', animation: 'whack', duration: 6 })
+    send(bot, 'animation', { entityId: 1, animation: 0 })
+    assert.deepStrictEqual(events, ['swing', 'wake'])
+  })
+
+  it('swingArm punches with the main hand and sends nothing for the off hand', () => {
+    const bot = createFakeBot(version)
+    bot.swingArm('right')
+    bot.swingArm('left')
+    assert.deepStrictEqual(bot._client.writes.map((w: { name: string }) => w.name), ['punch'])
+    const clientSerializer = mc.createSerializer({ state: 'play', isServer: false, version })
+    for (const { name, params } of bot._client.writes) clientSerializer.createPacketBuffer({ name, params }) // a valid 26.3 packet
+  })
+})
+
 describe('ray_trace plugin', () => {
   it('blockAtEntityCursor raycasts for an entity looking at pitch 0 / yaw 0', () => {
     const bot: any = new EventEmitter()

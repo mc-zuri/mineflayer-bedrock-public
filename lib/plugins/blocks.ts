@@ -13,7 +13,7 @@ import type { world } from 'prismarine-world'
 import type { RaycastIterator } from 'prismarine-world/types/iterators'
 import type { BotEvents, BotOptions, FindBlockOptions, Painting as PaintingInstance } from '../types/mineflayer.ts'
 import type { BotInternal } from '../types/internal.ts'
-import type { Int64 } from '../types/protocol.ts'
+import type { Int64, LightMask } from '../types/protocol.ts'
 import type { PrismarineWorldDefault } from '../types/vendor/prismarine-world.ts'
 import type {} from '../types/vendor/prismarine-chunk.ts' // PCChunk members mineflayer uses
 
@@ -47,10 +47,10 @@ interface ColumnArgs {
   data: Buffer
   trustEdges?: boolean | undefined
   // 1.18+ light data
-  skyLightMask?: Int64[] | undefined
-  blockLightMask?: Int64[] | undefined
-  emptySkyLightMask?: Int64[] | undefined
-  emptyBlockLightMask?: Int64[] | undefined
+  skyLightMask?: LightMask | undefined
+  blockLightMask?: LightMask | undefined
+  emptySkyLightMask?: LightMask | undefined
+  emptyBlockLightMask?: LightMask | undefined
   skyLight?: number[][] | undefined
   blockLight?: number[][] | undefined
 }
@@ -317,7 +317,7 @@ function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): 
     }
 
     if (bot.supportFeature('newLightingDataFormat')) {
-      column.loadParsedLight!(packet.skyLight!, packet.blockLight!, packet.skyLightMask as Int64[], packet.blockLightMask as Int64[], packet.emptySkyLightMask as Int64[], packet.emptyBlockLightMask as Int64[])
+      column.loadParsedLight!(packet.skyLight!, packet.blockLight!, packet.skyLightMask as LightMask, packet.blockLightMask as LightMask, packet.emptySkyLightMask as LightMask, packet.emptyBlockLightMask as LightMask)
     } else {
       column.loadLight(packet.data!, packet.skyLightMask as number, packet.blockLightMask as number, packet.emptySkyLightMask as number, packet.emptyBlockLightMask as number)
     }
@@ -552,6 +552,7 @@ function inject (bot: BotInternal, { storageBuilder, hideErrors }: BotOptions): 
     bot._client.write('update_sign', {
       location: block.position,
       isFrontText: !back,
+      slot: back ? 'back' : 'front', // 26.3+ (older protocols do not serialize it)
       ...signData
     })
   }

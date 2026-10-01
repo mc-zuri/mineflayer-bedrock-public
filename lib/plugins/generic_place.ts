@@ -87,8 +87,8 @@ function inject (bot: BotInternal): void {
       })
     }
 
-    // The swing must follow use_item_on
-    if (options.swingArm) {
+    // The swing must follow use_item_on. 26.3+: the server swings the arm itself after a use.
+    if (options.swingArm && !bot.registry.version['>=']('26.3')) {
       bot.swingArm(options.swingArm, options.showHand)
     }
 

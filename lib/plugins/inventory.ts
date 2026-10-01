@@ -185,7 +185,7 @@ function inject (bot: BotInternal, _options: BotOptions): void {
 
   function deactivateItem (): void {
     const body: ServerboundPackets['block_dig'] = {
-      status: 5,
+      status: bot.registry.version['>=']('26.3') ? 6 : 5, // release use item (26.3 inserted an action at 1)
       location: new Vec3(0, 0, 0),
       face: 5
     }
@@ -285,8 +285,8 @@ function inject (bot: BotInternal, _options: BotOptions): void {
       })
     }
 
-    // swing arm animation
-    bot.swingArm()
+    // swing arm animation (26.3+: the server swings the arm itself after a use)
+    if (!bot.registry.version['>=']('26.3')) bot.swingArm()
   }
 
   async function activateEntity (entity: Entity): Promise<void> {

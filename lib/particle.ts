@@ -34,7 +34,7 @@ function loader (registry: Registry) {
           new Vec3(packet.x, packet.y, packet.z),
           new Vec3(packet.offsetX, packet.offsetY, packet.offsetZ),
           packet.amount,
-          packet.velocityOffset,
+          packet.velocityOffset ?? packet.velocityOffsetX, // 26.3+ has one speed per axis; the command sets them alike
           packet.longDistance
         )
       } else {
